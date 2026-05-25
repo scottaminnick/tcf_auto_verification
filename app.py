@@ -1,3 +1,4 @@
+import io
 import streamlit as st
 import boto3
 import botocore
@@ -123,19 +124,16 @@ def fetch_tcf_geojson(date_obj, issue_hr, f_hr):
     url = f"https://aviationweather.gov/api/data/tcf?date={date_str}&issue={issue_str}&fhr={f_hr}&format=geojson"
     
     try:
-        # AWC blocks default Python bots. We MUST provide a custom User-Agent!
         headers = {
-            "User-Agent": "TCFVerificationDashboard/1.0 (NWS/FAA System Review)",
+            "User-Agent": "TCFVerificationDashboard/1.0",
             "Accept": "application/geo+json"
         }
-        
-        # Pass the headers into the request
         response = requests.get(url, headers=headers, timeout=10)
         
         if response.status_code == 200:
-            return gpd.read_file(response.text)
+            # FIXED: Wrap the raw data in io.BytesIO so fiona thinks it's a real file!
+            return gpd.read_file(io.BytesIO(response.content))
         else:
-            # This will print the exact reason AWC rejected it to your sidebar if it fails again
             st.sidebar.error(f"AWC API Rejected: HTTP {response.status_code}") 
             
     except Exception as e:
