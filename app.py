@@ -24,7 +24,8 @@ from scipy.ndimage import uniform_filter, binary_dilation
 st.set_page_config(page_title="TCF Verification Dashboard", layout="wide", page_icon="✈️")
 st.title("Objective TCF Verification Dashboard")
 
-@st.cache_data
+# UPGRADE: cache_resource is much safer for large map files than cache_data
+@st.cache_resource
 def load_geography():
     """Loads States and ARTCC boundaries once and keeps them in memory"""
     states = gpd.GeoDataFrame(geometry=[])
@@ -35,12 +36,28 @@ def load_geography():
         response = requests.get(url, timeout=10)
         states = gpd.read_file(io.BytesIO(response.content))
     except Exception as e:
-        st.sidebar.warning(f"Could not load State boundaries: {e}")
+        st.sidebar.error(f"State boundaries error: {e}")
         
     try:
-        artccs = gpd.read_file("artcc1.geojson").to_crs("EPSG:4326")
+        # Check 1: Does the file even exist on the Linux server?
+        if not os.path.exists("artcc1.geojson"):
+            st.sidebar.error("❌ ERROR: 'artcc1.geojson' is missing from the root directory! Check GitHub capitalization.")
+        else:
+            # Check 2: Load the file
+            artccs = gpd.read_file("artcc1.geojson")
+            
+            # Check 3: Safely handle the CRS (Coordinate Reference System)
+            if artccs.crs is None:
+                artccs.set_crs("EPSG:4326", inplace=True)
+            else:
+                try:
+                    artccs = artccs.to_crs("EPSG:4326")
+                except Exception:
+                    pass # If it fails, the file is likely already in standard Lat/Lon (CRS84)
+                    
     except Exception as e:
-        st.sidebar.warning(f"Could not load ARTCC boundaries: {e}")
+        # This will print the EXACT reason it's failing to your screen!
+        st.sidebar.error(f"❌ ARTCC Parsing Error: {e}")
         
     return states, artccs
 
