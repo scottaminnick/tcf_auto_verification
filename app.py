@@ -43,7 +43,7 @@ def load_geography():
         
     try:
         # Swap out 'YOUR_RAW_GITHUB_URL_HERE' for your actual link!
-        artcc_url = https://github.com/scottaminnick/tcf_auto_verification/blob/main/artcc1.geojson
+        artcc_url = "https://github.com/scottaminnick/tcf_auto_verification/blob/main/artcc1.geojson"
         response_artcc = requests.get(artcc_url, timeout=10)
         
         # BYPASS FIONA: Do the exact same thing for the ARTCCs!
