@@ -1,26 +1,106 @@
 import streamlit as st
+import boto3
+import botocore
+import os
+import gzip
+import shutil
 import requests
 from datetime import datetime, timedelta, time
+import xarray as xr
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
+from matplotlib.path import Path
+from matplotlib.patches import Patch
+from matplotlib.lines import Line2D
 import geopandas as gpd
-# ... (Add your other imports like boto3, xarray, matplotlib here)
+from shapely.geometry import Polygon
+from skimage import measure
+import gc
+from scipy.ndimage import uniform_filter, binary_dilation
 
-# --- 1. Page Configuration ---
+# --- 1. PAGE CONFIG & CACHED LOADERS ---
 st.set_page_config(page_title="TCF Verification Dashboard", layout="wide", page_icon="✈️")
 st.title("Objective TCF Verification Dashboard")
 
-# --- 2. Sidebar Controls (Forecaster Inputs) ---
+@st.cache_data
+def load_geography():
+    """Loads States and ARTCC boundaries once and keeps them in memory"""
+    states = gpd.GeoDataFrame(geometry=[])
+    artccs = gpd.GeoDataFrame(geometry=[])
+    try:
+        states = gpd.read_file("https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json")
+    except Exception as e:
+        st.sidebar.warning("Could not load State boundaries.")
+        
+    try:
+        # Assumes artcc1.geojson is uploaded to your GitHub repository
+        artccs = gpd.read_file("artcc.geojson").to_crs("EPSG:4326")
+    except Exception as e:
+        st.sidebar.warning("Could not load ARTCC boundaries.")
+        
+    return states, artccs
+
+gdf_states, gdf_artcc = load_geography()
+
+# --- 2. HELPER FUNCTIONS ---
+def download_mrms_scan(product, dt_obj, dest_dir="mrms_data"):
+    os.makedirs(dest_dir, exist_ok=True)
+    date_str = dt_obj.strftime('%Y%m%d')
+    bucket_name = 'noaa-mrms-pds'
+    prefix = f"CONUS/{product}_00.50/{date_str}/"
+    s3 = boto3.client('s3', config=botocore.client.Config(signature_version=botocore.UNSIGNED))
+    
+    try:
+        response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
+        if 'Contents' not in response: return None
+            
+        target_time_str = f"{date_str}-{dt_obj.strftime('%H%M')}"
+        best_key = None
+        for obj in response['Contents']:
+            if target_time_str in obj['Key'] and obj['Key'].endswith('.grib2.gz'):
+                best_key = obj['Key']
+                break
+                
+        if not best_key: return None
+
+        local_gz = os.path.join(dest_dir, best_key.split('/')[-1])
+        local_grib = local_gz.replace('.gz', '')
+        
+        if not os.path.exists(local_grib):
+            s3.download_file(bucket_name, best_key, local_gz)
+            with gzip.open(local_gz, 'rb') as f_in, open(local_grib, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+            os.remove(local_gz)
+        return local_grib
+    except Exception:
+        return None
+
+def fetch_tcf_geojson(date_obj, issue_hr, f_hr):
+    date_str = date_obj.strftime("%Y%m%d")
+    issue_str = f"{issue_hr:02d}"
+    url = f"https://aviationweather.gov/api/data/tcf?date={date_str}&issue={issue_str}&fhr={f_hr}&format=geojson"
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            return gpd.read_file(response.text)
+    except Exception:
+        pass
+    return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
+
+def get_artccs(poly, artcc_gdf):
+    if artcc_gdf.empty: return "UNKNOWN"
+    intersecting = artcc_gdf[artcc_gdf.intersects(poly)]
+    if intersecting.empty: return "UNKNOWN"
+    centers = intersecting['IDENT'].dropna().unique().tolist()
+    return "/".join(centers)
+
+# --- 3. SIDEBAR CONTROLS ---
 st.sidebar.header("Event Selection")
-
-# Date Picker
 target_date = st.sidebar.date_input("Select Event Date", datetime(2026, 5, 23))
-
-# Issuance Time (e.g., 07Z, 09Z, 11Z)
-issuance_hour = st.sidebar.selectbox("Issuance Time (Z)", [5, 7, 9, 11, 13, 15, 17, 19, 21, 23])
-
-# Forecast Lead Time
+issuance_hour = st.sidebar.selectbox("Issuance Time (Z)", [5, 7, 9, 11, 13, 15, 17, 19, 21, 23], index=7)
 lead_time = st.sidebar.radio("Forecast Hour", [4, 6, 8])
 
-# Calculate Valid Time based on inputs
 valid_time = issuance_hour + lead_time
 if valid_time >= 24:
     valid_time -= 24
@@ -30,65 +110,218 @@ else:
 
 st.sidebar.markdown(f"**Valid Time (VT):** {valid_dt.strftime('%b %d, %H:00Z')}")
 
-# --- 3. Automated AWC Fetcher ---
-def fetch_tcf_geojson(date_obj, issue_hr, f_hr):
-    """Automatically pulls the TCF geojson from the AWC archive."""
-    # Format: YYYYMMDD_HH (AWC standard format)
-    date_str = date_obj.strftime("%Y%m%d")
-    issue_str = f"{issue_hr:02d}"
-    
-    # AWC commonly stores TCFs in an endpoint similar to this. 
-    # (Note: You may need to verify the exact AWC endpoint URL structure)
-    url = f"https://aviationweather.gov/api/data/tcf?date={date_str}&issue={issue_str}&fhr={f_hr}&format=geojson"
-    
-    try:
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            # Load it directly into Geopandas without saving a physical file!
-            return gpd.read_file(response.text)
-        else:
-            return None
-    except Exception as e:
-        return None
-
-# --- 4. Main App Execution ---
+# --- 4. MAIN EXECUTION ---
 if st.sidebar.button("Run Verification"):
-    with st.spinner(f"Downloading AWC TCF Forecast for {valid_dt.strftime('%H:00Z')}..."):
+    
+    # --- Step A: Get Forecast ---
+    with st.status("Fetching Data...", expanded=True) as status:
+        st.write("Downloading AWC TCF Forecast...")
         gdf_forecast = fetch_tcf_geojson(target_date, issuance_hour, lead_time)
         
-    if gdf_forecast is None or gdf_forecast.empty:
-        st.error("Failed to automatically retrieve TCF from AWC. Please check the date/time.")
-        # Fallback: Allow manual upload if the API is down
-        uploaded_file = st.sidebar.file_uploader("Fallback: Upload GeoJSON", type=['geojson'])
-        if uploaded_file:
-            gdf_forecast = gpd.read_file(uploaded_file)
-            st.success("Manual file loaded!")
-        else:
-            st.stop()
+        if gdf_forecast.empty:
+            st.error("Could not fetch AWC Data. Falling back to local 'tcf_official.geojson' if it exists.")
+            try:
+                gdf_forecast = gpd.read_file("tcf_official.geojson")
+            except:
+                st.stop()
+
+        # --- Step B: Rolling Composite ---
+        time_offsets = list(range(-15, 16, 5))
+        max_tops, max_refl = None, None
+        lons, lats = None, None
+        step = 5 
+        
+        for offset in time_offsets:
+            scan_dt = valid_dt + timedelta(minutes=offset)
+            st.write(f"Pulling MRMS for {scan_dt.strftime('%H:%MZ')}...")
+            tops_file = download_mrms_scan("EchoTop_18", scan_dt)
+            refl_file = download_mrms_scan("MergedReflectivityQCComposite", scan_dt)
             
-    st.success("TCF Forecast Loaded successfully!")
+            if tops_file and refl_file:
+                ds_t = xr.open_dataset(tops_file, engine='cfgrib', backend_kwargs={'indexpath': ''})
+                ds_r = xr.open_dataset(refl_file, engine='cfgrib', backend_kwargs={'indexpath': ''})
+                
+                curr_tops = ds_t.unknown[::step, ::step].values * 3.28084
+                curr_refl = ds_r.unknown[::step, ::step].values
+                
+                if lons is None:
+                    lons = ds_t.longitude[::step].values
+                    lons = np.where(lons > 180, lons - 360, lons)
+                    lats = ds_t.latitude[::step].values
+                    
+                if max_tops is None:
+                    max_tops, max_refl = curr_tops, curr_refl
+                else:
+                    max_tops = np.maximum(max_tops, curr_tops)
+                    max_refl = np.maximum(max_refl, curr_refl)
+                    
+                ds_t.close()
+                ds_r.close()
+                del ds_t, ds_r, curr_tops, curr_refl
+                gc.collect()
+
+        st.write("Building Objective Truth Polygons...")
+        # Clean up temporary AWS files to save disk space!
+        if os.path.exists("mrms_data"):
+            shutil.rmtree("mrms_data")
+            
+        status.update(label="Data processing complete!", state="complete", expanded=False)
+
+    # --- Step C: Verification Math ---
+    with st.spinner("Calculating Spatial Overlap & Echo Tops..."):
+        valid_convection = (max_refl >= 40)
+        top_verif_matrix = np.zeros_like(max_tops, dtype=int)
+        top_verif_matrix[valid_convection & (max_tops >= 25) & (max_tops < 30)] = 1  
+        top_verif_matrix[valid_convection & (max_tops >= 30) & (max_tops < 35)] = 2  
+        top_verif_matrix[valid_convection & (max_tops >= 35) & (max_tops < 40)] = 3  
+        top_verif_matrix[valid_convection & (max_tops >= 40)] = 4  
+
+        # Reanalysis with Spatial Dilation (Buffer)
+        raw_cores = ((max_refl >= 40) & (max_tops >= 25))
+        buffered_cores = binary_dilation(raw_cores, iterations=1)
+        coverage_fraction = uniform_filter(buffered_cores.astype(float), size=20)
+
+        def extract_tcf_polygons(coverage_mask, min_area_m2=0):
+            contours = measure.find_contours(coverage_mask, 0.5)
+            polygons = []
+            for contour in contours:
+                if len(contour) > 10: 
+                    poly = Polygon(zip([lons[int(p[1])] for p in contour], [lats[int(p[0])] for p in contour]))
+                    if poly.is_valid: polygons.append(poly.simplify(0.05))
+            gdf = gpd.GeoDataFrame(geometry=polygons, crs="EPSG:4326")
+            if gdf.is_empty.all(): return gdf
+            
+            gdf_m = gdf.to_crs("EPSG:5070")
+            if min_area_m2 > 0:
+                valid_area = gdf_m.geometry.area >= min_area_m2
+                gdf = gdf[valid_area]
+            if not gdf.is_empty.all():
+                gdf = gpd.GeoDataFrame(geometry=[gdf.union_all()], crs="EPSG:4326")
+            return gdf
+
+        # Threshold set to 10,000 km^2
+        gdf_sparse = extract_tcf_polygons((coverage_fraction >= 0.25).astype(int), min_area_m2=10_000_000_000)
+        del coverage_fraction, raw_cores, buffered_cores
+        gc.collect()
+
+        # Scorecard
+        truth_union = gdf_sparse.union_all() if not gdf_sparse.is_empty.all() else Polygon()
+        fcst_union = gdf_forecast.union_all() if not gdf_forecast.is_empty.all() else Polygon()
+
+        graded_forecasts, graded_misses = [], []
+        
+        # Forecasts
+        for idx, row in (gdf_forecast.explode(index_parts=False).reset_index(drop=True) if not gdf_forecast.is_empty.all() else gpd.GeoDataFrame(geometry=[])).iterrows():
+            poly = row.geometry
+            if poly.is_empty: continue
+            
+            fcst_area = poly.area
+            hit_area = poly.intersection(truth_union).area
+            coverage = hit_area / fcst_area if fcst_area > 0 else 0
+            
+            min_lon, min_lat, max_lon, max_lat = poly.bounds
+            lat_mask, lon_mask = (lats >= min_lat) & (lats <= max_lat), (lons >= min_lon) & (lons <= max_lon)
+            subset_tops, subset_refl = max_tops[lat_mask][:, lon_mask], max_refl[lat_mask][:, lon_mask]
+            lon_grid, lat_grid = np.meshgrid(lons[lon_mask], lats[lat_mask])
+            
+            in_poly_mask = Path(np.array(poly.exterior.coords)).contains_points(np.vstack((lon_grid.flatten(), lat_grid.flatten())).T).reshape(lon_grid.shape)
+            valid_tops = subset_tops[in_poly_mask & (subset_refl >= 40) & (subset_tops >= 25)]
+            
+            actual_top_kft = np.percentile(valid_tops, 90) if len(valid_tops) > 5 else 0
+            
+            cat, color = ("Verified Well", 'lime') if coverage >= 0.50 else ("Verified Close", 'yellow') if coverage >= 0.20 else ("Overforecasted", 'orange')
+            graded_forecasts.append({'geometry': poly, 'category': cat, 'color': color, 'idx': idx+1, 'top': actual_top_kft})
+
+        # Misses
+        for idx, row in (gdf_sparse.explode(index_parts=False).reset_index(drop=True) if not gdf_sparse.is_empty.all() else gpd.GeoDataFrame(geometry=[])).iterrows():
+            poly = row.geometry
+            if poly.is_empty: continue
+            if (poly.intersection(fcst_union).area / poly.area if poly.area > 0 else 0) < 0.20:
+                graded_misses.append({'geometry': poly, 'category': 'Missed', 'color': 'red', 'idx': idx+1})
+
+        gdf_graded_fcst = gpd.GeoDataFrame(graded_forecasts, crs="EPSG:4326") if graded_forecasts else gpd.GeoDataFrame(geometry=[])
+        gdf_graded_miss = gpd.GeoDataFrame(graded_misses, crs="EPSG:4326") if graded_misses else gpd.GeoDataFrame(geometry=[])
+
+    # --- Step D: Visual Render ---
+    st.markdown("---")
+    col1, col2 = st.columns([2, 1])
     
-    # --- YOUR HEAVY LIFTING SCRIPT GOES HERE ---
-    with st.spinner("Downloading MRMS Data & Building Rolling Composite..."):
-        # Paste Section 1 & 2 (AWS Download & xarray/cfgrib processing) here
-        # Make sure to use `valid_dt` as your target_dt!
-        pass 
+    with col1:
+        st.subheader("Objective Verification Scorecard Map")
+        fig, ax = plt.subplots(figsize=(16, 10))
+        cmap_heights = ListedColormap(['#000000', '#00FFFF', '#FFFF00', '#FF8000', '#FF0000'])
+        ax.pcolormesh(lons, lats, top_verif_matrix, cmap=cmap_heights, vmin=0, vmax=4, shading='auto')
+
+        if not gdf_states.empty: gdf_states.plot(ax=ax, facecolor='none', edgecolor='#505050', linewidth=1, zorder=2)
+        if not gdf_artcc.empty: gdf_artcc.plot(ax=ax, facecolor='none', edgecolor='yellow', linewidth=1.5, linestyle=':', zorder=3)
+
+        if not gdf_graded_fcst.empty:
+            for _, row in gdf_graded_fcst.iterrows():
+                gpd.GeoSeries([row.geometry]).plot(ax=ax, facecolor='none', edgecolor=row.color, linewidth=3, zorder=5)
+                gpd.GeoSeries([row.geometry]).plot(ax=ax, facecolor='none', edgecolor='white', linewidth=1, linestyle='--', zorder=6)
+                centroid = row.geometry.centroid
+                ax.text(centroid.x, centroid.y, str(row.idx), color='white', fontsize=14, fontweight='bold', ha='center', va='center', zorder=10, bbox=dict(facecolor='black', alpha=0.6, edgecolor='none', boxstyle='round,pad=0.3'))
+
+        if not gdf_graded_miss.empty:
+            for _, row in gdf_graded_miss.iterrows():
+                gpd.GeoSeries([row.geometry]).plot(ax=ax, facecolor='red', edgecolor='red', alpha=0.4, linewidth=3, zorder=4)
+                centroid = row.geometry.centroid
+                ax.text(centroid.x, centroid.y, f"M{row.idx}", color='white', fontsize=12, fontweight='bold', ha='center', va='center', zorder=10, bbox=dict(facecolor='darkred', alpha=0.8, edgecolor='white', boxstyle='round,pad=0.2'))
+
+        ax.set_xlim(-125, -65)
+        ax.set_ylim(24, 50)
+        ax.set_title(f"TCF Verification | VT: {valid_dt.strftime('%H:00Z')} | 5-Min Rolling Swath", color='white', fontsize=18, pad=15)
+        ax.set_facecolor('black')
+        ax.tick_params(colors='white')
+        for spine in ax.spines.values(): spine.set_edgecolor('white')
+        fig.patch.set_facecolor('black')
+
+        legend_elements = [
+            Patch(facecolor='none', edgecolor='lime', linewidth=3, label='Verified Well (>=50%)'),
+            Patch(facecolor='none', edgecolor='yellow', linewidth=3, label='Verified Close (20-49%)'),
+            Patch(facecolor='none', edgecolor='orange', linewidth=3, label='Overforecasted (<20%)'),
+            Patch(facecolor='red', edgecolor='red', alpha=0.4, label='Missed'),
+            Line2D([0], [0], color='#505050', lw=1, label='State Borders'),
+            Line2D([0], [0], color='yellow', lw=1.5, linestyle=':', label='ARTCC Regions')
+        ]
+        plt.legend(handles=legend_elements, facecolor='black', labelcolor='white', loc='lower right')
         
-    with st.spinner("Running NWS Spatial Verification Math..."):
-        # Paste Section 3, 4 & 5 (Verification Math) here
-        pass
+        # Render map in Streamlit!
+        st.pyplot(fig)
+
+    with col2:
+        st.subheader("FAA Google Doc Report")
         
-    with st.spinner("Rendering Final Scorecard Map..."):
-        # Paste Section 6 (Matplotlib) here
-        # Instead of plt.show(), use Streamlit to render the map:
-        # fig, ax = plt.subplots(...)
-        # ... map drawing code ...
-        # st.pyplot(fig) 
-        pass
+        doc_report = {"Verified Well:": [], "Verified Close:": [], "Over-forecast:": [], "Missed:": []}
         
-    # Print the Text Report to the Web UI
-    st.markdown("### Google Doc Copy/Paste Text")
-    st.code("""
-    # Paste your Google Doc string generation logic here
-    # Streamlit's st.code() creates a beautiful copy/paste block!
-    """)
+        if not gdf_graded_fcst.empty:
+            for _, row in gdf_graded_fcst.iterrows():
+                artccs = get_artccs(row.geometry, gdf_artcc)
+                top_str = f" [Top: {row.top:.1f} kft]" if row.top > 0 else ""
+                line_text = f"{artccs} - Sparse (Area {row.idx}){top_str}"
+                if row.category == "Verified Well": doc_report["Verified Well:"].append(line_text)
+                elif row.category == "Verified Close": doc_report["Verified Close:"].append(line_text)
+                elif row.category == "Overforecasted": doc_report["Over-forecast:"].append(line_text)
+
+        if not gdf_graded_miss.empty:
+            for _, row in gdf_graded_miss.iterrows():
+                artccs = get_artccs(row.geometry, gdf_artcc)
+                doc_report["Missed:"].append(f"{artccs} - Missed (Area M{row.idx})")
+
+        # Format the final text block
+        report_text = f"National System Review\nNWS TCF Review\n{valid_dt.strftime('%A, %B %d, %Y')}\n"
+        report_text += f"  {valid_dt.strftime('%b %d, %Y')}   IT: {issuance_hour:02d}Z   VT: {valid_dt.strftime('%H')}Z   FCST HR: {lead_time:02d}\n"
+        report_text += "https://www.aviationweather.gov/tcf/help\nCollaboration: AWC, ZAB, ZAU, ZDC, ZDV, ZFW, ZHU, ZID, ZJX, ZKC, ZLC, ZMA, ZME, ZMP, ZOB, ZSE, ZTL\n\n"
+        
+        for cat, items in doc_report.items():
+            report_text += f"{cat}\n"
+            if not items: report_text += "None\n"
+            for item in items: report_text += f"{item}\n"
+            report_text += "\n"
+
+        # Display as a copyable code block
+        st.code(report_text, language="text")
+        
+        # Explicit memory flush at the very end
+        del max_tops, max_refl, top_verif_matrix
+        gc.collect()
