@@ -17,7 +17,7 @@ from matplotlib.path import Path
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 import geopandas as gpd
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, LineString
 from skimage import measure
 import gc
 from scipy.ndimage import uniform_filter, binary_dilation
@@ -63,14 +63,23 @@ gdf_states, gdf_artcc = load_geography()
 def parse_iem_cow_text(text_data):
     """Parses legacy NWS/AWIPS AREA text into a GeoDataFrame"""
     polygons = []
+    
+    # 1. Replace common HTML breaks with newlines just in case
+    text_data = re.sub(r'<br\s*/?>', '\n', text_data, flags=re.IGNORECASE)
+    
     for line in text_data.split('\n'):
-        line = line.strip()
+        # 2. Shred all remaining HTML tags so we just see pure text!
+        line = re.sub(r'<[^>]+>', '', line).strip()
+        
         if line.startswith("AREA"):
             parts = line.split()
             try:
+                # The 7th index is the number of points in the shape
                 num_points = int(parts[7])
                 coords = []
                 idx = 8
+                
+                # Loop through the exact number of coordinate pairs
                 for _ in range(num_points):
                     if idx + 1 < len(parts):
                         lat = float(parts[idx]) / 10.0
@@ -79,10 +88,16 @@ def parse_iem_cow_text(text_data):
                         coords.append((lon, lat))
                         idx += 2
                 
+                # 3. Build the Polygons
                 if len(coords) >= 3:
-                    # THE FIX: .convex_hull snaps a perfect, solid shape around the raw points!
+                    # convex_hull perfectly fixes any overlapping "bow-ties"
                     poly = Polygon(coords).convex_hull
                     polygons.append(poly)
+                elif len(coords) == 2:
+                    # If it's a 2-point Solid Line, buffer it by ~10 miles (0.15 deg) to give it area!
+                    poly = LineString(coords).buffer(0.15)
+                    polygons.append(poly)
+                    
             except Exception:
                 continue 
                 
@@ -90,6 +105,30 @@ def parse_iem_cow_text(text_data):
         return gpd.GeoDataFrame(geometry=polygons, crs="EPSG:4326")
     else:
         return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
+
+
+def fetch_iem_cow_tcf(date_obj, issue_hr, f_hr):
+    """Automatically scrapes the TCF text from IEM Cow archives"""
+    date_str = date_obj.strftime("%Y%m%d")
+    issue_str = f"{issue_hr:02d}"
+    
+    # Map the Lead Time to the correct AWIPS PIL
+    if f_hr == 4: pil = "CFP01"
+    elif f_hr == 6: pil = "CFP02"
+    elif f_hr == 8: pil = "CFP03"
+    else: pil = "CFP01"
+    
+    url = f"https://mesonet.agron.iastate.edu/wx/afos/p.php?pil={pil}&e={date_str}{issue_str}00"
+    
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            # Bypass regex completely! Feed the raw webpage directly into our new smart parser.
+            return parse_iem_cow_text(response.text)
+    except Exception as e:
+        st.sidebar.error(f"IEM Cow Fetch Error: {e}")
+        
+    return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
 def get_artccs(poly, artcc_gdf):
     """Finds which ARTCCs a polygon intersects"""
@@ -138,47 +177,6 @@ def download_mrms_scan(product, dt_obj, dest_dir="mrms_data"):
         return local_grib
     except Exception:
         return None
-
-def fetch_iem_cow_tcf(date_obj, issue_hr, f_hr):
-    """Automatically scrapes the TCF text from IEM Cow archives"""
-    date_str = date_obj.strftime("%Y%m%d")
-    issue_str = f"{issue_hr:02d}"
-    
-    if f_hr == 4: pil = "CFP01"
-    elif f_hr == 6: pil = "CFP02"
-    elif f_hr == 8: pil = "CFP03"
-    else: pil = "CFP01"
-    
-    url = f"https://mesonet.agron.iastate.edu/wx/afos/p.php?pil={pil}&e={date_str}{issue_str}00"
-    
-    try:
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            import re
-            # Safely grab whatever is inside the HTML text block
-            match = re.search(r'<pre.*?>(.*?)</pre>', response.text, re.DOTALL | re.IGNORECASE)
-            if match:
-                raw_text = match.group(1).strip()
-                
-                # Run it through the parser
-                gdf = parse_iem_cow_text(raw_text)
-                
-                if gdf.empty:
-                    # DIAGNOSTIC TRIGGER: The text was found, but the parser couldn't read it!
-                    st.error("🚨 Found the TCF text on IEM Cow, but the Python parser couldn't read the format! See the raw text below:")
-                    st.code(raw_text, language="text")
-                    st.stop()
-                    
-                return gdf
-            else:
-                st.sidebar.error("Loaded IEM Cow page, but couldn't find the <pre> text block.")
-        else:
-            st.sidebar.error(f"IEM Cow returned HTTP {response.status_code}")
-            
-    except Exception as e:
-        st.sidebar.error(f"IEM Cow Fetch Error: {e}")
-        
-    return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
 # --- 3. SIDEBAR CONTROLS ---
 st.sidebar.header("Event Selection")
