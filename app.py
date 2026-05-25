@@ -39,24 +39,19 @@ def load_geography():
         st.sidebar.error(f"State boundaries error: {e}")
         
     try:
-        # Check 1: Does the file even exist on the Linux server?
-        if not os.path.exists("artcc1.geojson"):
-            st.sidebar.error("❌ ERROR: 'artcc1.geojson' is missing from the root directory! Check GitHub capitalization.")
+        # Swap out the string below for your actual RAW GitHub link!
+        artcc_url = "https://github.com/scottaminnick/tcf_auto_verification/blob/main/artcc1.geojson"
+        response_artcc = requests.get(artcc_url, timeout=10)
+        artccs = gpd.read_file(io.BytesIO(response_artcc.content))
+        
+        if artccs.crs is None:
+            artccs.set_crs("EPSG:4326", inplace=True)
         else:
-            # Check 2: Load the file
-            artccs = gpd.read_file("artcc1.geojson")
-            
-            # Check 3: Safely handle the CRS (Coordinate Reference System)
-            if artccs.crs is None:
-                artccs.set_crs("EPSG:4326", inplace=True)
-            else:
-                try:
-                    artccs = artccs.to_crs("EPSG:4326")
-                except Exception:
-                    pass # If it fails, the file is likely already in standard Lat/Lon (CRS84)
-                    
+            try:
+                artccs = artccs.to_crs("EPSG:4326")
+            except:
+                pass
     except Exception as e:
-        # This will print the EXACT reason it's failing to your screen!
         st.sidebar.error(f"❌ ARTCC Parsing Error: {e}")
         
     return states, artccs
