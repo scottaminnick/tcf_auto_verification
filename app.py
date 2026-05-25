@@ -31,7 +31,6 @@ def load_geography():
     artccs = gpd.GeoDataFrame(geometry=[])
     
     try:
-        # FIXED: Use requests + io.BytesIO so Fiona thinks it's a local file!
         url = "https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json"
         response = requests.get(url, timeout=10)
         states = gpd.read_file(io.BytesIO(response.content))
@@ -39,7 +38,6 @@ def load_geography():
         st.sidebar.warning(f"Could not load State boundaries: {e}")
         
     try:
-        # Load the ARTCC file from the GitHub repository
         artccs = gpd.read_file("artcc1.geojson").to_crs("EPSG:4326")
     except Exception as e:
         st.sidebar.warning(f"Could not load ARTCC boundaries: {e}")
@@ -48,41 +46,29 @@ def load_geography():
 
 gdf_states, gdf_artcc = load_geography()
 
+# --- 2. HELPER FUNCTIONS ---
 def parse_iem_cow_text(text_data):
     """Parses legacy NWS/AWIPS AREA text into a GeoDataFrame"""
     polygons = []
-    
-    # Process the file line by line
     for line in text_data.split('\n'):
         line = line.strip()
         if line.startswith("AREA"):
             parts = line.split()
             try:
-                # In standard NWS formatting: AREA [6 metadata numbers] [num_points] [lat] [lon]...
-                # So the number of vertices is usually the 7th item after "AREA"
                 num_points = int(parts[7])
                 coords = []
-                
-                # Starting at index 8, read lat/lon pairs
                 idx = 8
                 for _ in range(num_points):
                     if idx + 1 < len(parts):
-                        # Divide by 10 to restore the decimal point
                         lat = float(parts[idx]) / 10.0
                         lon = float(parts[idx+1]) / 10.0
-                        
-                        # In this text format, US longitudes are positive. We need them negative!
-                        if lon > 0: 
-                            lon = -lon
-                            
+                        if lon > 0: lon = -lon
                         coords.append((lon, lat))
                         idx += 2
-                        
-                # Create a Shapely Polygon if we have enough points
                 if len(coords) >= 3:
                     polygons.append(Polygon(coords))
-            except Exception as e:
-                continue # If a line is corrupted, skip it and keep reading
+            except Exception:
+                continue 
                 
     if polygons:
         return gpd.GeoDataFrame(geometry=polygons, crs="EPSG:4326")
@@ -97,7 +83,6 @@ def get_artccs(poly, artcc_gdf):
     centers = intersecting['IDENT'].dropna().unique().tolist()
     return "/".join(centers)
 
-# --- 2. HELPER FUNCTIONS ---
 def download_mrms_scan(product, dt_obj, dest_dir="mrms_data"):
     os.makedirs(dest_dir, exist_ok=True)
     date_str = dt_obj.strftime('%Y%m%d')
@@ -143,11 +128,9 @@ def fetch_tcf_geojson(date_obj, issue_hr, f_hr):
         response = requests.get(url, headers=headers, timeout=10)
         
         if response.status_code == 200:
-            # FIXED: Wrap the raw data in io.BytesIO so fiona thinks it's a real file!
             return gpd.read_file(io.BytesIO(response.content))
         else:
             st.sidebar.error(f"AWC API Rejected: HTTP {response.status_code}") 
-            
     except Exception as e:
         st.sidebar.error(f"AWC Connection Error: {e}")
         
@@ -168,35 +151,32 @@ else:
 
 st.sidebar.markdown(f"**Valid Time (VT):** {valid_dt.strftime('%b %d, %H:00Z')}")
 
+st.sidebar.markdown("---")
+st.sidebar.subheader("Manual Data Override")
+# Placed permanently in the sidebar so Streamlit doesn't reset when a file is dropped!
+uploaded_file = st.sidebar.file_uploader("Upload TCF (.geojson or .txt)", type=['geojson', 'txt'])
+
 # --- 4. MAIN EXECUTION ---
 if st.sidebar.button("Run Verification"):
 
-    # --- Step A: Get Forecast ---
     with st.status("Fetching Data...", expanded=True) as status:
-        st.write("Downloading AWC TCF Forecast...")
-        gdf_forecast = fetch_tcf_geojson(target_date, issuance_hour, lead_time)
         
-        # --- NEW FALLBACK UPLOADER BLOCK ---
-        if gdf_forecast.empty:
-            st.warning("AWC API blocked the request or data missing. Awaiting manual upload.")
-            
-            # Accepts both geojson AND txt files!
-            uploaded_file = st.sidebar.file_uploader("Fallback: Upload TCF (.geojson or .txt)", type=['geojson', 'txt'])
-            
-            if uploaded_file is not None:
-                # Check which type of file the forecaster uploaded
-                if uploaded_file.name.endswith('.txt'):
-                    # Read it as raw text and run it through our new translator
-                    raw_text = uploaded_file.getvalue().decode("utf-8")
-                    gdf_forecast = parse_iem_cow_text(raw_text)
-                    st.sidebar.success("IEM Cow Text File translated and loaded!")
-                else:
-                    # It's a standard geojson, load it normally
-                    gdf_forecast = gpd.read_file(uploaded_file)
-                    st.sidebar.success("GeoJSON loaded successfully!")
+        # --- Step A: Get Forecast (Check Uploader First) ---
+        if uploaded_file is not None:
+            st.write("Processing manually uploaded file...")
+            if uploaded_file.name.endswith('.txt'):
+                raw_text = uploaded_file.getvalue().decode("utf-8")
+                gdf_forecast = parse_iem_cow_text(raw_text)
+                st.success("IEM Cow Text File translated and loaded!")
             else:
+                gdf_forecast = gpd.read_file(uploaded_file)
+                st.success("GeoJSON loaded successfully!")
+        else:
+            st.write("Downloading AWC TCF Forecast...")
+            gdf_forecast = fetch_tcf_geojson(target_date, issuance_hour, lead_time)
+            if gdf_forecast.empty:
+                st.error("AWC API Failed. Please upload a .txt or .geojson file in the sidebar and try again.")
                 st.stop()
-        # --- END NEW BLOCK ---
 
         # --- Step B: Rolling Composite ---
         time_offsets = list(range(-15, 16, 5))
@@ -234,7 +214,6 @@ if st.sidebar.button("Run Verification"):
                 gc.collect()
 
         st.write("Building Objective Truth Polygons...")
-        # Clean up temporary AWS files to save disk space!
         if os.path.exists("mrms_data"):
             shutil.rmtree("mrms_data")
             
@@ -249,7 +228,6 @@ if st.sidebar.button("Run Verification"):
         top_verif_matrix[valid_convection & (max_tops >= 35) & (max_tops < 40)] = 3  
         top_verif_matrix[valid_convection & (max_tops >= 40)] = 4  
 
-        # Reanalysis with Spatial Dilation (Buffer)
         raw_cores = ((max_refl >= 40) & (max_tops >= 25))
         buffered_cores = binary_dilation(raw_cores, iterations=1)
         coverage_fraction = uniform_filter(buffered_cores.astype(float), size=20)
@@ -272,18 +250,15 @@ if st.sidebar.button("Run Verification"):
                 gdf = gpd.GeoDataFrame(geometry=[gdf.unary_union], crs="EPSG:4326")
             return gdf
 
-        # Threshold set to 10,000 km^2
         gdf_sparse = extract_tcf_polygons((coverage_fraction >= 0.25).astype(int), min_area_m2=10_000_000_000)
         del coverage_fraction, raw_cores, buffered_cores
         gc.collect()
 
-        # Scorecard
         truth_union = gdf_sparse.unary_union if not gdf_sparse.is_empty.all() else Polygon()
         fcst_union = gdf_forecast.unary_union if not gdf_forecast.is_empty.all() else Polygon()
 
         graded_forecasts, graded_misses = [], []
         
-        # Forecasts
         for idx, row in (gdf_forecast.explode(index_parts=False).reset_index(drop=True) if not gdf_forecast.is_empty.all() else gpd.GeoDataFrame(geometry=[])).iterrows():
             poly = row.geometry
             if poly.is_empty: continue
@@ -305,7 +280,6 @@ if st.sidebar.button("Run Verification"):
             cat, color = ("Verified Well", 'lime') if coverage >= 0.50 else ("Verified Close", 'yellow') if coverage >= 0.20 else ("Overforecasted", 'orange')
             graded_forecasts.append({'geometry': poly, 'category': cat, 'color': color, 'idx': idx+1, 'top': actual_top_kft})
 
-        # Misses
         for idx, row in (gdf_sparse.explode(index_parts=False).reset_index(drop=True) if not gdf_sparse.is_empty.all() else gpd.GeoDataFrame(geometry=[])).iterrows():
             poly = row.geometry
             if poly.is_empty: continue
@@ -359,7 +333,6 @@ if st.sidebar.button("Run Verification"):
         ]
         plt.legend(handles=legend_elements, facecolor='black', labelcolor='white', loc='lower right')
         
-        # Render map in Streamlit!
         st.pyplot(fig)
 
     with col2:
@@ -381,7 +354,6 @@ if st.sidebar.button("Run Verification"):
                 artccs = get_artccs(row.geometry, gdf_artcc)
                 doc_report["Missed:"].append(f"{artccs} - Missed (Area M{row.idx})")
 
-        # Format the final text block
         report_text = f"National System Review\nNWS TCF Review\n{valid_dt.strftime('%A, %B %d, %Y')}\n"
         report_text += f"  {valid_dt.strftime('%b %d, %Y')}   IT: {issuance_hour:02d}Z   VT: {valid_dt.strftime('%H')}Z   FCST HR: {lead_time:02d}\n"
         report_text += "https://www.aviationweather.gov/tcf/help\nCollaboration: AWC, ZAB, ZAU, ZDC, ZDV, ZFW, ZHU, ZID, ZJX, ZKC, ZLC, ZMA, ZME, ZMP, ZOB, ZSE, ZTL\n\n"
@@ -392,9 +364,7 @@ if st.sidebar.button("Run Verification"):
             for item in items: report_text += f"{item}\n"
             report_text += "\n"
 
-        # Display as a copyable code block
         st.code(report_text, language="text")
         
-        # Explicit memory flush at the very end
         del max_tops, max_refl, top_verif_matrix
         gc.collect()
