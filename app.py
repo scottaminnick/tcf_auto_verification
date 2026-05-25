@@ -144,7 +144,6 @@ def fetch_iem_cow_tcf(date_obj, issue_hr, f_hr):
     date_str = date_obj.strftime("%Y%m%d")
     issue_str = f"{issue_hr:02d}"
     
-    # Map the Lead Time to the correct AWIPS PIL!
     if f_hr == 4: pil = "CFP01"
     elif f_hr == 6: pil = "CFP02"
     elif f_hr == 8: pil = "CFP03"
@@ -155,15 +154,27 @@ def fetch_iem_cow_tcf(date_obj, issue_hr, f_hr):
     try:
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
-            # Search the webpage's HTML to find the raw text block
             import re
-            match = re.search(r'<pre>(.*?)</pre>', response.text, re.DOTALL | re.IGNORECASE)
+            # Safely grab whatever is inside the HTML text block
+            match = re.search(r'<pre.*?>(.*?)</pre>', response.text, re.DOTALL | re.IGNORECASE)
             if match:
-                raw_text = match.group(1)
+                raw_text = match.group(1).strip()
                 
-                # Run it through the parser we built earlier!
-                return parse_iem_cow_text(raw_text)
+                # Run it through the parser
+                gdf = parse_iem_cow_text(raw_text)
                 
+                if gdf.empty:
+                    # DIAGNOSTIC TRIGGER: The text was found, but the parser couldn't read it!
+                    st.error("🚨 Found the TCF text on IEM Cow, but the Python parser couldn't read the format! See the raw text below:")
+                    st.code(raw_text, language="text")
+                    st.stop()
+                    
+                return gdf
+            else:
+                st.sidebar.error("Loaded IEM Cow page, but couldn't find the <pre> text block.")
+        else:
+            st.sidebar.error(f"IEM Cow returned HTTP {response.status_code}")
+            
     except Exception as e:
         st.sidebar.error(f"IEM Cow Fetch Error: {e}")
         
