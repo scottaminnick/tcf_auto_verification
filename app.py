@@ -95,7 +95,15 @@ def get_artccs(poly, artcc_gdf):
     if artcc_gdf.empty: return "UNKNOWN"
     intersecting = artcc_gdf[artcc_gdf.intersects(poly)]
     if intersecting.empty: return "UNKNOWN"
-    centers = intersecting['IDENT'].dropna().unique().tolist()
+    
+    # Bulletproof column check!
+    if 'IDENT' in intersecting.columns:
+        centers = intersecting['IDENT'].dropna().unique().tolist()
+    elif 'name' in intersecting.columns: # Fallback if states load by accident
+        centers = intersecting['name'].dropna().unique().tolist()
+    else:
+        centers = ["UNKNOWN_COL"]
+        
     return "/".join(centers)
 
 def download_mrms_scan(product, dt_obj, dest_dir="mrms_data"):
