@@ -119,17 +119,25 @@ st.sidebar.markdown(f"**Valid Time (VT):** {valid_dt.strftime('%b %d, %H:00Z')}"
 
 # --- 4. MAIN EXECUTION ---
 if st.sidebar.button("Run Verification"):
-    
+
     # --- Step A: Get Forecast ---
     with st.status("Fetching Data...", expanded=True) as status:
         st.write("Downloading AWC TCF Forecast...")
         gdf_forecast = fetch_tcf_geojson(target_date, issuance_hour, lead_time)
         
+        # If AWC fails or blocks us, trigger the manual fallback!
         if gdf_forecast.empty:
-            st.error("Could not fetch AWC Data. Falling back to local 'tcf_official.geojson' if it exists.")
-            try:
-                gdf_forecast = gpd.read_file("tcf_official.geojson")
-            except:
+            st.warning("AWC API blocked the request or data missing. Awaiting manual upload.")
+            
+            # This creates the drag-and-drop box on the left sidebar
+            uploaded_file = st.sidebar.file_uploader("Fallback: Upload TCF GeoJSON", type=['geojson'])
+            
+            if uploaded_file is not None:
+                # Read the file directly from the user's browser upload
+                gdf_forecast = gpd.read_file(uploaded_file)
+                st.sidebar.success("Manual file loaded successfully!")
+            else:
+                # Stop the app from running any further until a file is uploaded
                 st.stop()
 
         # --- Step B: Rolling Composite ---
