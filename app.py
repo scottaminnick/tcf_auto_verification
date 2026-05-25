@@ -25,26 +25,37 @@ from scipy.ndimage import uniform_filter, binary_dilation
 st.set_page_config(page_title="TCF Verification Dashboard", layout="wide", page_icon="✈️")
 st.title("Objective TCF Verification Dashboard")
 
-@st.cache_data
+# UPGRADE: cache_resource is much safer for large map files than cache_data
+@st.cache_resource
 def load_geography():
     """Loads States and ARTCC boundaries once and keeps them in memory"""
     states = gpd.GeoDataFrame(geometry=[])
     artccs = gpd.GeoDataFrame(geometry=[])
     
     try:
+        # Load States from the public internet bypassing Fiona
         url = "https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json"
         response = requests.get(url, timeout=10)
-        states = gpd.read_file(io.BytesIO(response.content))
+        states_data = response.json()
+        states = gpd.GeoDataFrame.from_features(states_data["features"], crs="EPSG:4326")
     except Exception as e:
-        st.sidebar.warning(f"Could not load State boundaries: {e}")
+        st.sidebar.error(f"State boundaries error: {e}")
         
     try:
-        artccs = gpd.read_file("artcc1.geojson").to_crs("EPSG:4326")
+        # THE FIX: Read the local file using pure Python, bypassing Fiona entirely!
+        import json
+        with open("artcc1.geojson", "r", encoding="utf-8") as f:
+            artcc_data = json.load(f)
+            
+        # Draw the shapes directly from the text dictionary
+        artccs = gpd.GeoDataFrame.from_features(artcc_data["features"], crs="EPSG:4326")
+        
     except Exception as e:
-        st.sidebar.warning(f"Could not load ARTCC boundaries: {e}")
+        st.sidebar.error(f"❌ ARTCC Parsing Error: {e}")
         
     return states, artccs
 
+# Run the function!
 gdf_states, gdf_artcc = load_geography()
 
 # --- 2. HELPER FUNCTIONS ---
