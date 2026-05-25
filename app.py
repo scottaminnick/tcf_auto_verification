@@ -80,20 +80,27 @@ def fetch_tcf_geojson(date_obj, issue_hr, f_hr):
     date_str = date_obj.strftime("%Y%m%d")
     issue_str = f"{issue_hr:02d}"
     url = f"https://aviationweather.gov/api/data/tcf?date={date_str}&issue={issue_str}&fhr={f_hr}&format=geojson"
+    
     try:
-        response = requests.get(url, timeout=10)
+        # AWC blocks default Python bots. We MUST provide a custom User-Agent!
+        headers = {
+            "User-Agent": "TCFVerificationDashboard/1.0 (NWS/FAA System Review)",
+            "Accept": "application/geo+json"
+        }
+        
+        # Pass the headers into the request
+        response = requests.get(url, headers=headers, timeout=10)
+        
         if response.status_code == 200:
             return gpd.read_file(response.text)
-    except Exception:
-        pass
+        else:
+            # This will print the exact reason AWC rejected it to your sidebar if it fails again
+            st.sidebar.error(f"AWC API Rejected: HTTP {response.status_code}") 
+            
+    except Exception as e:
+        st.sidebar.error(f"AWC Connection Error: {e}")
+        
     return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
-
-def get_artccs(poly, artcc_gdf):
-    if artcc_gdf.empty: return "UNKNOWN"
-    intersecting = artcc_gdf[artcc_gdf.intersects(poly)]
-    if intersecting.empty: return "UNKNOWN"
-    centers = intersecting['IDENT'].dropna().unique().tolist()
-    return "/".join(centers)
 
 # --- 3. SIDEBAR CONTROLS ---
 st.sidebar.header("Event Selection")
