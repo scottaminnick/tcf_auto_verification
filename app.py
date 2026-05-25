@@ -43,6 +43,47 @@ def load_geography():
 
 gdf_states, gdf_artcc = load_geography()
 
+def parse_iem_cow_text(text_data):
+    """Parses legacy NWS/AWIPS AREA text into a GeoDataFrame"""
+    polygons = []
+    
+    # Process the file line by line
+    for line in text_data.split('\n'):
+        line = line.strip()
+        if line.startswith("AREA"):
+            parts = line.split()
+            try:
+                # In standard NWS formatting: AREA [6 metadata numbers] [num_points] [lat] [lon]...
+                # So the number of vertices is usually the 7th item after "AREA"
+                num_points = int(parts[7])
+                coords = []
+                
+                # Starting at index 8, read lat/lon pairs
+                idx = 8
+                for _ in range(num_points):
+                    if idx + 1 < len(parts):
+                        # Divide by 10 to restore the decimal point
+                        lat = float(parts[idx]) / 10.0
+                        lon = float(parts[idx+1]) / 10.0
+                        
+                        # In this text format, US longitudes are positive. We need them negative!
+                        if lon > 0: 
+                            lon = -lon
+                            
+                        coords.append((lon, lat))
+                        idx += 2
+                        
+                # Create a Shapely Polygon if we have enough points
+                if len(coords) >= 3:
+                    polygons.append(Polygon(coords))
+            except Exception as e:
+                continue # If a line is corrupted, skip it and keep reading
+                
+    if polygons:
+        return gpd.GeoDataFrame(geometry=polygons, crs="EPSG:4326")
+    else:
+        return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
+
 # --- 2. HELPER FUNCTIONS ---
 def download_mrms_scan(product, dt_obj, dest_dir="mrms_data"):
     os.makedirs(dest_dir, exist_ok=True)
