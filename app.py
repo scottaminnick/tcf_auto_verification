@@ -43,7 +43,7 @@ def load_geography():
         
     try:
         # Swap out 'YOUR_RAW_GITHUB_URL_HERE' for your actual link!
-        artcc_url = "https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json"
+        artcc_url = https://github.com/scottaminnick/tcf_auto_verification/blob/main/artcc1.geojson
         response_artcc = requests.get(artcc_url, timeout=10)
         
         # BYPASS FIONA: Do the exact same thing for the ARTCCs!
@@ -77,8 +77,11 @@ def parse_iem_cow_text(text_data):
                         if lon > 0: lon = -lon
                         coords.append((lon, lat))
                         idx += 2
+                
                 if len(coords) >= 3:
-                    polygons.append(Polygon(coords))
+                    # THE FIX: .convex_hull snaps a perfect, solid shape around the raw points!
+                    poly = Polygon(coords).convex_hull
+                    polygons.append(poly)
             except Exception:
                 continue 
                 
