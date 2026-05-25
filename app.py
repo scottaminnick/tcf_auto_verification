@@ -106,8 +106,9 @@ def parse_iem_cow_text(text_data):
         return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
 def fetch_iem_cow_tcf(date_obj, issue_hr, f_hr):
-    """Automatically scrapes the TCF text from IEM Cow archives"""
+    """Pulls the full day's archive from IEM and perfectly isolates the target hour"""
     date_str = date_obj.strftime("%Y%m%d")
+    date_dash = date_obj.strftime("%Y-%m-%d")
     issue_str = f"{issue_hr:02d}"
     
     # Map the Lead Time to the correct AWIPS PIL
@@ -116,13 +117,34 @@ def fetch_iem_cow_tcf(date_obj, issue_hr, f_hr):
     elif f_hr == 8: pil = "CFP03"
     else: pil = "CFP01"
     
-    url = f"https://mesonet.agron.iastate.edu/wx/afos/p.php?pil={pil}&e={date_str}{issue_str}00"
+    # NEW ENDPOINT: Downloads ALL products for the entire day as pure, raw text!
+    url = f"https://mesonet.agron.iastate.edu/cgi-bin/afos/retrieve.py?pil={pil}&fmt=text&sdate={date_dash}&edate={date_dash}"
     
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=15)
         if response.status_code == 200:
-            # Bypass regex completely! Feed the raw webpage directly into our new smart parser.
-            return parse_iem_cow_text(response.text)
+            full_text = response.text
+            
+            # The TCF always prints the exact issuance time inside the text block 
+            # Example: "CCFP 20260524_1900 20260524_2300"
+            target_header = f"CCFP {date_str}_{issue_str}00"
+            
+            # NWS text products are always separated by the WMO header (FAUS28)
+            products = full_text.split('FAUS28')
+            
+            target_text = ""
+            for prod in products:
+                if target_header in prod:
+                    target_text = prod
+                    break
+            
+            if target_text:
+                return parse_iem_cow_text(target_text)
+            else:
+                st.sidebar.error(f"Could not find the {issue_str}:00Z issuance in the IEM archive. They may have missed this issuance.")
+        else:
+            st.sidebar.error(f"IEM Cow returned HTTP {response.status_code}")
+            
     except Exception as e:
         st.sidebar.error(f"IEM Cow Fetch Error: {e}")
         
