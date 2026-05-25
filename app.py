@@ -29,20 +29,22 @@ def load_geography():
     """Loads States and ARTCC boundaries once and keeps them in memory"""
     states = gpd.GeoDataFrame(geometry=[])
     artccs = gpd.GeoDataFrame(geometry=[])
+    
     try:
-        states = gpd.read_file("https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json")
+        # FIXED: Use requests + io.BytesIO so Fiona thinks it's a local file!
+        url = "https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json"
+        response = requests.get(url, timeout=10)
+        states = gpd.read_file(io.BytesIO(response.content))
     except Exception as e:
-        st.sidebar.warning("Could not load State boundaries.")
+        st.sidebar.warning(f"Could not load State boundaries: {e}")
         
     try:
-        # Assumes artcc.geojson is uploaded to your GitHub repository
-        artccs = gpd.read_file("artcc.geojson").to_crs("EPSG:4326")
+        # Load the ARTCC file from the GitHub repository
+        artccs = gpd.read_file("artcc1.geojson").to_crs("EPSG:4326")
     except Exception as e:
-        st.sidebar.warning("Could not load ARTCC boundaries.")
+        st.sidebar.warning(f"Could not load ARTCC boundaries: {e}")
         
     return states, artccs
-
-gdf_states, gdf_artcc = load_geography()
 
 def parse_iem_cow_text(text_data):
     """Parses legacy NWS/AWIPS AREA text into a GeoDataFrame"""
@@ -84,6 +86,14 @@ def parse_iem_cow_text(text_data):
         return gpd.GeoDataFrame(geometry=polygons, crs="EPSG:4326")
     else:
         return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
+
+def get_artccs(poly, artcc_gdf):
+    """Finds which ARTCCs a polygon intersects"""
+    if artcc_gdf.empty: return "UNKNOWN"
+    intersecting = artcc_gdf[artcc_gdf.intersects(poly)]
+    if intersecting.empty: return "UNKNOWN"
+    centers = intersecting['IDENT'].dropna().unique().tolist()
+    return "/".join(centers)
 
 # --- 2. HELPER FUNCTIONS ---
 def download_mrms_scan(product, dt_obj, dest_dir="mrms_data"):
