@@ -1,3 +1,4 @@
+import json
 import io
 import streamlit as st
 import boto3
@@ -32,22 +33,21 @@ def load_geography():
     artccs = gpd.GeoDataFrame(geometry=[])
     
     try:
+        # Load States from the public internet (this works fine)
         url = "https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json"
         response = requests.get(url, timeout=10)
-        
-        # BYPASS FIONA: Read as raw JSON dictionary, then build the map!
         states_data = response.json()
         states = gpd.GeoDataFrame.from_features(states_data["features"], crs="EPSG:4326")
     except Exception as e:
         st.sidebar.error(f"State boundaries error: {e}")
         
     try:
-        # Swap out 'YOUR_RAW_GITHUB_URL_HERE' for your actual link!
-        artcc_url = "https://github.com/scottaminnick/tcf_auto_verification/blob/main/artcc1.geojson"
-        response_artcc = requests.get(artcc_url, timeout=10)
-        
-        # BYPASS FIONA: Do the exact same thing for the ARTCCs!
-        artcc_data = response_artcc.json()
+        # THE FIX: Read the local file using pure Python, bypassing Fiona entirely!
+        import json
+        with open("artcc1.geojson", "r", encoding="utf-8") as f:
+            artcc_data = json.load(f)
+            
+        # Draw the shapes directly from the text dictionary
         artccs = gpd.GeoDataFrame.from_features(artcc_data["features"], crs="EPSG:4326")
         
     except Exception as e:
@@ -55,7 +55,7 @@ def load_geography():
         
     return states, artccs
 
-# THE MISSING LINE! This actually runs the function and saves the variables.
+# Run the function!
 gdf_states, gdf_artcc = load_geography()
 
 # --- 2. HELPER FUNCTIONS ---
