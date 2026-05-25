@@ -64,48 +64,46 @@ def parse_iem_cow_text(text_data):
     """Parses legacy NWS/AWIPS AREA text into a GeoDataFrame"""
     polygons = []
     
-    # 1. Replace common HTML breaks with newlines just in case
-    text_data = re.sub(r'<br\s*/?>', '\n', text_data, flags=re.IGNORECASE)
+    # 1. Strip ALL HTML tags completely so we just have raw text and numbers
+    text_data = re.sub(r'<[^>]+>', ' ', text_data)
     
-    for line in text_data.split('\n'):
-        # 2. Shred all remaining HTML tags so we just see pure text!
-        line = re.sub(r'<[^>]+>', '', line).strip()
-        
-        if line.startswith("AREA"):
-            parts = line.split()
-            try:
-                # The 7th index is the number of points in the shape
-                num_points = int(parts[7])
-                coords = []
-                idx = 8
+    # 2. THE FIX: Find "AREA" and capture ALL numbers/spaces after it, ignoring line breaks!
+    area_blocks = re.findall(r'AREA\s+([\d\s]+)', text_data)
+    
+    for block in area_blocks:
+        parts = block.split()
+        try:
+            # Since "AREA" is removed by the regex above, the number of points is now at index 6
+            num_points = int(parts[6])
+            coords = []
+            idx = 7
+            
+            # Loop through the coordinates
+            for _ in range(num_points):
+                if idx + 1 < len(parts):
+                    lat = float(parts[idx]) / 10.0
+                    lon = float(parts[idx+1]) / 10.0
+                    if lon > 0: lon = -lon
+                    coords.append((lon, lat))
+                    idx += 2
+            
+            # Build the shapes
+            if len(coords) >= 3:
+                # convex_hull fixes any overlapping lines drawn by the forecaster
+                poly = Polygon(coords).convex_hull
+                polygons.append(poly)
+            elif len(coords) == 2:
+                # If it's a 2-point Solid Line, buffer it by ~10 miles (0.15 deg) to give it area
+                poly = LineString(coords).buffer(0.15)
+                polygons.append(poly)
                 
-                # Loop through the exact number of coordinate pairs
-                for _ in range(num_points):
-                    if idx + 1 < len(parts):
-                        lat = float(parts[idx]) / 10.0
-                        lon = float(parts[idx+1]) / 10.0
-                        if lon > 0: lon = -lon
-                        coords.append((lon, lat))
-                        idx += 2
-                
-                # 3. Build the Polygons
-                if len(coords) >= 3:
-                    # convex_hull perfectly fixes any overlapping "bow-ties"
-                    poly = Polygon(coords).convex_hull
-                    polygons.append(poly)
-                elif len(coords) == 2:
-                    # If it's a 2-point Solid Line, buffer it by ~10 miles (0.15 deg) to give it area!
-                    poly = LineString(coords).buffer(0.15)
-                    polygons.append(poly)
-                    
-            except Exception:
-                continue 
-                
+        except Exception:
+            continue 
+            
     if polygons:
         return gpd.GeoDataFrame(geometry=polygons, crs="EPSG:4326")
     else:
         return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
-
 
 def fetch_iem_cow_tcf(date_obj, issue_hr, f_hr):
     """Automatically scrapes the TCF text from IEM Cow archives"""
