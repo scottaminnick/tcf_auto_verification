@@ -257,7 +257,7 @@ if st.sidebar.button("Run Verification"):
                 valid_area = gdf_m.geometry.area >= min_area_m2
                 gdf = gdf[valid_area]
             if not gdf.is_empty.all():
-                gdf = gpd.GeoDataFrame(geometry=[gdf.union_all()], crs="EPSG:4326")
+                gdf = gpd.GeoDataFrame(geometry=[gdf.unary_union], crs="EPSG:4326")
             return gdf
 
         # Threshold set to 10,000 km^2
@@ -266,8 +266,8 @@ if st.sidebar.button("Run Verification"):
         gc.collect()
 
         # Scorecard
-        truth_union = gdf_sparse.union_all() if not gdf_sparse.is_empty.all() else Polygon()
-        fcst_union = gdf_forecast.union_all() if not gdf_forecast.is_empty.all() else Polygon()
+        truth_union = gdf_sparse.unary_union if not gdf_sparse.is_empty.all() else Polygon()
+        fcst_union = gdf_forecast.unary_union if not gdf_forecast.is_empty.all() else Polygon()
 
         graded_forecasts, graded_misses = [], []
         
