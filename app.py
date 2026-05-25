@@ -20,6 +20,10 @@ from skimage import measure
 import gc
 from scipy.ndimage import uniform_filter, binary_dilation
 
+# --- 1. PAGE CONFIG & CACHED LOADERS ---
+st.set_page_config(page_title="TCF Verification Dashboard", layout="wide", page_icon="✈️")
+st.title("Objective TCF Verification Dashboard")
+
 # UPGRADE: cache_resource is much safer for large map files than cache_data
 @st.cache_resource
 def load_geography():
@@ -50,6 +54,9 @@ def load_geography():
         st.sidebar.error(f"❌ ARTCC Parsing Error: {e}")
         
     return states, artccs
+
+# THE MISSING LINE! This actually runs the function and saves the variables.
+gdf_states, gdf_artcc = load_geography()
 
 # --- 2. HELPER FUNCTIONS ---
 def parse_iem_cow_text(text_data):
