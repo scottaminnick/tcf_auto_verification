@@ -34,7 +34,7 @@ def load_geography():
         st.sidebar.warning("Could not load State boundaries.")
         
     try:
-        # Assumes artcc1.geojson is uploaded to your GitHub repository
+        # Assumes artcc.geojson is uploaded to your GitHub repository
         artccs = gpd.read_file("artcc.geojson").to_crs("EPSG:4326")
     except Exception as e:
         st.sidebar.warning("Could not load ARTCC boundaries.")
