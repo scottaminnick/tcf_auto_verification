@@ -39,10 +39,16 @@ def load_geography():
         st.sidebar.error(f"State boundaries error: {e}")
         
     try:
-        # Swap out the string below for your actual RAW GitHub link!
-        artcc_url = "https://github.com/scottaminnick/tcf_auto_verification/blob/main/artcc1.geojson"
+        # Swap out 'YOUR_RAW_GITHUB_URL_HERE' for your actual link!
+        artcc_url = "https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json"
         response_artcc = requests.get(artcc_url, timeout=10)
-        artccs = gpd.read_file(io.BytesIO(response_artcc.content))
+        
+        # THE FIX: Write it to a temporary physical file on the server
+        with open("temp_artcc.geojson", "wb") as f:
+            f.write(response_artcc.content)
+            
+        # Read the physical file (bypasses the /vsimem/ memory bug!)
+        artccs = gpd.read_file("temp_artcc.geojson")
         
         if artccs.crs is None:
             artccs.set_crs("EPSG:4326", inplace=True)
