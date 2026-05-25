@@ -198,8 +198,39 @@ if st.sidebar.button("Run Verification"):
             st.write("Downloading AWC TCF Forecast...")
             gdf_forecast = fetch_tcf_geojson(target_date, issuance_hour, lead_time)
             if gdf_forecast.empty:
-                st.error("AWC API Failed. Please upload a .txt or .geojson file in the sidebar and try again.")
+                st.error("AWC API Failed. Please upload a .txt or .geojson file in the sidebar.")
                 st.stop()
+
+        # --- NEW FORECAST CLEANUP BLOCK ---
+        if not gdf_forecast.empty:
+            st.write("Filtering out background noise and cleaning geometries...")
+            
+            # 1. Strip out the hidden ARTCC background map!
+            # Real TCF shapes usually have a 'Coverage' column. ARTCCs don't.
+            cov_col = next((col for col in gdf_forecast.columns if 'coverage' in col.lower()), None)
+            if cov_col:
+                gdf_forecast = gdf_forecast[gdf_forecast[cov_col].notna()]
+                
+            # If the file explicitly tags the FAA centers with 'IDENT', delete them!
+            ident_col = next((col for col in gdf_forecast.columns if 'ident' in col.lower()), None)
+            if ident_col:
+                gdf_forecast = gdf_forecast[gdf_forecast[ident_col].isna()]
+                
+            # 2. Fix Forecaster Bow-ties and Solid Lines
+            def clean_geom(geom):
+                if geom is None or geom.is_empty: 
+                    return geom
+                # If the TCF is a Solid Line, buffer it by ~10 miles (0.15 deg) to give it area!
+                if geom.geom_type in ['LineString', 'MultiLineString']:
+                    return geom.buffer(0.15)
+                # If it's a polygon, buffer(0) automatically fixes overlapping "bow-ties"
+                return geom.buffer(0)
+                
+            gdf_forecast['geometry'] = gdf_forecast['geometry'].apply(clean_geom)
+            
+            # Drop any shapes that disappeared during cleanup
+            gdf_forecast = gdf_forecast[~gdf_forecast.is_empty]
+        # --- END CLEANUP BLOCK ---
 
         # --- Step B: Rolling Composite ---
         time_offsets = list(range(-15, 16, 5))
