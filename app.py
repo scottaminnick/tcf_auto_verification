@@ -46,6 +46,8 @@ def load_geography():
         
     return states, artccs
 
+gdf_states, gdf_artcc = load_geography()
+
 def parse_iem_cow_text(text_data):
     """Parses legacy NWS/AWIPS AREA text into a GeoDataFrame"""
     polygons = []
