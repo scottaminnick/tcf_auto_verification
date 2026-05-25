@@ -105,10 +105,10 @@ def parse_iem_cow_text(text_data):
     else:
         return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
+
 def fetch_iem_cow_tcf(date_obj, issue_hr, f_hr):
-    """Pulls the full day's archive from IEM and perfectly isolates the target hour"""
+    """Automatically scrapes the TCF text from IEM Cow archives using the direct URL"""
     date_str = date_obj.strftime("%Y%m%d")
-    date_dash = date_obj.strftime("%Y-%m-%d")
     issue_str = f"{issue_hr:02d}"
     
     # Map the Lead Time to the correct AWIPS PIL
@@ -117,34 +117,19 @@ def fetch_iem_cow_tcf(date_obj, issue_hr, f_hr):
     elif f_hr == 8: pil = "CFP03"
     else: pil = "CFP01"
     
-    # NEW ENDPOINT: Downloads ALL products for the entire day as pure, raw text!
-    url = f"https://mesonet.agron.iastate.edu/cgi-bin/afos/retrieve.py?pil={pil}&fmt=text&sdate={date_dash}&edate={date_dash}"
+    # Back to the exact endpoint you found that works!
+    url = f"https://mesonet.agron.iastate.edu/wx/afos/p.php?pil={pil}&e={date_str}{issue_str}00"
     
     try:
-        response = requests.get(url, timeout=15)
+        response = requests.get(url, timeout=10)
         if response.status_code == 200:
-            full_text = response.text
-            
-            # The TCF always prints the exact issuance time inside the text block 
-            # Example: "CCFP 20260524_1900 20260524_2300"
-            target_header = f"CCFP {date_str}_{issue_str}00"
-            
-            # NWS text products are always separated by the WMO header (FAUS28)
-            products = full_text.split('FAUS28')
-            
-            target_text = ""
-            for prod in products:
-                if target_header in prod:
-                    target_text = prod
-                    break
-            
-            if target_text:
-                return parse_iem_cow_text(target_text)
-            else:
-                st.sidebar.error(f"Could not find the {issue_str}:00Z issuance in the IEM archive. They may have missed this issuance.")
-        else:
-            st.sidebar.error(f"IEM Cow returned HTTP {response.status_code}")
-            
+            # IEM Cow returns a 200 OK even if the product is missing, but adds this text:
+            if "Could not find product" in response.text:
+                st.sidebar.error(f"IEM Cow: Data missing for {issue_str}:00Z")
+                return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
+                
+            # Feed the raw webpage directly into our new smart parser
+            return parse_iem_cow_text(response.text)
     except Exception as e:
         st.sidebar.error(f"IEM Cow Fetch Error: {e}")
         
