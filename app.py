@@ -1,5 +1,6 @@
 import json
 import io
+import re
 import streamlit as st
 import boto3
 import botocore
@@ -138,24 +139,33 @@ def download_mrms_scan(product, dt_obj, dest_dir="mrms_data"):
     except Exception:
         return None
 
-def fetch_tcf_geojson(date_obj, issue_hr, f_hr):
+def fetch_iem_cow_tcf(date_obj, issue_hr, f_hr):
+    """Automatically scrapes the TCF text from IEM Cow archives"""
     date_str = date_obj.strftime("%Y%m%d")
     issue_str = f"{issue_hr:02d}"
-    url = f"https://aviationweather.gov/api/data/tcf?date={date_str}&issue={issue_str}&fhr={f_hr}&format=geojson"
+    
+    # Map the Lead Time to the correct AWIPS PIL!
+    if f_hr == 4: pil = "CFP01"
+    elif f_hr == 6: pil = "CFP02"
+    elif f_hr == 8: pil = "CFP03"
+    else: pil = "CFP01"
+    
+    url = f"https://mesonet.agron.iastate.edu/wx/afos/p.php?pil={pil}&e={date_str}{issue_str}00"
     
     try:
-        headers = {
-            "User-Agent": "TCFVerificationDashboard/1.0",
-            "Accept": "application/geo+json"
-        }
-        response = requests.get(url, headers=headers, timeout=10)
-        
+        response = requests.get(url, timeout=10)
         if response.status_code == 200:
-            return gpd.read_file(io.BytesIO(response.content))
-        else:
-            st.sidebar.error(f"AWC API Rejected: HTTP {response.status_code}") 
+            # Search the webpage's HTML to find the raw text block
+            import re
+            match = re.search(r'<pre>(.*?)</pre>', response.text, re.DOTALL | re.IGNORECASE)
+            if match:
+                raw_text = match.group(1)
+                
+                # Run it through the parser we built earlier!
+                return parse_iem_cow_text(raw_text)
+                
     except Exception as e:
-        st.sidebar.error(f"AWC Connection Error: {e}")
+        st.sidebar.error(f"IEM Cow Fetch Error: {e}")
         
     return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
@@ -184,7 +194,7 @@ if st.sidebar.button("Run Verification"):
 
     with st.status("Fetching Data...", expanded=True) as status:
         
-        # --- Step A: Get Forecast (Check Uploader First) ---
+       # --- Step A: Get Forecast (Check Uploader First) ---
         if uploaded_file is not None:
             st.write("Processing manually uploaded file...")
             if uploaded_file.name.endswith('.txt'):
@@ -195,15 +205,13 @@ if st.sidebar.button("Run Verification"):
                 gdf_forecast = gpd.read_file(uploaded_file)
                 st.success("GeoJSON loaded successfully!")
         else:
-            st.write("Downloading AWC TCF Forecast...")
-            gdf_forecast = fetch_tcf_geojson(target_date, issuance_hour, lead_time)
+            st.write("Automatically pulling forecast from IEM Cow Archives...")
+            # Use the new IEM Cow automator!
+            gdf_forecast = fetch_iem_cow_tcf(target_date, issuance_hour, lead_time)
+            
             if gdf_forecast.empty:
-                st.error("AWC API Failed. Please upload a .txt or .geojson file in the sidebar.")
+                st.error("IEM Cow data missing for this time. Please upload a file manually.")
                 st.stop()
-
-        # --- NEW FORECAST CLEANUP BLOCK ---
-        if not gdf_forecast.empty:
-            st.write("Filtering out background noise and cleaning geometries...")
             
             # 1. Strip out the hidden ARTCC background map!
             # Real TCF shapes usually have a 'Coverage' column. ARTCCs don't.
