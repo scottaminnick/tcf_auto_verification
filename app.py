@@ -166,20 +166,27 @@ if st.sidebar.button("Run Verification"):
         st.write("Downloading AWC TCF Forecast...")
         gdf_forecast = fetch_tcf_geojson(target_date, issuance_hour, lead_time)
         
-        # If AWC fails or blocks us, trigger the manual fallback!
+        # --- NEW FALLBACK UPLOADER BLOCK ---
         if gdf_forecast.empty:
             st.warning("AWC API blocked the request or data missing. Awaiting manual upload.")
             
-            # This creates the drag-and-drop box on the left sidebar
-            uploaded_file = st.sidebar.file_uploader("Fallback: Upload TCF GeoJSON", type=['geojson'])
+            # Accepts both geojson AND txt files!
+            uploaded_file = st.sidebar.file_uploader("Fallback: Upload TCF (.geojson or .txt)", type=['geojson', 'txt'])
             
             if uploaded_file is not None:
-                # Read the file directly from the user's browser upload
-                gdf_forecast = gpd.read_file(uploaded_file)
-                st.sidebar.success("Manual file loaded successfully!")
+                # Check which type of file the forecaster uploaded
+                if uploaded_file.name.endswith('.txt'):
+                    # Read it as raw text and run it through our new translator
+                    raw_text = uploaded_file.getvalue().decode("utf-8")
+                    gdf_forecast = parse_iem_cow_text(raw_text)
+                    st.sidebar.success("IEM Cow Text File translated and loaded!")
+                else:
+                    # It's a standard geojson, load it normally
+                    gdf_forecast = gpd.read_file(uploaded_file)
+                    st.sidebar.success("GeoJSON loaded successfully!")
             else:
-                # Stop the app from running any further until a file is uploaded
                 st.stop()
+        # --- END NEW BLOCK ---
 
         # --- Step B: Rolling Composite ---
         time_offsets = list(range(-15, 16, 5))
