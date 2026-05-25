@@ -1,4 +1,3 @@
-import json
 import io
 import re
 import streamlit as st
@@ -26,59 +25,46 @@ from scipy.ndimage import uniform_filter, binary_dilation
 st.set_page_config(page_title="TCF Verification Dashboard", layout="wide", page_icon="✈️")
 st.title("Objective TCF Verification Dashboard")
 
-# UPGRADE: cache_resource is much safer for large map files than cache_data
-@st.cache_resource
+@st.cache_data
 def load_geography():
     """Loads States and ARTCC boundaries once and keeps them in memory"""
     states = gpd.GeoDataFrame(geometry=[])
     artccs = gpd.GeoDataFrame(geometry=[])
     
     try:
-        # Load States from the public internet (this works fine)
         url = "https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json"
         response = requests.get(url, timeout=10)
-        states_data = response.json()
-        states = gpd.GeoDataFrame.from_features(states_data["features"], crs="EPSG:4326")
+        states = gpd.read_file(io.BytesIO(response.content))
     except Exception as e:
-        st.sidebar.error(f"State boundaries error: {e}")
+        st.sidebar.warning(f"Could not load State boundaries: {e}")
         
     try:
-        # THE FIX: Read the local file using pure Python, bypassing Fiona entirely!
-        import json
-        with open("artcc1.geojson", "r", encoding="utf-8") as f:
-            artcc_data = json.load(f)
-            
-        # Draw the shapes directly from the text dictionary
-        artccs = gpd.GeoDataFrame.from_features(artcc_data["features"], crs="EPSG:4326")
-        
+        artccs = gpd.read_file("artcc1.geojson").to_crs("EPSG:4326")
     except Exception as e:
-        st.sidebar.error(f"❌ ARTCC Parsing Error: {e}")
+        st.sidebar.warning(f"Could not load ARTCC boundaries: {e}")
         
     return states, artccs
 
-# Run the function!
 gdf_states, gdf_artcc = load_geography()
 
 # --- 2. HELPER FUNCTIONS ---
 def parse_iem_cow_text(text_data):
-    """Parses legacy NWS/AWIPS AREA text into a GeoDataFrame"""
+    """Parses legacy NWS/AWIPS AREA text into a GeoDataFrame using Regex to fix line-wraps"""
     polygons = []
     
-    # 1. Strip ALL HTML tags completely so we just have raw text and numbers
+    # Strip ALL HTML tags completely so we just have raw text and numbers
     text_data = re.sub(r'<[^>]+>', ' ', text_data)
     
-    # 2. THE FIX: Find "AREA" and capture ALL numbers/spaces after it, ignoring line breaks!
+    # Find "AREA" and capture ALL numbers/spaces after it, ignoring line breaks
     area_blocks = re.findall(r'AREA\s+([\d\s]+)', text_data)
     
     for block in area_blocks:
         parts = block.split()
         try:
-            # Since "AREA" is removed by the regex above, the number of points is now at index 6
             num_points = int(parts[6])
             coords = []
             idx = 7
             
-            # Loop through the coordinates
             for _ in range(num_points):
                 if idx + 1 < len(parts):
                     lat = float(parts[idx]) / 10.0
@@ -87,13 +73,10 @@ def parse_iem_cow_text(text_data):
                     coords.append((lon, lat))
                     idx += 2
             
-            # Build the shapes
             if len(coords) >= 3:
-                # convex_hull fixes any overlapping lines drawn by the forecaster
                 poly = Polygon(coords).convex_hull
                 polygons.append(poly)
             elif len(coords) == 2:
-                # If it's a 2-point Solid Line, buffer it by ~10 miles (0.15 deg) to give it area
                 poly = LineString(coords).buffer(0.15)
                 polygons.append(poly)
                 
@@ -105,30 +88,25 @@ def parse_iem_cow_text(text_data):
     else:
         return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
-
 def fetch_iem_cow_tcf(date_obj, issue_hr, f_hr):
-    """Automatically scrapes the TCF text from IEM Cow archives using the direct URL"""
+    """Automatically scrapes the TCF text from IEM Cow archives"""
     date_str = date_obj.strftime("%Y%m%d")
     issue_str = f"{issue_hr:02d}"
     
-    # Map the Lead Time to the correct AWIPS PIL
     if f_hr == 4: pil = "CFP01"
     elif f_hr == 6: pil = "CFP02"
     elif f_hr == 8: pil = "CFP03"
     else: pil = "CFP01"
     
-    # Back to the exact endpoint you found that works!
     url = f"https://mesonet.agron.iastate.edu/wx/afos/p.php?pil={pil}&e={date_str}{issue_str}00"
     
     try:
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
-            # IEM Cow returns a 200 OK even if the product is missing, but adds this text:
             if "Could not find product" in response.text:
                 st.sidebar.error(f"IEM Cow: Data missing for {issue_str}:00Z")
                 return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
                 
-            # Feed the raw webpage directly into our new smart parser
             return parse_iem_cow_text(response.text)
     except Exception as e:
         st.sidebar.error(f"IEM Cow Fetch Error: {e}")
@@ -141,14 +119,10 @@ def get_artccs(poly, artcc_gdf):
     intersecting = artcc_gdf[artcc_gdf.intersects(poly)]
     if intersecting.empty: return "UNKNOWN"
     
-    # Bulletproof column check!
     if 'IDENT' in intersecting.columns:
         centers = intersecting['IDENT'].dropna().unique().tolist()
-    elif 'name' in intersecting.columns: # Fallback if states load by accident
-        centers = intersecting['name'].dropna().unique().tolist()
     else:
         centers = ["UNKNOWN_COL"]
-        
     return "/".join(centers)
 
 def download_mrms_scan(product, dt_obj, dest_dir="mrms_data"):
@@ -185,7 +159,7 @@ def download_mrms_scan(product, dt_obj, dest_dir="mrms_data"):
 
 # --- 3. SIDEBAR CONTROLS ---
 st.sidebar.header("Event Selection")
-target_date = st.sidebar.date_input("Select Event Date", datetime(2026, 5, 23))
+target_date = st.sidebar.date_input("Select Event Date", datetime(2026, 5, 24))
 issuance_hour = st.sidebar.selectbox("Issuance Time (Z)", [5, 7, 9, 11, 13, 15, 17, 19, 21, 23], index=7)
 lead_time = st.sidebar.radio("Forecast Hour", [4, 6, 8])
 
@@ -198,61 +172,26 @@ else:
 
 st.sidebar.markdown(f"**Valid Time (VT):** {valid_dt.strftime('%b %d, %H:00Z')}")
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("Manual Data Override")
-# Placed permanently in the sidebar so Streamlit doesn't reset when a file is dropped!
-uploaded_file = st.sidebar.file_uploader("Upload TCF (.geojson or .txt)", type=['geojson', 'txt'])
-
 # --- 4. MAIN EXECUTION ---
 if st.sidebar.button("Run Verification"):
 
     with st.status("Fetching Data...", expanded=True) as status:
+        # AUTOMATIC FETCH VIA IEM COW
+        st.write("Pulling Forecast from IEM Cow Archives...")
+        gdf_forecast = fetch_iem_cow_tcf(target_date, issuance_hour, lead_time)
         
-       # --- Step A: Get Forecast (Check Uploader First) ---
-        if uploaded_file is not None:
-            st.write("Processing manually uploaded file...")
-            if uploaded_file.name.endswith('.txt'):
-                raw_text = uploaded_file.getvalue().decode("utf-8")
-                gdf_forecast = parse_iem_cow_text(raw_text)
-                st.success("IEM Cow Text File translated and loaded!")
+        if gdf_forecast.empty:
+            st.warning("IEM Cow failed or data missing. Awaiting manual upload.")
+            uploaded_file = st.sidebar.file_uploader("Fallback: Upload TCF (.txt or .geojson)", type=['geojson', 'txt'])
+            if uploaded_file is not None:
+                if uploaded_file.name.endswith('.txt'):
+                    raw_text = uploaded_file.getvalue().decode("utf-8")
+                    gdf_forecast = parse_iem_cow_text(raw_text)
+                    st.sidebar.success("Text File loaded!")
+                else:
+                    gdf_forecast = gpd.read_file(uploaded_file)
             else:
-                gdf_forecast = gpd.read_file(uploaded_file)
-                st.success("GeoJSON loaded successfully!")
-        else:
-            st.write("Automatically pulling forecast from IEM Cow Archives...")
-            # Use the new IEM Cow automator!
-            gdf_forecast = fetch_iem_cow_tcf(target_date, issuance_hour, lead_time)
-            
-            if gdf_forecast.empty:
-                st.error("IEM Cow data missing for this time. Please upload a file manually.")
                 st.stop()
-            
-            # 1. Strip out the hidden ARTCC background map!
-            # Real TCF shapes usually have a 'Coverage' column. ARTCCs don't.
-            cov_col = next((col for col in gdf_forecast.columns if 'coverage' in col.lower()), None)
-            if cov_col:
-                gdf_forecast = gdf_forecast[gdf_forecast[cov_col].notna()]
-                
-            # If the file explicitly tags the FAA centers with 'IDENT', delete them!
-            ident_col = next((col for col in gdf_forecast.columns if 'ident' in col.lower()), None)
-            if ident_col:
-                gdf_forecast = gdf_forecast[gdf_forecast[ident_col].isna()]
-                
-            # 2. Fix Forecaster Bow-ties and Solid Lines
-            def clean_geom(geom):
-                if geom is None or geom.is_empty: 
-                    return geom
-                # If the TCF is a Solid Line, buffer it by ~10 miles (0.15 deg) to give it area!
-                if geom.geom_type in ['LineString', 'MultiLineString']:
-                    return geom.buffer(0.15)
-                # If it's a polygon, buffer(0) automatically fixes overlapping "bow-ties"
-                return geom.buffer(0)
-                
-            gdf_forecast['geometry'] = gdf_forecast['geometry'].apply(clean_geom)
-            
-            # Drop any shapes that disappeared during cleanup
-            gdf_forecast = gdf_forecast[~gdf_forecast.is_empty]
-        # --- END CLEANUP BLOCK ---
 
         # --- Step B: Rolling Composite ---
         time_offsets = list(range(-15, 16, 5))
