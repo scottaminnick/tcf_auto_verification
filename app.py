@@ -20,10 +20,6 @@ from skimage import measure
 import gc
 from scipy.ndimage import uniform_filter, binary_dilation
 
-# --- 1. PAGE CONFIG & CACHED LOADERS ---
-st.set_page_config(page_title="TCF Verification Dashboard", layout="wide", page_icon="✈️")
-st.title("Objective TCF Verification Dashboard")
-
 # UPGRADE: cache_resource is much safer for large map files than cache_data
 @st.cache_resource
 def load_geography():
@@ -34,7 +30,10 @@ def load_geography():
     try:
         url = "https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json"
         response = requests.get(url, timeout=10)
-        states = gpd.read_file(io.BytesIO(response.content))
+        
+        # BYPASS FIONA: Read as raw JSON dictionary, then build the map!
+        states_data = response.json()
+        states = gpd.GeoDataFrame.from_features(states_data["features"], crs="EPSG:4326")
     except Exception as e:
         st.sidebar.error(f"State boundaries error: {e}")
         
@@ -43,26 +42,14 @@ def load_geography():
         artcc_url = "https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json"
         response_artcc = requests.get(artcc_url, timeout=10)
         
-        # THE FIX: Write it to a temporary physical file on the server
-        with open("temp_artcc.geojson", "wb") as f:
-            f.write(response_artcc.content)
-            
-        # Read the physical file (bypasses the /vsimem/ memory bug!)
-        artccs = gpd.read_file("temp_artcc.geojson")
+        # BYPASS FIONA: Do the exact same thing for the ARTCCs!
+        artcc_data = response_artcc.json()
+        artccs = gpd.GeoDataFrame.from_features(artcc_data["features"], crs="EPSG:4326")
         
-        if artccs.crs is None:
-            artccs.set_crs("EPSG:4326", inplace=True)
-        else:
-            try:
-                artccs = artccs.to_crs("EPSG:4326")
-            except:
-                pass
     except Exception as e:
         st.sidebar.error(f"❌ ARTCC Parsing Error: {e}")
         
     return states, artccs
-
-gdf_states, gdf_artcc = load_geography()
 
 # --- 2. HELPER FUNCTIONS ---
 def parse_iem_cow_text(text_data):
