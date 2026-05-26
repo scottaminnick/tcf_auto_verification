@@ -25,116 +25,134 @@ from scipy.ndimage import uniform_filter, binary_dilation
 st.set_page_config(page_title="TCF Verification Dashboard", layout="wide", page_icon="✈️")
 st.title("Objective TCF Verification Dashboard")
 
-# UPGRADE: cache_resource is much safer for large map files than cache_data
+# cache_resource keeps the big map files in memory across reruns (much safer than cache_data here)
 @st.cache_resource
 def load_geography():
-    """Loads States and ARTCC boundaries once and keeps them in memory"""
+    """Loads States and ARTCC boundaries once and keeps them in memory."""
     states = gpd.GeoDataFrame(geometry=[])
     artccs = gpd.GeoDataFrame(geometry=[])
-    
+
     try:
-        # Load States from the public internet bypassing Fiona
+        # Load States from the public internet, bypassing Fiona
         url = "https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json"
         response = requests.get(url, timeout=10)
         states_data = response.json()
         states = gpd.GeoDataFrame.from_features(states_data["features"], crs="EPSG:4326")
     except Exception as e:
         st.sidebar.error(f"State boundaries error: {e}")
-        
+
     try:
-        # THE FIX: Read the local file using pure Python, bypassing Fiona entirely!
+        # Read the local ARTCC file using pure Python, bypassing Fiona entirely
         import json
         with open("artcc1.geojson", "r", encoding="utf-8") as f:
             artcc_data = json.load(f)
-            
-        # Draw the shapes directly from the text dictionary
         artccs = gpd.GeoDataFrame.from_features(artcc_data["features"], crs="EPSG:4326")
-        
     except Exception as e:
         st.sidebar.error(f"❌ ARTCC Parsing Error: {e}")
-        
+
     return states, artccs
 
-# Run the function!
+# Load geography once. These stay available on every rerun, so the render
+# functions below can reference them as globals (no need to stash in session_state).
 gdf_states, gdf_artcc = load_geography()
+
 
 # --- 2. HELPER FUNCTIONS ---
 def parse_iem_cow_text(text_data):
-    """Parses legacy NWS/AWIPS AREA text into a GeoDataFrame using Regex to fix line-wraps"""
+    """Parses legacy NWS/AWIPS AREA text into a GeoDataFrame, fixing line-wraps with regex."""
     polygons = []
-    
-    # Strip ALL HTML tags completely so we just have raw text and numbers
+
+    # Strip ALL HTML tags so we just have raw text and numbers
     text_data = re.sub(r'<[^>]+>', ' ', text_data)
-    
+
     # Find "AREA" and capture ALL numbers/spaces after it, ignoring line breaks
     area_blocks = re.findall(r'AREA\s+([\d\s]+)', text_data)
-    
+
     for block in area_blocks:
         parts = block.split()
         try:
             num_points = int(parts[6])
             coords = []
             idx = 7
-            
+
             for _ in range(num_points):
                 if idx + 1 < len(parts):
                     lat = float(parts[idx]) / 10.0
-                    lon = float(parts[idx+1]) / 10.0
-                    if lon > 0: lon = -lon
+                    lon = float(parts[idx + 1]) / 10.0
+                    if lon > 0:
+                        lon = -lon
                     coords.append((lon, lat))
                     idx += 2
-            
+
             if len(coords) >= 3:
-                poly = Polygon(coords).convex_hull
-                polygons.append(poly)
+                # CHANGED: .buffer(0) instead of .convex_hull.
+                # buffer(0) repairs self-intersecting ("bowtie") polygons WITHOUT
+                # filling in concave dents. convex_hull was inflating the forecast
+                # area, which shrank the coverage fraction and under-graded good
+                # forecasts (and hid real misses). This matches the notebook.
+                poly = Polygon(coords).buffer(0)
+                if not poly.is_empty:
+                    polygons.append(poly)
             elif len(coords) == 2:
                 poly = LineString(coords).buffer(0.15)
                 polygons.append(poly)
-                
+
         except Exception:
-            continue 
-            
+            continue
+
     if polygons:
         return gpd.GeoDataFrame(geometry=polygons, crs="EPSG:4326")
     else:
         return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
+
 def fetch_iem_cow_tcf(date_obj, issue_hr, f_hr):
-    """Automatically scrapes the TCF text from IEM Cow archives"""
+    """Automatically scrapes the TCF text from IEM archives."""
     date_str = date_obj.strftime("%Y%m%d")
     issue_str = f"{issue_hr:02d}"
-    
-    if f_hr == 4: pil = "CFP02"
-    elif f_hr == 6: pil = "CFP03"
-    elif f_hr == 8: pil = "CFP04"
-    else: pil = "CFP02"
-    
+
+    # CHANGED: TCF products are valid at 4/6/8 hrs after issuance. Verified from the
+    # product header (CCFP issued_1300 valid_1700 == 4hr lead == PIL "CFP02"). The old
+    # mapping was shifted one slot low and pulled the wrong valid time.
+    if f_hr == 4:
+        pil = "CFP02"
+    elif f_hr == 6:
+        pil = "CFP03"
+    elif f_hr == 8:
+        pil = "CFP04"
+    else:
+        pil = "CFP02"
+
     url = f"https://mesonet.agron.iastate.edu/wx/afos/p.php?pil={pil}&e={date_str}{issue_str}00"
-    
+
     try:
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
             if "Could not find product" in response.text:
-                st.sidebar.error(f"IEM Cow: Data missing for {issue_str}:00Z")
+                st.sidebar.error(f"IEM: Data missing for {issue_str}:00Z ({pil})")
                 return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
-                
+
             return parse_iem_cow_text(response.text)
     except Exception as e:
-        st.sidebar.error(f"IEM Cow Fetch Error: {e}")
-        
+        st.sidebar.error(f"IEM Fetch Error: {e}")
+
     return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
+
 def get_artccs(poly, artcc_gdf):
-    """Finds which ARTCCs a polygon intersects"""
-    if artcc_gdf.empty: return "UNKNOWN"
+    """Finds which ARTCCs a polygon intersects."""
+    if artcc_gdf.empty:
+        return "UNKNOWN"
     intersecting = artcc_gdf[artcc_gdf.intersects(poly)]
-    if intersecting.empty: return "UNKNOWN"
-    
+    if intersecting.empty:
+        return "UNKNOWN"
+
     if 'IDENT' in intersecting.columns:
         centers = intersecting['IDENT'].dropna().unique().tolist()
     else:
         centers = ["UNKNOWN_COL"]
     return "/".join(centers)
+
 
 def download_mrms_scan(product, dt_obj, dest_dir="mrms_data"):
     os.makedirs(dest_dir, exist_ok=True)
@@ -142,23 +160,25 @@ def download_mrms_scan(product, dt_obj, dest_dir="mrms_data"):
     bucket_name = 'noaa-mrms-pds'
     prefix = f"CONUS/{product}_00.50/{date_str}/"
     s3 = boto3.client('s3', config=botocore.client.Config(signature_version=botocore.UNSIGNED))
-    
+
     try:
         response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
-        if 'Contents' not in response: return None
-            
+        if 'Contents' not in response:
+            return None
+
         target_time_str = f"{date_str}-{dt_obj.strftime('%H%M')}"
         best_key = None
         for obj in response['Contents']:
             if target_time_str in obj['Key'] and obj['Key'].endswith('.grib2.gz'):
                 best_key = obj['Key']
                 break
-                
-        if not best_key: return None
+
+        if not best_key:
+            return None
 
         local_gz = os.path.join(dest_dir, best_key.split('/')[-1])
         local_grib = local_gz.replace('.gz', '')
-        
+
         if not os.path.exists(local_grib):
             s3.download_file(bucket_name, best_key, local_gz)
             with gzip.open(local_gz, 'rb') as f_in, open(local_grib, 'wb') as f_out:
@@ -168,7 +188,165 @@ def download_mrms_scan(product, dt_obj, dest_dir="mrms_data"):
     except Exception:
         return None
 
-# --- 3. SIDEBAR CONTROLS ---
+
+def extract_tcf_polygons(coverage_mask, lons, lats, min_area_m2=0):
+    """Turns a binary coverage mask into dissolved 'truth' polygons."""
+    contours = measure.find_contours(coverage_mask, 0.5)
+    polygons = []
+    for contour in contours:
+        if len(contour) > 10:
+            poly = Polygon(zip([lons[int(p[1])] for p in contour],
+                               [lats[int(p[0])] for p in contour]))
+            if poly.is_valid:
+                polygons.append(poly.simplify(0.05))
+    gdf = gpd.GeoDataFrame(geometry=polygons, crs="EPSG:4326")
+    if gdf.is_empty.all():
+        return gdf
+
+    gdf_m = gdf.to_crs("EPSG:5070")
+    if min_area_m2 > 0:
+        valid_area = gdf_m.geometry.area >= min_area_m2
+        gdf = gdf[valid_area]
+    if not gdf.is_empty.all():
+        # CHANGED: .union_all() (modern GeoPandas API) replaces the deprecated
+        # .unary_union, matching the notebook.
+        gdf = gpd.GeoDataFrame(geometry=[gdf.union_all()], crs="EPSG:4326")
+    return gdf
+
+
+# --- 3. RENDER FUNCTIONS ---------------------------------------------------
+# These read already-computed results out of session_state and draw a figure.
+# They run on EVERY rerun (e.g. when the view radio is toggled), which is why
+# the heavy computation must NOT live here.
+
+def _base_map(ax, lons, lats, top_verif_matrix):
+    """Shared background: radar echo-top matrix + state + ARTCC borders."""
+    cmap_heights = ListedColormap(['#000000', '#00FFFF', '#FFFF00', '#FF8000', '#FF0000'])
+    ax.pcolormesh(lons, lats, top_verif_matrix, cmap=cmap_heights, vmin=0, vmax=4, shading='auto')
+    if not gdf_states.empty:
+        gdf_states.plot(ax=ax, facecolor='none', edgecolor='#505050', linewidth=1, zorder=2)
+    if not gdf_artcc.empty:
+        gdf_artcc.plot(ax=ax, facecolor='none', edgecolor='yellow', linewidth=1.5, linestyle=':', zorder=3)
+    ax.set_xlim(-125, -65)
+    ax.set_ylim(24, 50)
+    ax.set_facecolor('black')
+    ax.tick_params(colors='white')
+    for spine in ax.spines.values():
+        spine.set_edgecolor('white')
+
+
+def render_scorecard(R):
+    """View 1: graded forecast polygons + misses, plus the FAA text report."""
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        st.subheader("Objective Verification Scorecard Map")
+        fig, ax = plt.subplots(figsize=(16, 10))
+        _base_map(ax, R['lons'], R['lats'], R['top_verif_matrix'])
+
+        gdf_graded_fcst = R['gdf_graded_fcst']
+        gdf_graded_miss = R['gdf_graded_miss']
+
+        if not gdf_graded_fcst.empty:
+            for _, row in gdf_graded_fcst.iterrows():
+                gpd.GeoSeries([row.geometry]).plot(ax=ax, facecolor='none', edgecolor=row.color, linewidth=3, zorder=5)
+                gpd.GeoSeries([row.geometry]).plot(ax=ax, facecolor='none', edgecolor='white', linewidth=1, linestyle='--', zorder=6)
+                centroid = row.geometry.centroid
+                ax.text(centroid.x, centroid.y, str(row.idx), color='white', fontsize=14, fontweight='bold',
+                        ha='center', va='center', zorder=10,
+                        bbox=dict(facecolor='black', alpha=0.6, edgecolor='none', boxstyle='round,pad=0.3'))
+
+        if not gdf_graded_miss.empty:
+            for _, row in gdf_graded_miss.iterrows():
+                gpd.GeoSeries([row.geometry]).plot(ax=ax, facecolor='red', edgecolor='red', alpha=0.4, linewidth=3, zorder=4)
+                centroid = row.geometry.centroid
+                ax.text(centroid.x, centroid.y, f"M{row.idx}", color='white', fontsize=12, fontweight='bold',
+                        ha='center', va='center', zorder=10,
+                        bbox=dict(facecolor='darkred', alpha=0.8, edgecolor='white', boxstyle='round,pad=0.2'))
+
+        ax.set_title(f"TCF Verification | VT: {R['valid_dt'].strftime('%H:00Z')} | 5-Min Rolling Swath",
+                     color='white', fontsize=18, pad=15)
+        fig.patch.set_facecolor('black')
+
+        legend_elements = [
+            Patch(facecolor='none', edgecolor='lime', linewidth=3, label='Verified Well (>=50%)'),
+            Patch(facecolor='none', edgecolor='yellow', linewidth=3, label='Verified Close (20-49%)'),
+            Patch(facecolor='none', edgecolor='orange', linewidth=3, label='Overforecasted (<20%)'),
+            Patch(facecolor='red', edgecolor='red', alpha=0.4, label='Missed'),
+            Line2D([0], [0], color='#505050', lw=1, label='State Borders'),
+            Line2D([0], [0], color='yellow', lw=1.5, linestyle=':', label='ARTCC Regions')
+        ]
+        plt.legend(handles=legend_elements, facecolor='black', labelcolor='white', loc='lower right')
+        st.pyplot(fig)
+        plt.close(fig)
+
+    with col2:
+        st.subheader("FAA Google Doc Report")
+        st.code(R['report_text'], language="text")
+
+
+def render_reanalysis(R):
+    """View 2: the objective 'truth' — what the TCF should have been (sparse reanalysis)."""
+    st.subheader("Objective TCF Reanalysis (Ground Truth)")
+    st.caption("30-min rolling composite, 25% coverage rule. Cyan dashed = objective sparse areas.")
+
+    fig, ax = plt.subplots(figsize=(16, 10))
+    _base_map(ax, R['lons'], R['lats'], R['top_verif_matrix'])
+
+    gdf_sparse = R['gdf_sparse']
+    if not gdf_sparse.is_empty.all():
+        gdf_sparse.plot(ax=ax, facecolor='none', edgecolor='cyan', linewidth=3, linestyle='--', zorder=5)
+
+    ax.set_title(f"Objective TCF Reanalysis (Truth) | VT: {R['valid_dt'].strftime('%H:00Z')}",
+                 color='white', fontsize=18, pad=15)
+    fig.patch.set_facecolor('black')
+
+    legend_elements = [
+        Patch(facecolor='none', edgecolor='cyan', linewidth=3, linestyle='--', label='Sparse Reanalysis (25%+ Coverage)'),
+        Line2D([0], [0], color='#505050', lw=1, label='State Borders'),
+        Line2D([0], [0], color='yellow', lw=1.5, linestyle=':', label='ARTCC Regions')
+    ]
+    plt.legend(handles=legend_elements, facecolor='black', labelcolor='white', loc='lower right')
+    st.pyplot(fig)
+    plt.close(fig)
+
+
+def build_report(gdf_graded_fcst, gdf_graded_miss, valid_dt, issuance_hour, lead_time):
+    """Assembles the copy-paste FAA/NWS text report."""
+    doc_report = {"Verified Well:": [], "Verified Close:": [], "Over-forecast:": [], "Missed:": []}
+
+    if not gdf_graded_fcst.empty:
+        for _, row in gdf_graded_fcst.iterrows():
+            artccs = get_artccs(row.geometry, gdf_artcc)
+            top_str = f" [Top: {row.top:.1f} kft]" if row.top > 0 else ""
+            line_text = f"{artccs} - Sparse (Area {row.idx}){top_str}"
+            if row.category == "Verified Well":
+                doc_report["Verified Well:"].append(line_text)
+            elif row.category == "Verified Close":
+                doc_report["Verified Close:"].append(line_text)
+            elif row.category == "Overforecasted":
+                doc_report["Over-forecast:"].append(line_text)
+
+    if not gdf_graded_miss.empty:
+        for _, row in gdf_graded_miss.iterrows():
+            artccs = get_artccs(row.geometry, gdf_artcc)
+            doc_report["Missed:"].append(f"{artccs} - Missed (Area M{row.idx})")
+
+    report_text = f"National System Review\nNWS TCF Review\n{valid_dt.strftime('%A, %B %d, %Y')}\n"
+    report_text += f"  {valid_dt.strftime('%b %d, %Y')}   IT: {issuance_hour:02d}Z   VT: {valid_dt.strftime('%H')}Z   FCST HR: {lead_time:02d}\n"
+    report_text += "https://www.aviationweather.gov/tcf/help\nCollaboration: AWC, ZAB, ZAU, ZDC, ZDV, ZFW, ZHU, ZID, ZJX, ZKC, ZLC, ZMA, ZME, ZMP, ZOB, ZSE, ZTL\n\n"
+
+    for cat, items in doc_report.items():
+        report_text += f"{cat}\n"
+        if not items:
+            report_text += "None\n"
+        for item in items:
+            report_text += f"{item}\n"
+        report_text += "\n"
+    return report_text
+
+
+# --- 4. SIDEBAR CONTROLS ---
 st.sidebar.header("Event Selection")
 target_date = st.sidebar.date_input("Select Event Date", datetime(2026, 5, 24))
 issuance_hour = st.sidebar.selectbox("Issuance Time (Z)", [5, 7, 9, 11, 13, 15, 17, 19, 21, 23], index=7)
@@ -183,57 +361,49 @@ else:
 
 st.sidebar.markdown(f"**Valid Time (VT):** {valid_dt.strftime('%b %d, %H:00Z')}")
 
-# --- 4. MAIN EXECUTION ---
+
+# --- 5. MAIN EXECUTION (compute once, then stash in session_state) ---
 if st.sidebar.button("Run Verification"):
 
     with st.status("Fetching Data...", expanded=True) as status:
-        # AUTOMATIC FETCH VIA IEM COW
-        st.write("Pulling Forecast from IEM Cow Archives...")
+        # AUTOMATIC FETCH VIA IEM
+        st.write("Pulling Forecast from IEM Archives...")
         gdf_forecast = fetch_iem_cow_tcf(target_date, issuance_hour, lead_time)
-        
-        if gdf_forecast.empty:
-            st.warning("IEM Cow failed or data missing. Awaiting manual upload.")
-            uploaded_file = st.sidebar.file_uploader("Fallback: Upload TCF (.txt or .geojson)", type=['geojson', 'txt'])
-            if uploaded_file is not None:
-                if uploaded_file.name.endswith('.txt'):
-                    raw_text = uploaded_file.getvalue().decode("utf-8")
-                    gdf_forecast = parse_iem_cow_text(raw_text)
-                    st.sidebar.success("Text File loaded!")
-                else:
-                    gdf_forecast = gpd.read_file(uploaded_file)
-            else:
-                st.stop()
 
-        # --- Step B: Rolling Composite ---
+        if gdf_forecast.empty:
+            st.warning("IEM failed or data missing for this issuance/lead time.")
+            st.stop()
+
+        # --- Rolling Composite ---
         time_offsets = list(range(-15, 16, 5))
         max_tops, max_refl = None, None
         lons, lats = None, None
-        step = 5 
-        
+        step = 5
+
         for offset in time_offsets:
             scan_dt = valid_dt + timedelta(minutes=offset)
             st.write(f"Pulling MRMS for {scan_dt.strftime('%H:%MZ')}...")
             tops_file = download_mrms_scan("EchoTop_18", scan_dt)
             refl_file = download_mrms_scan("MergedReflectivityQCComposite", scan_dt)
-            
+
             if tops_file and refl_file:
                 ds_t = xr.open_dataset(tops_file, engine='cfgrib', backend_kwargs={'indexpath': ''})
                 ds_r = xr.open_dataset(refl_file, engine='cfgrib', backend_kwargs={'indexpath': ''})
-                
+
                 curr_tops = ds_t.unknown[::step, ::step].values * 3.28084
                 curr_refl = ds_r.unknown[::step, ::step].values
-                
+
                 if lons is None:
                     lons = ds_t.longitude[::step].values
                     lons = np.where(lons > 180, lons - 360, lons)
                     lats = ds_t.latitude[::step].values
-                    
+
                 if max_tops is None:
                     max_tops, max_refl = curr_tops, curr_refl
                 else:
                     max_tops = np.maximum(max_tops, curr_tops)
                     max_refl = np.maximum(max_refl, curr_refl)
-                    
+
                 ds_t.close()
                 ds_r.close()
                 del ds_t, ds_r, curr_tops, curr_refl
@@ -242,155 +412,103 @@ if st.sidebar.button("Run Verification"):
         st.write("Building Objective Truth Polygons...")
         if os.path.exists("mrms_data"):
             shutil.rmtree("mrms_data")
-            
+
         status.update(label="Data processing complete!", state="complete", expanded=False)
 
-    # --- Step C: Verification Math ---
+    # --- Verification Math ---
     with st.spinner("Calculating Spatial Overlap & Echo Tops..."):
         valid_convection = (max_refl >= 40)
         top_verif_matrix = np.zeros_like(max_tops, dtype=int)
-        top_verif_matrix[valid_convection & (max_tops >= 25) & (max_tops < 30)] = 1  
-        top_verif_matrix[valid_convection & (max_tops >= 30) & (max_tops < 35)] = 2  
-        top_verif_matrix[valid_convection & (max_tops >= 35) & (max_tops < 40)] = 3  
-        top_verif_matrix[valid_convection & (max_tops >= 40)] = 4  
+        top_verif_matrix[valid_convection & (max_tops >= 25) & (max_tops < 30)] = 1
+        top_verif_matrix[valid_convection & (max_tops >= 30) & (max_tops < 35)] = 2
+        top_verif_matrix[valid_convection & (max_tops >= 35) & (max_tops < 40)] = 3
+        top_verif_matrix[valid_convection & (max_tops >= 40)] = 4
 
         raw_cores = ((max_refl >= 40) & (max_tops >= 25))
         buffered_cores = binary_dilation(raw_cores, iterations=1)
         coverage_fraction = uniform_filter(buffered_cores.astype(float), size=20)
 
-        def extract_tcf_polygons(coverage_mask, min_area_m2=0):
-            contours = measure.find_contours(coverage_mask, 0.5)
-            polygons = []
-            for contour in contours:
-                if len(contour) > 10: 
-                    poly = Polygon(zip([lons[int(p[1])] for p in contour], [lats[int(p[0])] for p in contour]))
-                    if poly.is_valid: polygons.append(poly.simplify(0.05))
-            gdf = gpd.GeoDataFrame(geometry=polygons, crs="EPSG:4326")
-            if gdf.is_empty.all(): return gdf
-            
-            gdf_m = gdf.to_crs("EPSG:5070")
-            if min_area_m2 > 0:
-                valid_area = gdf_m.geometry.area >= min_area_m2
-                gdf = gdf[valid_area]
-            if not gdf.is_empty.all():
-                gdf = gpd.GeoDataFrame(geometry=[gdf.unary_union], crs="EPSG:4326")
-            return gdf
-
-        gdf_sparse = extract_tcf_polygons((coverage_fraction >= 0.25).astype(int), min_area_m2=10_000_000_000)
+        # CHANGED: 15_000_000_000 (15,000 km^2) truth-area filter to match the notebook
+        # (was 10_000_000_000). Larger filter = same set of 'truth' blobs the notebook grades against.
+        gdf_sparse = extract_tcf_polygons((coverage_fraction >= 0.25).astype(int), lons, lats,
+                                          min_area_m2=15_000_000_000)
         del coverage_fraction, raw_cores, buffered_cores
         gc.collect()
 
-        truth_union = gdf_sparse.unary_union if not gdf_sparse.is_empty.all() else Polygon()
-        fcst_union = gdf_forecast.unary_union if not gdf_forecast.is_empty.all() else Polygon()
+        # CHANGED: .union_all() instead of deprecated .unary_union (two places)
+        truth_union = gdf_sparse.union_all() if not gdf_sparse.is_empty.all() else Polygon()
+        fcst_union = gdf_forecast.union_all() if not gdf_forecast.is_empty.all() else Polygon()
 
         graded_forecasts, graded_misses = [], []
-        
-        for idx, row in (gdf_forecast.explode(index_parts=False).reset_index(drop=True) if not gdf_forecast.is_empty.all() else gpd.GeoDataFrame(geometry=[])).iterrows():
+
+        fcst_iter = (gdf_forecast.explode(index_parts=False).reset_index(drop=True)
+                     if not gdf_forecast.is_empty.all() else gpd.GeoDataFrame(geometry=[]))
+        for idx, row in fcst_iter.iterrows():
             poly = row.geometry
-            if poly.is_empty: continue
-            
+            if poly.is_empty:
+                continue
+
             fcst_area = poly.area
             hit_area = poly.intersection(truth_union).area
             coverage = hit_area / fcst_area if fcst_area > 0 else 0
-            
+
             min_lon, min_lat, max_lon, max_lat = poly.bounds
             lat_mask, lon_mask = (lats >= min_lat) & (lats <= max_lat), (lons >= min_lon) & (lons <= max_lon)
             subset_tops, subset_refl = max_tops[lat_mask][:, lon_mask], max_refl[lat_mask][:, lon_mask]
             lon_grid, lat_grid = np.meshgrid(lons[lon_mask], lats[lat_mask])
-            
-            in_poly_mask = Path(np.array(poly.exterior.coords)).contains_points(np.vstack((lon_grid.flatten(), lat_grid.flatten())).T).reshape(lon_grid.shape)
-            valid_tops = subset_tops[in_poly_mask & (subset_refl >= 40) & (subset_tops >= 25)]
-            
-            actual_top_kft = np.percentile(valid_tops, 90) if len(valid_tops) > 5 else 0
-            
-            cat, color = ("Verified Well", 'lime') if coverage >= 0.50 else ("Verified Close", 'yellow') if coverage >= 0.20 else ("Overforecasted", 'orange')
-            graded_forecasts.append({'geometry': poly, 'category': cat, 'color': color, 'idx': idx+1, 'top': actual_top_kft})
 
-        for idx, row in (gdf_sparse.explode(index_parts=False).reset_index(drop=True) if not gdf_sparse.is_empty.all() else gpd.GeoDataFrame(geometry=[])).iterrows():
+            in_poly_mask = Path(np.array(poly.exterior.coords)).contains_points(
+                np.vstack((lon_grid.flatten(), lat_grid.flatten())).T).reshape(lon_grid.shape)
+            valid_tops = subset_tops[in_poly_mask & (subset_refl >= 40) & (subset_tops >= 25)]
+
+            actual_top_kft = np.percentile(valid_tops, 90) if len(valid_tops) > 5 else 0
+
+            cat, color = ("Verified Well", 'lime') if coverage >= 0.50 else \
+                         ("Verified Close", 'yellow') if coverage >= 0.20 else \
+                         ("Overforecasted", 'orange')
+            graded_forecasts.append({'geometry': poly, 'category': cat, 'color': color,
+                                     'idx': idx + 1, 'top': actual_top_kft})
+
+        truth_iter = (gdf_sparse.explode(index_parts=False).reset_index(drop=True)
+                      if not gdf_sparse.is_empty.all() else gpd.GeoDataFrame(geometry=[]))
+        for idx, row in truth_iter.iterrows():
             poly = row.geometry
-            if poly.is_empty: continue
-            if (poly.intersection(fcst_union).area / poly.area if poly.area > 0 else 0) < 0.20:
-                graded_misses.append({'geometry': poly, 'category': 'Missed', 'color': 'red', 'idx': idx+1})
+            if poly.is_empty:
+                continue
+            captured = (poly.intersection(fcst_union).area / poly.area) if poly.area > 0 else 0
+            if captured < 0.20:
+                graded_misses.append({'geometry': poly, 'category': 'Missed', 'color': 'red', 'idx': idx + 1})
 
         gdf_graded_fcst = gpd.GeoDataFrame(graded_forecasts, crs="EPSG:4326") if graded_forecasts else gpd.GeoDataFrame(geometry=[])
         gdf_graded_miss = gpd.GeoDataFrame(graded_misses, crs="EPSG:4326") if graded_misses else gpd.GeoDataFrame(geometry=[])
 
-    # --- Step D: Visual Render ---
-    st.markdown("---")
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.subheader("Objective Verification Scorecard Map")
-        fig, ax = plt.subplots(figsize=(16, 10))
-        cmap_heights = ListedColormap(['#000000', '#00FFFF', '#FFFF00', '#FF8000', '#FF0000'])
-        ax.pcolormesh(lons, lats, top_verif_matrix, cmap=cmap_heights, vmin=0, vmax=4, shading='auto')
+        report_text = build_report(gdf_graded_fcst, gdf_graded_miss, valid_dt, issuance_hour, lead_time)
 
-        if not gdf_states.empty: gdf_states.plot(ax=ax, facecolor='none', edgecolor='#505050', linewidth=1, zorder=2)
-        if not gdf_artcc.empty: gdf_artcc.plot(ax=ax, facecolor='none', edgecolor='yellow', linewidth=1.5, linestyle=':', zorder=3)
-
-        if not gdf_graded_fcst.empty:
-            for _, row in gdf_graded_fcst.iterrows():
-                gpd.GeoSeries([row.geometry]).plot(ax=ax, facecolor='none', edgecolor=row.color, linewidth=3, zorder=5)
-                gpd.GeoSeries([row.geometry]).plot(ax=ax, facecolor='none', edgecolor='white', linewidth=1, linestyle='--', zorder=6)
-                centroid = row.geometry.centroid
-                ax.text(centroid.x, centroid.y, str(row.idx), color='white', fontsize=14, fontweight='bold', ha='center', va='center', zorder=10, bbox=dict(facecolor='black', alpha=0.6, edgecolor='none', boxstyle='round,pad=0.3'))
-
-        if not gdf_graded_miss.empty:
-            for _, row in gdf_graded_miss.iterrows():
-                gpd.GeoSeries([row.geometry]).plot(ax=ax, facecolor='red', edgecolor='red', alpha=0.4, linewidth=3, zorder=4)
-                centroid = row.geometry.centroid
-                ax.text(centroid.x, centroid.y, f"M{row.idx}", color='white', fontsize=12, fontweight='bold', ha='center', va='center', zorder=10, bbox=dict(facecolor='darkred', alpha=0.8, edgecolor='white', boxstyle='round,pad=0.2'))
-
-        ax.set_xlim(-125, -65)
-        ax.set_ylim(24, 50)
-        ax.set_title(f"TCF Verification | VT: {valid_dt.strftime('%H:00Z')} | 5-Min Rolling Swath", color='white', fontsize=18, pad=15)
-        ax.set_facecolor('black')
-        ax.tick_params(colors='white')
-        for spine in ax.spines.values(): spine.set_edgecolor('white')
-        fig.patch.set_facecolor('black')
-
-        legend_elements = [
-            Patch(facecolor='none', edgecolor='lime', linewidth=3, label='Verified Well (>=50%)'),
-            Patch(facecolor='none', edgecolor='yellow', linewidth=3, label='Verified Close (20-49%)'),
-            Patch(facecolor='none', edgecolor='orange', linewidth=3, label='Overforecasted (<20%)'),
-            Patch(facecolor='red', edgecolor='red', alpha=0.4, label='Missed'),
-            Line2D([0], [0], color='#505050', lw=1, label='State Borders'),
-            Line2D([0], [0], color='yellow', lw=1.5, linestyle=':', label='ARTCC Regions')
-        ]
-        plt.legend(handles=legend_elements, facecolor='black', labelcolor='white', loc='lower right')
-        
-        st.pyplot(fig)
-
-    with col2:
-        st.subheader("FAA Google Doc Report")
-        
-        doc_report = {"Verified Well:": [], "Verified Close:": [], "Over-forecast:": [], "Missed:": []}
-        
-        if not gdf_graded_fcst.empty:
-            for _, row in gdf_graded_fcst.iterrows():
-                artccs = get_artccs(row.geometry, gdf_artcc)
-                top_str = f" [Top: {row.top:.1f} kft]" if row.top > 0 else ""
-                line_text = f"{artccs} - Sparse (Area {row.idx}){top_str}"
-                if row.category == "Verified Well": doc_report["Verified Well:"].append(line_text)
-                elif row.category == "Verified Close": doc_report["Verified Close:"].append(line_text)
-                elif row.category == "Overforecasted": doc_report["Over-forecast:"].append(line_text)
-
-        if not gdf_graded_miss.empty:
-            for _, row in gdf_graded_miss.iterrows():
-                artccs = get_artccs(row.geometry, gdf_artcc)
-                doc_report["Missed:"].append(f"{artccs} - Missed (Area M{row.idx})")
-
-        report_text = f"National System Review\nNWS TCF Review\n{valid_dt.strftime('%A, %B %d, %Y')}\n"
-        report_text += f"  {valid_dt.strftime('%b %d, %Y')}   IT: {issuance_hour:02d}Z   VT: {valid_dt.strftime('%H')}Z   FCST HR: {lead_time:02d}\n"
-        report_text += "https://www.aviationweather.gov/tcf/help\nCollaboration: AWC, ZAB, ZAU, ZDC, ZDV, ZFW, ZHU, ZID, ZJX, ZKC, ZLC, ZMA, ZME, ZMP, ZOB, ZSE, ZTL\n\n"
-        
-        for cat, items in doc_report.items():
-            report_text += f"{cat}\n"
-            if not items: report_text += "None\n"
-            for item in items: report_text += f"{item}\n"
-            report_text += "\n"
-
-        st.code(report_text, language="text")
-        
-        del max_tops, max_refl, top_verif_matrix
+        # max_tops / max_refl no longer needed; keep top_verif_matrix for plotting
+        del max_tops, max_refl
         gc.collect()
+
+    # STASH everything the render functions need so it survives reruns (radio toggles).
+    st.session_state['results'] = {
+        'lons': lons, 'lats': lats,
+        'top_verif_matrix': top_verif_matrix,
+        'gdf_graded_fcst': gdf_graded_fcst,
+        'gdf_graded_miss': gdf_graded_miss,
+        'gdf_sparse': gdf_sparse,
+        'report_text': report_text,
+        'valid_dt': valid_dt,
+    }
+
+
+# --- 6. VIEW SWITCHER (runs every rerun; reads from session_state) ---
+if 'results' in st.session_state:
+    st.markdown("---")
+    view = st.radio("Select View", ["Verification Scorecard", "Reanalysis (Truth)"],
+                    horizontal=True)
+    R = st.session_state['results']
+    if view == "Verification Scorecard":
+        render_scorecard(R)
+    else:
+        render_reanalysis(R)
+else:
+    st.info("Set the event in the sidebar and click **Run Verification** to begin.")
