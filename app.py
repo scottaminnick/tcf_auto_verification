@@ -104,10 +104,10 @@ def fetch_iem_cow_tcf(date_obj, issue_hr, f_hr):
     date_str = date_obj.strftime("%Y%m%d")
     issue_str = f"{issue_hr:02d}"
     
-    if f_hr == 4: pil = "CFP01"
-    elif f_hr == 6: pil = "CFP02"
-    elif f_hr == 8: pil = "CFP03"
-    else: pil = "CFP01"
+    if f_hr == 4: pil = "CFP02"
+    elif f_hr == 6: pil = "CFP03"
+    elif f_hr == 8: pil = "CFP04"
+    else: pil = "CFP02"
     
     url = f"https://mesonet.agron.iastate.edu/wx/afos/p.php?pil={pil}&e={date_str}{issue_str}00"
     
