@@ -166,14 +166,26 @@ def download_mrms_scan(product, dt_obj, dest_dir="mrms_data"):
         if 'Contents' not in response:
             return None
 
-        target_time_str = f"{date_str}-{dt_obj.strftime('%H%M')}"
-        best_key = None
+        # CHANGED: pick the file NEAREST in time to dt_obj, not an exact HHMM match.
+        # MRMS scans are issued ~every 2 min at timestamps like ...20260524-231038
+        # (note the seconds), so requests on 5-min marks rarely have an exact match.
+        # The old exact-match returned None and silently dropped that scan from the
+        # rolling composite -- which is why only ~3 of 7 scans were being used.
+        best_key, best_diff = None, None
         for obj in response['Contents']:
-            if target_time_str in obj['Key'] and obj['Key'].endswith('.grib2.gz'):
-                best_key = obj['Key']
-                break
+            key = obj['Key']
+            if not key.endswith('.grib2.gz'):
+                continue
+            m = re.search(r'(\d{8})-(\d{6})', key.split('/')[-1])
+            if not m:
+                continue
+            file_dt = datetime.strptime(m.group(1) + m.group(2), '%Y%m%d%H%M%S')
+            diff = abs((file_dt - dt_obj).total_seconds())
+            if best_diff is None or diff < best_diff:
+                best_key, best_diff = key, diff
 
-        if not best_key:
+        # Reject if the closest file is more than 5 min away (a genuine archive gap).
+        if best_key is None or best_diff > 5 * 60:
             return None
 
         local_gz = os.path.join(dest_dir, best_key.split('/')[-1])
@@ -431,7 +443,7 @@ if st.sidebar.button("Run Verification"):
         # CHANGED: 15_000_000_000 (15,000 km^2) truth-area filter to match the notebook
         # (was 10_000_000_000). Larger filter = same set of 'truth' blobs the notebook grades against.
         gdf_sparse = extract_tcf_polygons((coverage_fraction >= 0.25).astype(int), lons, lats,
-                                          min_area_m2=10_000_000_000)
+                                          min_area_m2=15_000_000_000)
         del coverage_fraction, raw_cores, buffered_cores
         gc.collect()
 
