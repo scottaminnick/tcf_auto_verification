@@ -431,7 +431,7 @@ if st.sidebar.button("Run Verification"):
         # CHANGED: 15_000_000_000 (15,000 km^2) truth-area filter to match the notebook
         # (was 10_000_000_000). Larger filter = same set of 'truth' blobs the notebook grades against.
         gdf_sparse = extract_tcf_polygons((coverage_fraction >= 0.25).astype(int), lons, lats,
-                                          min_area_m2=15_000_000_000)
+                                          min_area_m2=10_000_000_000)
         del coverage_fraction, raw_cores, buffered_cores
         gc.collect()
 
