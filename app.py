@@ -10,11 +10,8 @@ import requests
 from datetime import datetime, timedelta, time
 import xarray as xr
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
-from matplotlib.path import Path
-from matplotlib.patches import Patch
-from matplotlib.lines import Line2D
+from matplotlib.path import Path  # still used for point-in-polygon in the echo-top calc
+import plotly.graph_objects as go
 import geopandas as gpd
 from shapely.geometry import Polygon, LineString
 from skimage import measure
@@ -231,66 +228,120 @@ def extract_tcf_polygons(coverage_mask, lons, lats, min_area_m2=0):
 # They run on EVERY rerun (e.g. when the view radio is toggled), which is why
 # the heavy computation must NOT live here.
 
-def _base_map(ax, lons, lats, top_verif_matrix):
-    """Shared background: radar echo-top matrix + state + ARTCC borders."""
-    cmap_heights = ListedColormap(['#000000', '#00FFFF', '#FFFF00', '#FF8000', '#FF0000'])
-    ax.pcolormesh(lons, lats, top_verif_matrix, cmap=cmap_heights, vmin=0, vmax=4, shading='auto')
-    if not gdf_states.empty:
-        gdf_states.plot(ax=ax, facecolor='none', edgecolor='#505050', linewidth=1, zorder=2)
-    if not gdf_artcc.empty:
-        gdf_artcc.plot(ax=ax, facecolor='none', edgecolor='yellow', linewidth=1.5, linestyle=':', zorder=3)
-    ax.set_xlim(-125, -65)
-    ax.set_ylim(24, 50)
-    ax.set_facecolor('black')
-    ax.tick_params(colors='white')
-    for spine in ax.spines.values():
-        spine.set_edgecolor('white')
+# Discrete echo-top color scale (z=0 is set to NaN before plotting, so it stays transparent).
+# Boundaries are normalized z/4: 1->cyan, 2->yellow, 3->orange, 4->red.
+ECHO_COLORSCALE = [
+    [0.0, '#000000'], [0.2, '#000000'],
+    [0.2, '#00FFFF'], [0.4, '#00FFFF'],
+    [0.4, '#FFFF00'], [0.6, '#FFFF00'],
+    [0.6, '#FF8000'], [0.8, '#FF8000'],
+    [0.8, '#FF0000'], [1.0, '#FF0000'],
+]
+
+
+def _geom_to_xy(geom):
+    """Flatten a shapely Polygon/MultiPolygon exterior(s) to x,y lists with None breaks
+    (None tells Plotly to lift the pen between separate rings)."""
+    xs, ys = [], []
+    if geom is None or geom.is_empty:
+        return xs, ys
+    polys = geom.geoms if geom.geom_type == 'MultiPolygon' else [geom]
+    for p in polys:
+        x, y = p.exterior.xy
+        xs.extend(list(x) + [None])
+        ys.extend(list(y) + [None])
+    return xs, ys
+
+
+def _gdf_to_xy(gdf):
+    """Flatten an entire GeoDataFrame of polygons into one set of x,y line coords."""
+    xs, ys = [], []
+    for geom in gdf.geometry:
+        gx, gy = _geom_to_xy(geom)
+        xs.extend(gx)
+        ys.extend(gy)
+    return xs, ys
+
+
+def _new_map_fig(R, title):
+    """Build the shared interactive base map: radar echo-top heatmap + state + ARTCC borders.
+    Everything is drawn from our own arrays/geometry -- no external map tiles, so this is
+    safe on a locked-down network."""
+    fig = go.Figure()
+
+    # Radar background. 0 (no convection) -> NaN so those cells render transparent.
+    z = np.where(R['top_verif_matrix'] == 0, np.nan, R['top_verif_matrix'].astype(float))
+    fig.add_trace(go.Heatmap(
+        x=R['lons'], y=R['lats'], z=z,
+        colorscale=ECHO_COLORSCALE, zmin=0, zmax=4,
+        showscale=False, hoverinfo='skip', name='Echo Tops'))
+
+    sx, sy = _gdf_to_xy(gdf_states)
+    if sx:
+        fig.add_trace(go.Scatter(x=sx, y=sy, mode='lines', name='State Borders',
+                                 line=dict(color='#777777', width=1), hoverinfo='skip'))
+
+    ax_, ay_ = _gdf_to_xy(gdf_artcc)
+    if ax_:
+        fig.add_trace(go.Scatter(x=ax_, y=ay_, mode='lines', name='ARTCC Regions',
+                                 line=dict(color='yellow', width=1.2, dash='dot'), hoverinfo='skip'))
+
+    # scaleratio ~1.25 corrects the lon/lat aspect near mid-CONUS (1/cos(37 deg)) so the
+    # map isn't horizontally stretched. Zoom/pan/box-zoom come for free from Plotly.
+    fig.update_layout(
+        title=dict(text=title, font=dict(color='white', size=18)),
+        template='plotly_dark', paper_bgcolor='black', plot_bgcolor='black',
+        xaxis=dict(range=[-125, -65], showgrid=False, zeroline=False, color='white'),
+        yaxis=dict(range=[24, 50], showgrid=False, zeroline=False, color='white',
+                   scaleanchor='x', scaleratio=1.25),
+        legend=dict(bgcolor='rgba(0,0,0,0.5)', font=dict(color='white'),
+                    x=0.99, y=0.01, xanchor='right', yanchor='bottom'),
+        margin=dict(l=10, r=10, t=50, b=10), height=650)
+    return fig
 
 
 def render_scorecard(R):
-    """View 1: graded forecast polygons + misses, plus the FAA text report."""
+    """View 1: graded forecast polygons + misses (interactive), plus the FAA text report."""
     col1, col2 = st.columns([2, 1])
 
     with col1:
         st.subheader("Objective Verification Scorecard Map")
-        fig, ax = plt.subplots(figsize=(16, 10))
-        _base_map(ax, R['lons'], R['lats'], R['top_verif_matrix'])
+        fig = _new_map_fig(R, f"TCF Verification | VT: {R['valid_dt'].strftime('%H:00Z')} | 5-Min Rolling Swath")
 
-        gdf_graded_fcst = R['gdf_graded_fcst']
-        gdf_graded_miss = R['gdf_graded_miss']
+        gf, gm = R['gdf_graded_fcst'], R['gdf_graded_miss']
+        label_x, label_y, label_txt = [], [], []
+        seen = set()  # only show each grade once in the legend
 
-        if not gdf_graded_fcst.empty:
-            for _, row in gdf_graded_fcst.iterrows():
-                gpd.GeoSeries([row.geometry]).plot(ax=ax, facecolor='none', edgecolor=row.color, linewidth=3, zorder=5)
-                gpd.GeoSeries([row.geometry]).plot(ax=ax, facecolor='none', edgecolor='white', linewidth=1, linestyle='--', zorder=6)
-                centroid = row.geometry.centroid
-                ax.text(centroid.x, centroid.y, str(row.idx), color='white', fontsize=14, fontweight='bold',
-                        ha='center', va='center', zorder=10,
-                        bbox=dict(facecolor='black', alpha=0.6, edgecolor='none', boxstyle='round,pad=0.3'))
+        if not gf.empty:
+            for _, row in gf.iterrows():
+                xs, ys = _geom_to_xy(row.geometry)
+                show = row.category not in seen
+                seen.add(row.category)
+                fig.add_trace(go.Scatter(
+                    x=xs, y=ys, mode='lines', line=dict(color=row.color, width=3),
+                    name=row.category, legendgroup=row.category, showlegend=show,
+                    hovertemplate=f"Area {row.idx} — {row.category}<br>Top: {row.top:.1f} kft<extra></extra>"))
+                c = row.geometry.centroid
+                label_x.append(c.x); label_y.append(c.y); label_txt.append(str(row.idx))
 
-        if not gdf_graded_miss.empty:
-            for _, row in gdf_graded_miss.iterrows():
-                gpd.GeoSeries([row.geometry]).plot(ax=ax, facecolor='red', edgecolor='red', alpha=0.4, linewidth=3, zorder=4)
-                centroid = row.geometry.centroid
-                ax.text(centroid.x, centroid.y, f"M{row.idx}", color='white', fontsize=12, fontweight='bold',
-                        ha='center', va='center', zorder=10,
-                        bbox=dict(facecolor='darkred', alpha=0.8, edgecolor='white', boxstyle='round,pad=0.2'))
+        if not gm.empty:
+            show = True
+            for _, row in gm.iterrows():
+                xs, ys = _geom_to_xy(row.geometry)
+                fig.add_trace(go.Scatter(
+                    x=xs, y=ys, mode='lines', fill='toself', fillcolor='rgba(255,0,0,0.35)',
+                    line=dict(color='red', width=2), name='Missed', legendgroup='Missed',
+                    showlegend=show, hovertemplate=f"Missed Area M{row.idx}<extra></extra>"))
+                show = False
+                c = row.geometry.centroid
+                label_x.append(c.x); label_y.append(c.y); label_txt.append(f"M{row.idx}")
 
-        ax.set_title(f"TCF Verification | VT: {R['valid_dt'].strftime('%H:00Z')} | 5-Min Rolling Swath",
-                     color='white', fontsize=18, pad=15)
-        fig.patch.set_facecolor('black')
+        if label_txt:
+            fig.add_trace(go.Scatter(x=label_x, y=label_y, mode='text', text=label_txt,
+                                     textfont=dict(color='white', size=13, family='Arial Black'),
+                                     hoverinfo='skip', showlegend=False))
 
-        legend_elements = [
-            Patch(facecolor='none', edgecolor='lime', linewidth=3, label='Verified Well (>=50%)'),
-            Patch(facecolor='none', edgecolor='yellow', linewidth=3, label='Verified Close (20-49%)'),
-            Patch(facecolor='none', edgecolor='orange', linewidth=3, label='Overforecasted (<20%)'),
-            Patch(facecolor='red', edgecolor='red', alpha=0.4, label='Missed'),
-            Line2D([0], [0], color='#505050', lw=1, label='State Borders'),
-            Line2D([0], [0], color='yellow', lw=1.5, linestyle=':', label='ARTCC Regions')
-        ]
-        plt.legend(handles=legend_elements, facecolor='black', labelcolor='white', loc='lower right')
-        st.pyplot(fig)
-        plt.close(fig)
+        st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
 
     with col2:
         st.subheader("FAA Google Doc Report")
@@ -298,29 +349,20 @@ def render_scorecard(R):
 
 
 def render_reanalysis(R):
-    """View 2: the objective 'truth' — what the TCF should have been (sparse reanalysis)."""
+    """View 2: the objective 'truth' -- what the TCF should have been (sparse reanalysis)."""
     st.subheader("Objective TCF Reanalysis (Ground Truth)")
     st.caption("30-min rolling composite, 25% coverage rule. Cyan dashed = objective sparse areas.")
 
-    fig, ax = plt.subplots(figsize=(16, 10))
-    _base_map(ax, R['lons'], R['lats'], R['top_verif_matrix'])
+    fig = _new_map_fig(R, f"Objective TCF Reanalysis (Truth) | VT: {R['valid_dt'].strftime('%H:00Z')}")
 
-    gdf_sparse = R['gdf_sparse']
-    if not gdf_sparse.is_empty.all():
-        gdf_sparse.plot(ax=ax, facecolor='none', edgecolor='cyan', linewidth=3, linestyle='--', zorder=5)
+    gs = R['gdf_sparse']
+    if not gs.is_empty.all():
+        xs, ys = _gdf_to_xy(gs)
+        fig.add_trace(go.Scatter(x=xs, y=ys, mode='lines', name='Sparse Reanalysis (25%+)',
+                                 line=dict(color='cyan', width=3, dash='dash'),
+                                 hovertemplate="Objective truth area<extra></extra>"))
 
-    ax.set_title(f"Objective TCF Reanalysis (Truth) | VT: {R['valid_dt'].strftime('%H:00Z')}",
-                 color='white', fontsize=18, pad=15)
-    fig.patch.set_facecolor('black')
-
-    legend_elements = [
-        Patch(facecolor='none', edgecolor='cyan', linewidth=3, linestyle='--', label='Sparse Reanalysis (25%+ Coverage)'),
-        Line2D([0], [0], color='#505050', lw=1, label='State Borders'),
-        Line2D([0], [0], color='yellow', lw=1.5, linestyle=':', label='ARTCC Regions')
-    ]
-    plt.legend(handles=legend_elements, facecolor='black', labelcolor='white', loc='lower right')
-    st.pyplot(fig)
-    plt.close(fig)
+    st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
 
 
 def build_report(gdf_graded_fcst, gdf_graded_miss, valid_dt, issuance_hour, lead_time):
@@ -490,6 +532,17 @@ if st.sidebar.button("Run Verification"):
             captured = (poly.intersection(fcst_union).area / poly.area) if poly.area > 0 else 0
             if captured < 0.20:
                 graded_misses.append({'geometry': poly, 'category': 'Missed', 'color': 'red', 'idx': idx + 1})
+
+        # ORDER EAST -> WEST: east = larger (least-negative) longitude, so sort centroid.x
+        # descending. Renumber after sorting so BOTH the map labels and the report read E->W.
+        # Report stays grouped by grade (build_report buckets by category); because we iterate
+        # this E->W-sorted list, each grade group ends up E->W internally.
+        graded_forecasts.sort(key=lambda r: r['geometry'].centroid.x, reverse=True)
+        for i, r in enumerate(graded_forecasts, start=1):
+            r['idx'] = i
+        graded_misses.sort(key=lambda r: r['geometry'].centroid.x, reverse=True)
+        for i, r in enumerate(graded_misses, start=1):
+            r['idx'] = i
 
         gdf_graded_fcst = gpd.GeoDataFrame(graded_forecasts, crs="EPSG:4326") if graded_forecasts else gpd.GeoDataFrame(geometry=[])
         gdf_graded_miss = gpd.GeoDataFrame(graded_misses, crs="EPSG:4326") if graded_misses else gpd.GeoDataFrame(geometry=[])
