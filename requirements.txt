@@ -1,12 +1,38 @@
-streamlit==1.32.0
-boto3==1.34.69
-xarray==2024.2.0
-cfgrib==0.9.12.0
-numpy==1.26.4
-matplotlib==3.8.3
-geopandas==0.14.3
-shapely==2.0.3
-scikit-image==0.22.0
-scipy==1.12.0
-rasterio==1.3.9
-requests==2.31.0
+# ============================================================
+# TCF Auto-Verification — pinned dependencies
+# Resolved as a mutually-compatible set (pip dry-run, May 2026).
+# Exact pins = identical builds on Railway every time. This is the
+# fix for the "works in Colab, breaks on Railway" drift.
+# Requires Python 3.11+ (numpy 2.4 / pandas 3.0). See runtime note below.
+# ============================================================
+
+# --- Web app framework ---
+streamlit==1.57.0
+
+# --- Scientific / array stack ---
+numpy==2.4.6
+scipy==1.17.1
+pandas==3.0.3
+matplotlib==3.10.9
+scikit-image==0.26.0
+
+# --- Geospatial ---
+geopandas==1.1.3          # >=0.14 needed for .union_all(); 1.1.3 well clear of that
+shapely==2.1.2            # 2.x needed for .union_all() / clean .buffer(0)
+pyproj==3.7.2             # used by .to_crs("EPSG:5070") for the area filter
+
+# --- GRIB / MRMS reading ---
+# cfgrib is the xarray engine; it needs the ecCodes C library.
+# ecmwflibs ships that library as a wheel, so Railway does NOT need
+# apt-get libeccodes0 — this is the key to a clean cloud build.
+xarray==2026.4.0
+cfgrib==0.9.15.1
+eccodes==2.47.0           # Python bindings
+ecmwflibs==0.7.0          # bundled ecCodes binaries (no system install needed)
+
+# --- AWS (MRMS pulled from the public noaa-mrms-pds S3 bucket) ---
+boto3==1.43.14
+botocore==1.43.14
+
+# --- HTTP (IEM TCF text fetch + state GeoJSON) ---
+requests==2.34.2
