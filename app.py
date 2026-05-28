@@ -56,10 +56,11 @@ gdf_states, gdf_artcc = load_geography()
 
 # --- 2. HELPER FUNCTIONS ---
 def _coverage_label(cov_val):
-    """Map a CCFP coverage integer (25/45/70) to its plain-English label."""
-    if cov_val >= 70:
+    """Map a TCF/CCFP coverage integer code to its plain-English label.
+    TCF 1-digit encoding: 1=Dense (75%+), 2=Medium (40-74%), 3=Sparse (25-39%)."""
+    if cov_val == 1:
         return "Dense"
-    elif cov_val >= 45:
+    elif cov_val == 2:
         return "Medium"
     return "Sparse"
 
@@ -71,18 +72,24 @@ def parse_iem_cow_text(text_data):
     # Strip ALL HTML tags so we just have raw text and numbers
     text_data = re.sub(r'<[^>]+>', ' ', text_data)
 
-    # Match both AREA (polygon) and LINE (linear convection) feature blocks.
-    # parts[0] = coverage code (25=Sparse, 45=Medium, 70=Dense)
-    # parts[6] = number of lat/lon coordinate pairs; coords start at parts[7]
+    # TCF/CCFP format:
+    #   AREA: COV(0) CONF(1) GRW(2) TOPS(3) SPEED(4) DIR(5) NPTS(6) lat1 lon1 ...
+    #   LINE: COV(0) NPTS(1) lat1 lon1 ...
+    # COV is a 1-digit integer: 1=Dense, 2=Medium, 3=Sparse
     feat_blocks = re.findall(r'(AREA|LINE)\s+([\d\s]+)', text_data)
 
     for feat_type, block in feat_blocks:
         parts = block.split()
         try:
             cov_val = int(parts[0])
-            num_points = int(parts[6])
+            if feat_type == 'LINE':
+                # LINE has no CONF/GRW/TOPS/SPEED/DIR fields
+                num_points = int(parts[1])
+                idx = 2
+            else:
+                num_points = int(parts[6])
+                idx = 7
             coords = []
-            idx = 7
 
             for _ in range(num_points):
                 if idx + 1 < len(parts):
@@ -500,11 +507,16 @@ if st.sidebar.button("Run Verification"):
         # (was 10_000_000_000). Larger filter = same set of 'truth' blobs the notebook grades against.
         gdf_sparse = extract_tcf_polygons((coverage_fraction >= 0.25).astype(int), lons, lats,
                                           min_area_m2=15_000_000_000)
+        # Medium (cov=2) and Dense (cov=1) forecasts must verify against 40%+ truth,
+        # matching the TCF Medium coverage threshold (40-74%).
+        gdf_medium_truth = extract_tcf_polygons((coverage_fraction >= 0.40).astype(int), lons, lats,
+                                                min_area_m2=15_000_000_000)
         del coverage_fraction, raw_cores, buffered_cores
         gc.collect()
 
         # CHANGED: .union_all() instead of deprecated .unary_union (two places)
-        truth_union = gdf_sparse.union_all() if not gdf_sparse.is_empty.all() else Polygon()
+        truth_sparse_union = gdf_sparse.union_all() if not gdf_sparse.is_empty.all() else Polygon()
+        truth_medium_union = gdf_medium_truth.union_all() if not gdf_medium_truth.is_empty.all() else Polygon()
         fcst_union = gdf_forecast.union_all() if not gdf_forecast.is_empty.all() else Polygon()
 
         graded_forecasts, graded_misses = [], []
@@ -515,6 +527,10 @@ if st.sidebar.button("Run Verification"):
             poly = row.geometry
             if poly.is_empty:
                 continue
+
+            row_cov = row['coverage'] if 'coverage' in fcst_iter.columns else 3
+            # Sparse (3) forecasts verify against 25%+ truth; Medium/Dense (1,2) against 40%+ truth.
+            truth_union = truth_sparse_union if row_cov == 3 else truth_medium_union
 
             fcst_area = poly.area
             hit_area = poly.intersection(truth_union).area
@@ -534,7 +550,6 @@ if st.sidebar.button("Run Verification"):
             cat, color = ("Verified Well", 'lime') if coverage >= 0.50 else \
                          ("Verified Close", 'yellow') if coverage >= 0.20 else \
                          ("Overforecasted", 'orange')
-            row_cov = row['coverage'] if 'coverage' in fcst_iter.columns else 25
             row_feat = row['feat_type'] if 'feat_type' in fcst_iter.columns else 'AREA'
             graded_forecasts.append({'geometry': poly, 'category': cat, 'color': color,
                                      'idx': idx + 1, 'top': actual_top_kft,
