@@ -55,19 +55,31 @@ gdf_states, gdf_artcc = load_geography()
 
 
 # --- 2. HELPER FUNCTIONS ---
+def _coverage_label(cov_val):
+    """Map a CCFP coverage integer (25/45/70) to its plain-English label."""
+    if cov_val >= 70:
+        return "Dense"
+    elif cov_val >= 45:
+        return "Medium"
+    return "Sparse"
+
+
 def parse_iem_cow_text(text_data):
-    """Parses legacy NWS/AWIPS AREA text into a GeoDataFrame, fixing line-wraps with regex."""
-    polygons = []
+    """Parses legacy NWS/AWIPS AREA/LINE text into a GeoDataFrame, fixing line-wraps with regex."""
+    records = []
 
     # Strip ALL HTML tags so we just have raw text and numbers
     text_data = re.sub(r'<[^>]+>', ' ', text_data)
 
-    # Find "AREA" and capture ALL numbers/spaces after it, ignoring line breaks
-    area_blocks = re.findall(r'AREA\s+([\d\s]+)', text_data)
+    # Match both AREA (polygon) and LINE (linear convection) feature blocks.
+    # parts[0] = coverage code (25=Sparse, 45=Medium, 70=Dense)
+    # parts[6] = number of lat/lon coordinate pairs; coords start at parts[7]
+    feat_blocks = re.findall(r'(AREA|LINE)\s+([\d\s]+)', text_data)
 
-    for block in area_blocks:
+    for feat_type, block in feat_blocks:
         parts = block.split()
         try:
+            cov_val = int(parts[0])
             num_points = int(parts[6])
             coords = []
             idx = 7
@@ -89,16 +101,16 @@ def parse_iem_cow_text(text_data):
                 # forecasts (and hid real misses). This matches the notebook.
                 poly = Polygon(coords).buffer(0)
                 if not poly.is_empty:
-                    polygons.append(poly)
-            elif len(coords) == 2:
+                    records.append({'geometry': poly, 'coverage': cov_val, 'feat_type': feat_type})
+            elif len(coords) >= 2:
                 poly = LineString(coords).buffer(0.15)
-                polygons.append(poly)
+                records.append({'geometry': poly, 'coverage': cov_val, 'feat_type': feat_type})
 
         except Exception:
             continue
 
-    if polygons:
-        return gpd.GeoDataFrame(geometry=polygons, crs="EPSG:4326")
+    if records:
+        return gpd.GeoDataFrame(records, crs="EPSG:4326")
     else:
         return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
@@ -373,7 +385,9 @@ def build_report(gdf_graded_fcst, gdf_graded_miss, valid_dt, issuance_hour, lead
         for _, row in gdf_graded_fcst.iterrows():
             artccs = get_artccs(row.geometry, gdf_artcc)
             top_str = f" [Top: {row.top:.1f} kft]" if row.top > 0 else ""
-            line_text = f"{artccs} - Sparse (Area {row.idx}){top_str}"
+            cov_label = _coverage_label(getattr(row, 'coverage', 25))
+            feat_label = "Line" if getattr(row, 'feat_type', 'AREA') == 'LINE' else "Area"
+            line_text = f"{artccs} - {cov_label} ({feat_label} {row.idx}){top_str}"
             if row.category == "Verified Well":
                 doc_report["Verified Well:"].append(line_text)
             elif row.category == "Verified Close":
@@ -520,8 +534,11 @@ if st.sidebar.button("Run Verification"):
             cat, color = ("Verified Well", 'lime') if coverage >= 0.50 else \
                          ("Verified Close", 'yellow') if coverage >= 0.20 else \
                          ("Overforecasted", 'orange')
+            row_cov = row['coverage'] if 'coverage' in fcst_iter.columns else 25
+            row_feat = row['feat_type'] if 'feat_type' in fcst_iter.columns else 'AREA'
             graded_forecasts.append({'geometry': poly, 'category': cat, 'color': color,
-                                     'idx': idx + 1, 'top': actual_top_kft})
+                                     'idx': idx + 1, 'top': actual_top_kft,
+                                     'coverage': row_cov, 'feat_type': row_feat})
 
         truth_iter = (gdf_sparse.explode(index_parts=False).reset_index(drop=True)
                       if not gdf_sparse.is_empty.all() else gpd.GeoDataFrame(geometry=[]))
