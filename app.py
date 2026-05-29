@@ -416,10 +416,6 @@ def build_report(gdf_graded_fcst, gdf_graded_miss, valid_dt, issuance_hour, lead
             artccs = get_artccs(row.geometry, gdf_artcc)
             doc_report["Missed:"].append(f"{artccs} - Missed (Area M{row.idx})")
 
-    report_text = f"National System Review\nNWS TCF Review\n{valid_dt.strftime('%A, %B %d, %Y')}\n"
-    report_text += f"  {valid_dt.strftime('%b %d, %Y')}   IT: {issuance_hour:02d}Z   VT: {valid_dt.strftime('%H')}Z   FCST HR: {lead_time:02d}\n"
-    report_text += "https://www.aviationweather.gov/tcf/help\nCollaboration: AWC, ZAB, ZAU, ZDC, ZDV, ZFW, ZHU, ZID, ZJX, ZKC, ZLC, ZMA, ZME, ZMP, ZOB, ZSE, ZTL\n\n"
-
     for cat, items in doc_report.items():
         report_text += f"{cat}\n"
         if not items:
