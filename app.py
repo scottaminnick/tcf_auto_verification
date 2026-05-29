@@ -394,6 +394,7 @@ def render_reanalysis(R):
 
 def build_report(gdf_graded_fcst, gdf_graded_miss, valid_dt, issuance_hour, lead_time):
     """Assembles the copy-paste FAA/NWS text report."""
+    report_text = ""
     doc_report = {"Verified Well:": [], "Verified Close:": [], "Over-forecast:": [], "Missed:": []}
 
     if not gdf_graded_fcst.empty:
@@ -583,7 +584,7 @@ if st.sidebar.button("Run Verification"):
         gdf_graded_fcst = gpd.GeoDataFrame(graded_forecasts, crs="EPSG:4326") if graded_forecasts else gpd.GeoDataFrame(geometry=[])
         gdf_graded_miss = gpd.GeoDataFrame(graded_misses, crs="EPSG:4326") if graded_misses else gpd.GeoDataFrame(geometry=[])
 
-        report_text = build_report(gdf_graded_fcst, gdf_graded_miss, valid_dt, issuance_hour, lead_time)
+        report_out = build_report(gdf_graded_fcst, gdf_graded_miss, valid_dt, issuance_hour, lead_time)
 
         # max_tops / max_refl no longer needed; keep top_verif_matrix for plotting
         del max_tops, max_refl
@@ -596,7 +597,7 @@ if st.sidebar.button("Run Verification"):
         'gdf_graded_fcst': gdf_graded_fcst,
         'gdf_graded_miss': gdf_graded_miss,
         'gdf_sparse': gdf_sparse,
-        'report_text': report_text,
+        'report_text': report_out,
         'valid_dt': valid_dt,
     }
 
