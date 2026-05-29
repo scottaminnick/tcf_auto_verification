@@ -1,3 +1,4 @@
+import html
 import io
 import re
 import streamlit as st
@@ -364,7 +365,14 @@ def render_scorecard(R):
 
     with col2:
         st.subheader("FAA Google Doc Report")
-        st.code(R['report_text'], language="text")
+        escaped = html.escape(R['report_text'])
+        st.markdown(
+            f'<div style="font-family: Calibri, sans-serif; font-size: 24px; '
+            f'background-color: white; color: black; padding: 12px; '
+            f'white-space: pre-wrap; overflow-x: auto; border-radius: 4px;">'
+            f'{escaped}</div>',
+            unsafe_allow_html=True
+        )
 
 
 def render_reanalysis(R):
