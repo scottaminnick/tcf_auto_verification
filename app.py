@@ -21,6 +21,21 @@ from scipy.ndimage import uniform_filter, binary_dilation
 
 # --- 1. PAGE CONFIG & CACHED LOADERS ---
 st.set_page_config(page_title="TCF Verification Dashboard", layout="wide", page_icon="✈️")
+
+# Password gate — set APP_PASSWORD in Railway environment variables.
+_APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
+if _APP_PASSWORD:
+    if not st.session_state.get("authenticated"):
+        st.title("TCF Verification Dashboard")
+        pwd = st.text_input("Password", type="password")
+        if st.button("Login"):
+            if pwd == _APP_PASSWORD:
+                st.session_state["authenticated"] = True
+                st.rerun()
+            else:
+                st.error("Incorrect password.")
+        st.stop()
+
 st.title("Objective TCF Verification Dashboard")
 
 # cache_resource keeps the big map files in memory across reruns (much safer than cache_data here)
@@ -415,6 +430,10 @@ def build_report(gdf_graded_fcst, gdf_graded_miss, valid_dt, issuance_hour, lead
         for _, row in gdf_graded_miss.iterrows():
             artccs = get_artccs(row.geometry, gdf_artcc)
             doc_report["Missed:"].append(f"{artccs} - Missed (Area M{row.idx})")
+
+    report_text = f"National System Review\nNWS TCF Review\n{valid_dt.strftime('%A, %B %d, %Y')}\n"
+    report_text += f"  {valid_dt.strftime('%b %d, %Y')}   IT: {issuance_hour:02d}Z   VT: {valid_dt.strftime('%H')}Z   FCST HR: {lead_time:02d}\n"
+    report_text += "https://www.aviationweather.gov/tcf/help\nCollaboration: AWC, ZAB, ZAU, ZDC, ZDV, ZFW, ZHU, ZID, ZJX, ZKC, ZLC, ZMA, ZME, ZMP, ZOB, ZSE, ZTL\n\n"
 
     for cat, items in doc_report.items():
         report_text += f"{cat}\n"
