@@ -375,33 +375,66 @@ def _():
     assert_in("pass A", out, "mode line mentions pass A")
 
 
-@scenario("(6) pass A differing by one invisible byte FAILS with a byte offset")
+@scenario("(6) pass A tolerates trailing whitespace at end-of-file on either side")
 def _():
     path = os.path.join(TMP, MAIN, "pass_a_report.txt")
-    # A single lost trailing newline -- the classic copy-paste-out-of-a-browser loss.
+    report = MAIN_EXPECTED["report_text"]
+    # End-of-file whitespace is an editor artifact (a final newline added or
+    # dropped on save), not a difference in the report.
+    for label, text in [
+        ("lost trailing newlines", report.rstrip("\n")),
+        ("stripped of all trailing whitespace", report.rstrip()),
+        ("extra trailing newlines", report + "\n\n\n"),
+        ("trailing spaces and tabs", report + "  \t \n"),
+    ]:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(text)
+        try:
+            rc, out = run_check(["--pipeline", PIPELINE, "--pass-a", MAIN])
+        finally:
+            os.remove(path)
+        assert rc == 0, f"pass A {label} should still pass, got {rc}:\n{out}"
+
+
+@scenario("(6) pass A stays byte-exact everywhere except end-of-file")
+def _():
+    path = os.path.join(TMP, MAIN, "pass_a_report.txt")
+    report = MAIN_EXPECTED["report_text"]
+    lines = report.split("\n")
+    mid = len(lines) // 2
+    # Each of these is an interior difference; the end-of-file trim must not
+    # reach any of them.
+    cases = {
+        "trailing space on a mid-report line":
+            "\n".join(lines[:mid] + [lines[mid] + " "] + lines[mid + 1:]),
+        "CRLF line endings": report.replace("\n", "\r\n"),
+        "an extra blank line between sections": report.replace("Missed:", "\nMissed:"),
+        "a changed character": report.replace("Missed:", "Missing:"),
+    }
+    for label, text in cases.items():
+        with open(path, "wb") as f:
+            f.write(text.encode("utf-8"))
+        try:
+            rc, out = run_check(["--pipeline", PIPELINE, "--pass-a", MAIN])
+        finally:
+            os.remove(path)
+        assert rc == 1, f"pass A with {label} must FAIL, got {rc}:\n{out}"
+        assert_in("pass_a: report_text differs", out, f"pass A diff ({label})")
+        assert_in("first difference at byte", out, f"byte offset reported ({label})")
+
+
+@scenario("(6) pass A truncated mid-report FAILS and says where it ran out")
+def _():
+    path = os.path.join(TMP, MAIN, "pass_a_report.txt")
+    report = MAIN_EXPECTED["report_text"]
     with open(path, "w", encoding="utf-8") as f:
-        f.write(MAIN_EXPECTED["report_text"].rstrip("\n"))
+        f.write(report[:len(report) // 2])
     try:
         rc, out = run_check(["--pipeline", PIPELINE, "--pass-a", MAIN])
     finally:
         os.remove(path)
-    assert rc == 1, f"a byte-level difference must FAIL, got {rc}:\n{out}"
-    assert_in("pass_a: report_text differs", out, "pass A diff")
-    assert_in("first difference at byte", out, "byte offset reported")
+    assert rc == 1, f"a truncated pass A report must FAIL, got {rc}:\n{out}"
     assert_in("<end of file>", out, "truncation described")
-
-
-@scenario("(6) pass A CRLF line endings FAIL rather than being normalised away")
-def _():
-    path = os.path.join(TMP, MAIN, "pass_a_report.txt")
-    with open(path, "wb") as f:
-        f.write(MAIN_EXPECTED["report_text"].replace("\n", "\r\n").encode("utf-8"))
-    try:
-        rc, out = run_check(["--pipeline", PIPELINE, "--pass-a", MAIN])
-    finally:
-        os.remove(path)
-    assert rc == 1, f"CRLF must not be normalised away, got {rc}:\n{out}"
-    assert_in("first difference at byte", out, "byte offset reported")
 
 
 @scenario("(6) missing pass_a_report.txt FAILS in pass A mode")

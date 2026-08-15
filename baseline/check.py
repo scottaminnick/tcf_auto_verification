@@ -361,14 +361,18 @@ def _first_byte_difference(exp_bytes, act_bytes):
 
 
 def diff_pass_a(event_dir, expected):
-    """Byte-for-byte diff of expected.json's report_text against pass_a_report.txt.
+    """Diff expected.json's report_text against pass_a_report.txt.
 
-    Deliberately unforgiving: no trailing-newline tolerance, no whitespace
-    normalisation, no line-ending fixups. The point of pass A is to prove the
-    headless pipeline reproduces what the live Streamlit app actually rendered,
-    and a report that differs by a stray CR or a lost trailing newline is not
-    the same report. Invisible differences get a byte offset so they are
-    findable.
+    Both sides are rstrip()ed first -- trailing whitespace at end-of-file is an
+    editor artifact (a final newline added or dropped on save), not a difference
+    in the report. Everything after that trim is byte-exact: no per-line
+    whitespace normalisation, no line-ending fixups, no case or unicode folding.
+    A stray CR inside the text, a doubled blank line between sections, or a
+    trailing space on a mid-report line all still fail.
+
+    The point of pass A is to prove the headless pipeline reproduces what the
+    live Streamlit app actually rendered, so invisible differences get a byte
+    offset (into the trimmed text) to make them findable.
     """
     out = []
     path = os.path.join(event_dir, PASS_A_FILENAME)
@@ -377,15 +381,21 @@ def diff_pass_a(event_dir, expected):
                 f"live app into {path}"]
 
     with open(path, "rb") as f:
-        pass_a = f.read()
-    report = expected.get("report_text", "").encode("utf-8")
+        raw_pass_a = f.read()
+    raw_report = expected.get("report_text", "").encode("utf-8")
+
+    # bytes.rstrip() with no argument strips trailing ASCII whitespace only at
+    # the end of the content -- interior whitespace is untouched.
+    pass_a = raw_pass_a.rstrip()
+    report = raw_report.rstrip()
 
     if pass_a == report:
         return out
 
     offset, exp_ch, act_ch = _first_byte_difference(report, pass_a)
     out.append(f"  pass_a: report_text differs from {PASS_A_FILENAME} "
-               f"(expected.json {len(report)} bytes, pass A {len(pass_a)} bytes)")
+               f"(expected.json {len(report)} bytes, pass A {len(pass_a)} bytes; "
+               f"trailing whitespace trimmed from both)")
     if offset is not None:
         line = report[:offset].count(b"\n") + 1
         col = offset - (report.rfind(b"\n", 0, offset) + 1) + 1
@@ -468,7 +478,8 @@ def main(argv=None):
                     help="require exact equality instead of one-unit-in-last-place tolerance")
     ap.add_argument("--pass-a", action="store_true",
                     help="also require expected.json's report_text to match "
-                         f"{PASS_A_FILENAME} byte for byte")
+                         f"{PASS_A_FILENAME} byte for byte, ignoring trailing "
+                         "whitespace at end-of-file")
     ap.add_argument("--pass-a-only", action="store_true",
                     help=f"only run the {PASS_A_FILENAME} comparison; skips the replay, "
                          "so --pipeline is not needed")
@@ -510,9 +521,9 @@ def main(argv=None):
         print("pipeline symbols resolved from:")
         print(pipe.describe())
         print(f"mode: {'strict (exact)' if args.strict else 'tolerant (one unit in last stored decimal)'}"
-              + (f" + pass A ({PASS_A_FILENAME}, byte-exact)" if args.pass_a else ""))
+              + (f" + pass A ({PASS_A_FILENAME}, byte-exact after end-of-file trim)" if args.pass_a else ""))
     else:
-        print(f"mode: pass A only ({PASS_A_FILENAME}, byte-exact); replay skipped")
+        print(f"mode: pass A only ({PASS_A_FILENAME}, byte-exact after end-of-file trim); replay skipped")
     print()
 
     failed, errored = [], []

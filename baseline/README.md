@@ -121,12 +121,16 @@ python baseline/check.py --pipeline tcf_core --pass-a   # replay + pass A
 python baseline/check.py --pass-a-only                  # pass A alone, no pipeline needed
 ```
 
-The comparison is byte-for-byte: no trailing-newline tolerance, no whitespace
-normalisation, no CRLF fixups. Copying out of a browser routinely loses a
-trailing newline or introduces CRLF, and a report that differs by an invisible
-byte is not the same report. Failures print the byte offset, line and column of
-the first difference alongside a unified diff, because otherwise an invisible
-difference is unfindable.
+The comparison trims trailing whitespace from the end of both sides first — a
+final newline added or dropped when a file is saved is an editor artifact, not a
+difference in the report. Everything after that trim is byte-for-byte: no
+per-line whitespace normalisation, no CRLF fixups, no case folding. A stray CR
+inside the text, a trailing space on a mid-report line, an extra blank line
+between sections, or a truncated paste all still fail.
+
+Failures print the byte offset, line and column of the first difference
+alongside a unified diff, because otherwise an invisible difference is
+unfindable.
 
 To record one: run the event in the live app, copy the FAA report panel verbatim
 into `baseline/<event_id>/pass_a_report.txt`, then run `--pass-a`.

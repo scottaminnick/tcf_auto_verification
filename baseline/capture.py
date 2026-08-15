@@ -26,7 +26,8 @@ One more file belongs in each event directory but is NOT written here:
                        generate it -- a machine-written copy would just be
                        expected.json's report_text under another name and would
                        prove nothing. `check.py --pass-a` requires it to match
-                       expected.json's report_text byte for byte.
+                       expected.json's report_text byte for byte, after trailing
+                       whitespace is trimmed from the end of both.
 
 Usage:
     python baseline/capture.py                 # capture every event in EVENTS
