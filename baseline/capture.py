@@ -30,8 +30,8 @@ One more file belongs in each event directory but is NOT written here:
                        whitespace is trimmed from the end of both.
 
 Usage:
-    python baseline/capture.py                 # capture every event in EVENTS
-    python baseline/capture.py 20260524_19z_f04  # capture just these event ids
+    python baseline/capture.py                   # capture every event in EVENTS
+    python baseline/capture.py 20260524_19Z_F04  # capture just these event ids
 
 Requires network access (IEM archives + the public noaa-mrms-pds S3 bucket).
 ``baseline/check.py`` replays what this writes and needs no network at all.

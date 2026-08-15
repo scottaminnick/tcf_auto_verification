@@ -465,7 +465,7 @@ def _():
             ("20260524_13Z_F04", date(2026, 5, 24), 13, 4),
             ("20260728_19Z_F04", date(2026, 7, 28), 19, 4),
             ("20260403_21Z_F04", date(2026, 4, 3), 21, 4),
-            ("20260324_05Z_F04", date(2026, 3, 24), 5, 4)]
+            ("20260324_13Z_F04", date(2026, 3, 24), 13, 4)]
     got = [(e["event_id"], e["date"], e["issuance_hour"], e["lead_time"]) for e in capture.EVENTS]
     assert got == want, f"EVENTS drifted:\n  want {want}\n  got  {got}"
 

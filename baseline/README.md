@@ -33,7 +33,7 @@ baseline/
 | `20260524_13Z_F04` | 2026-05-24 | 13Z | 4 | issuance plumbing |
 | `20260728_19Z_F04` | 2026-07-28 | 19Z | 4 | external anchor |
 | `20260403_21Z_F04` | 2026-04-03 | 21Z | 4 | LINE features + UTC day rollover |
-| `20260324_05Z_F04` | 2026-03-24 | 05Z | 4 | sparse/empty paths |
+| `20260324_13Z_F04` | 2026-03-24 | 13Z | 4 | sparse/empty paths |
 
 `20260403_21Z_F04` is valid at **01Z on 2026-04-04**. `compute_valid_dt()` rolls
 the date forward, and `download_mrms_scan()` builds its S3 prefix from the scan
