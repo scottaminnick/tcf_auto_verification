@@ -80,7 +80,7 @@ EVENTS = [
     # so this event's MRMS keys come from CONUS/<product>/20260404/, not 20260403.
     {"event_id": "20260403_21Z_F04", "date": date(2026, 4, 3), "issuance_hour": 21, "lead_time": 4,
      "note": "LINE features + UTC day rollover"},
-    {"event_id": "20260324_05Z_F04", "date": date(2026, 3, 24), "issuance_hour": 5, "lead_time": 4,
+    {"event_id": "20260324_13Z_F04", "date": date(2026, 3, 24), "issuance_hour": 13, "lead_time": 4,
      "note": "sparse/empty paths"},
 ]
 
