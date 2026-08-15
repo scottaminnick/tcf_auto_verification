@@ -14,9 +14,19 @@ INVENTORY comment block at the bottom of this file.
 
 For each event in EVENTS, writes ``baseline/<event_id>/``:
 
-    arrays.npz   max_tops, max_refl, lons, lats   (the rolling MRMS composite)
-    tcf_raw.txt  the raw IEM response text for the TCF product
+    arrays.npz    max_tops, max_refl, lons, lats   (the rolling MRMS composite)
+    tcf_raw.txt   the raw IEM response text for the TCF product
     expected.json the graded output (report text, per-polygon grades, counts)
+
+One more file belongs in each event directory but is NOT written here:
+
+    pass_a_report.txt  the report text hand-captured from the live Streamlit
+                       app for this event ("pass A"). It is copied out of the
+                       running dashboard by a human, so this script must never
+                       generate it -- a machine-written copy would just be
+                       expected.json's report_text under another name and would
+                       prove nothing. `check.py --pass-a` requires it to match
+                       expected.json's report_text byte for byte.
 
 Usage:
     python baseline/capture.py                 # capture every event in EVENTS
@@ -52,10 +62,25 @@ from skimage import measure
 #   date            -> st.sidebar.date_input("Select Event Date")
 #   issuance_hour   -> st.sidebar.selectbox("Issuance Time (Z)")  [5,7,...,23]
 #   lead_time       -> st.sidebar.radio("Forecast Hour")          [4, 6, 8]
+#
+# `note` is documentation only -- it records why each event is in the set, so a
+# later reader can tell which code path a given baseline is meant to pin down.
 EVENTS = [
-    {"event_id": "20260524_19z_f04", "date": date(2026, 5, 24), "issuance_hour": 19, "lead_time": 4},
-    {"event_id": "20260524_19z_f06", "date": date(2026, 5, 24), "issuance_hour": 19, "lead_time": 6},
-    {"event_id": "20260524_13z_f04", "date": date(2026, 5, 24), "issuance_hour": 13, "lead_time": 4},
+    {"event_id": "20260524_19Z_F04", "date": date(2026, 5, 24), "issuance_hour": 19, "lead_time": 4,
+     "note": "primary dev case"},
+    {"event_id": "20260524_19Z_F06", "date": date(2026, 5, 24), "issuance_hour": 19, "lead_time": 6,
+     "note": "lead plumbing (CFP03)"},
+    {"event_id": "20260524_13Z_F04", "date": date(2026, 5, 24), "issuance_hour": 13, "lead_time": 4,
+     "note": "issuance plumbing"},
+    {"event_id": "20260728_19Z_F04", "date": date(2026, 7, 28), "issuance_hour": 19, "lead_time": 4,
+     "note": "external anchor"},
+    # 21Z + 4 = 01Z the NEXT day. compute_valid_dt() rolls the date forward, and
+    # download_mrms_scan() builds its S3 prefix from dt_obj (= valid_dt + offset),
+    # so this event's MRMS keys come from CONUS/<product>/20260404/, not 20260403.
+    {"event_id": "20260403_21Z_F04", "date": date(2026, 4, 3), "issuance_hour": 21, "lead_time": 4,
+     "note": "LINE features + UTC day rollover"},
+    {"event_id": "20260324_05Z_F04", "date": date(2026, 3, 24), "issuance_hour": 5, "lead_time": 4,
+     "note": "sparse/empty paths"},
 ]
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -324,8 +349,6 @@ def build_composite(valid_dt):
     window could be read -- app.py has no such guard and would blow up later
     with a TypeError on None (see BUG 1 at the bottom of this file).
     """
-    import xarray as xr
-
     time_offsets = list(range(-15, 16, 5))
     max_tops, max_refl = None, None
     lons, lats = None, None
@@ -338,6 +361,11 @@ def build_composite(valid_dt):
         refl_file = download_mrms_scan("MergedReflectivityQCComposite", scan_dt)
 
         if tops_file and refl_file:
+            # Imported at the point of use, not at module scope: that keeps the
+            # composite loop exercisable (and this module importable) without the
+            # cfgrib/ecCodes stack installed.
+            import xarray as xr
+
             ds_t = xr.open_dataset(tops_file, engine='cfgrib', backend_kwargs={'indexpath': ''})
             ds_r = xr.open_dataset(refl_file, engine='cfgrib', backend_kwargs={'indexpath': ''})
 
@@ -491,6 +519,22 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
 COVERAGE_DP = 4   # decimal places for coverage_fraction and geometry bounds
 TOP_DP = 2        # decimal places for top_kft
 
+# A polygon whose coverage fraction lands this close to a grade cutoff can flip
+# category on pure float noise (a different BLAS, a geometry-library point
+# release). Marking those polygons lets check.py say "this category change is
+# expected fragility" instead of "the pipeline regressed".
+# KEEP IN SYNC with the identical block in check.py -- check.py deliberately does
+# not import from this module, so the two definitions must be maintained together.
+GRADE_CUTOFFS = (0.50, 0.20)
+BOUNDARY_WINDOW = 0.005
+
+
+def is_boundary(coverage_fraction):
+    """True if coverage_fraction sits within BOUNDARY_WINDOW of a grade cutoff."""
+    if coverage_fraction is None:
+        return False
+    return any(abs(float(coverage_fraction) - c) <= BOUNDARY_WINDOW for c in GRADE_CUTOFFS)
+
 
 def _round_bounds(geom):
     return [round(float(b), COVERAGE_DP) for b in geom.bounds]
@@ -500,16 +544,22 @@ def build_expected(event, valid_dt, results, gdf_artcc):
     """The expected.json payload: metadata + report + per-polygon grades."""
     polygons = []
     for r in results['graded_forecasts']:
-        polygons.append({
+        cov_frac = round(float(r['coverage_fraction']), COVERAGE_DP)
+        entry = {
             'idx': int(r['idx']),
             'category': r['category'],
             'coverage_code': int(r['coverage']),
             'feat_type': r['feat_type'],
-            'coverage_fraction': round(float(r['coverage_fraction']), COVERAGE_DP),
+            'coverage_fraction': cov_frac,
             'top_kft': round(float(r['top']), TOP_DP),
             'artccs': get_artccs(r['geometry'], gdf_artcc),
             'bounds': _round_bounds(r['geometry']),
-        })
+        }
+        # Emitted only when true, so a diff of two expected.json files stays quiet
+        # for the ordinary case.
+        if is_boundary(cov_frac):
+            entry['boundary'] = True
+        polygons.append(entry)
 
     misses = []
     for r in results['graded_misses']:
@@ -539,6 +589,7 @@ def build_expected(event, valid_dt, results, gdf_artcc):
             'verified_well': categories.get('Verified Well', 0),
             'verified_close': categories.get('Verified Close', 0),
             'overforecasted': categories.get('Overforecasted', 0),
+            'boundary': sum(1 for p in polygons if p.get('boundary')),
         },
     }
 
@@ -572,7 +623,11 @@ def capture_event(event, gdf_artcc):
         f.write('\n')
 
     _log(f"wrote {out_dir}: {expected['counts']['polygons']} polygons, "
-         f"{expected['counts']['misses']} misses")
+         f"{expected['counts']['misses']} misses, "
+         f"{expected['counts']['boundary']} near a grade cutoff")
+    if not os.path.exists(os.path.join(out_dir, 'pass_a_report.txt')):
+        _log(f"  NOTE: {event['event_id']}/pass_a_report.txt is missing -- paste the report "
+             f"text from the live app there, then run `check.py --pass-a`.")
     return expected
 
 

@@ -7,29 +7,34 @@ pipeline currently lives in, and compares the result field-by-field against
 ``expected.json``. On a mismatch it prints exactly which field of which polygon
 moved and by how much -- not just a pass/fail.
 
-The pipeline is resolved by name, one symbol at a time, over a list of candidate
-modules (see PIPELINE_CANDIDATES). Whichever module is found first wins, so as
-the refactor moves code out of app.py into a real module this script follows it
-without edits; ``baseline.capture`` is the last resort. Override with
-``--pipeline <module>`` or ``TCF_PIPELINE=<module>``.
+``--pipeline MODULE`` is REQUIRED and every symbol must resolve inside that one
+module. There is no candidate list and no fallback to ``baseline.capture`` --
+that fallback was actively harmful: mid-refactor, a symbol that had been moved
+or renamed would quietly resolve against the frozen transcription instead, and
+the run would pass by comparing capture.py to itself. A missing symbol is a hard
+error so that a half-moved pipeline fails loudly.
 
-Required pipeline symbols:
+Required pipeline symbols (all from the module named by --pipeline):
     compute_valid_dt(date, issuance_hour, lead_time) -> datetime
     parse_iem_cow_text(raw_text) -> GeoDataFrame
     run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
                      valid_dt, issuance_hour, lead_time, gdf_artcc) -> dict
-    load_artccs() -> GeoDataFrame          (falls back to baseline.capture)
-    get_artccs(poly, artcc_gdf) -> str     (falls back to baseline.capture)
+    load_artccs() -> GeoDataFrame
+    get_artccs(poly, artcc_gdf) -> str
 
 This script never touches the network -- outbound sockets are blocked at
 import time so an accidental IEM/S3 call fails loudly instead of silently
 re-fetching data. Use --allow-network only when debugging that guard.
 
 Usage:
-    python baseline/check.py                    # check every captured event
-    python baseline/check.py 20260524_19z_f04   # check specific event ids
-    python baseline/check.py --strict           # require exact equality
     python baseline/check.py --pipeline tcf_core
+    python baseline/check.py --pipeline tcf_core 20260524_19Z_F04
+    python baseline/check.py --pipeline tcf_core --strict
+    python baseline/check.py --pipeline tcf_core --pass-a   # also diff vs pass A
+    python baseline/check.py --pass-a-only                  # no pipeline needed
+
+    # Verifying the transcription itself, before any refactor exists:
+    python baseline/check.py --pipeline baseline.capture
 
 Exit status: 0 = all events match, 1 = at least one mismatch, 2 = error.
 """
@@ -48,18 +53,15 @@ import numpy as np
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BASELINE_DIR = os.path.join(REPO_ROOT, "baseline")
 
-# Searched in order; the first module exposing a given symbol provides it.
-# Speculative names come first so a future refactor is picked up automatically;
-# the frozen copy in baseline/capture.py is the fallback.
-PIPELINE_CANDIDATES = (
-    "tcf_pipeline",
-    "tcf_core",
-    "pipeline",
-    "core",
-    "verification",
-    "baseline.capture",
-    "capture",
+PIPELINE_SYMBOLS = (
+    "compute_valid_dt",
+    "parse_iem_cow_text",
+    "run_verification",
+    "load_artccs",
+    "get_artccs",
 )
+
+PASS_A_FILENAME = "pass_a_report.txt"
 
 # Rounding quanta from capture.py -- a difference of one unit in the last stored
 # decimal is rounding noise, anything larger is a real change. --strict compares
@@ -68,8 +70,15 @@ TOL = {"coverage_fraction": 1e-4, "top_kft": 1e-2, "bounds": 1e-4}
 
 
 # --- network guard ----------------------------------------------------------
+_NETWORK_BLOCKED = False
+
+
 def block_network():
     """Make any outbound TCP/UDP connection raise. Local/unix sockets still work."""
+    global _NETWORK_BLOCKED
+    if _NETWORK_BLOCKED:  # idempotent: repeated calls must not nest the wrappers
+        return
+    _NETWORK_BLOCKED = True
     real_connect = socket.socket.connect
     real_connect_ex = socket.socket.connect_ex
 
@@ -92,48 +101,73 @@ def block_network():
 
 # --- pipeline resolution ----------------------------------------------------
 class Pipeline:
-    """Resolves pipeline symbols across candidate modules and records where each came from."""
+    """Binds every required symbol to ONE named module. No search, no fallback.
 
-    def __init__(self, preferred=None):
-        candidates = list(PIPELINE_CANDIDATES)
-        if preferred:
-            candidates.insert(0, preferred)
+    Resolving symbol-by-symbol across a candidate list is what makes a
+    half-finished refactor look green: move `run_verification` out of a module
+    and the old copy in baseline/capture.py answers instead, so the harness ends
+    up checking the transcription against itself. Everything therefore comes
+    from --pipeline's module, and anything missing raises.
+    """
 
-        self._modules = []
-        self._errors = {}
-        for name in candidates:
-            try:
-                self._modules.append((name, importlib.import_module(name)))
-            except Exception as exc:  # not installed / not written yet / import error
-                self._errors[name] = f"{type(exc).__name__}: {exc}"
-        self.sources = {}
-
-    def get(self, symbol, required=True):
-        for name, mod in self._modules:
-            fn = getattr(mod, symbol, None)
-            if fn is not None:
-                self.sources[symbol] = name
-                return fn
-        if required:
-            tried = ", ".join(n for n, _ in self._modules) or "(no candidate module imported)"
-            detail = "".join(f"\n    {k}: {v}" for k, v in self._errors.items())
+    def __init__(self, module_name):
+        self.module_name = module_name
+        try:
+            self.module = importlib.import_module(module_name)
+        except Exception as exc:
             raise SystemExit(
-                f"ERROR: could not find `{symbol}` in any candidate module.\n"
-                f"  searched: {tried}\n"
-                f"  import failures:{detail or ' none'}\n"
-                f"  pass --pipeline <module> to point at the refactored pipeline."
+                f"ERROR: could not import pipeline module `{module_name}`: "
+                f"{type(exc).__name__}: {exc}\n"
+                f"  sys.path[0:2] = {sys.path[0:2]}"
             )
-        self.sources[symbol] = None
-        return None
+
+    def bind(self):
+        """Resolve all required symbols at once; report every missing one together."""
+        self.symbols = {}
+        missing = []
+        for symbol in PIPELINE_SYMBOLS:
+            fn = getattr(self.module, symbol, None)
+            if fn is None:
+                missing.append(symbol)
+            else:
+                self.symbols[symbol] = fn
+        if missing:
+            raise SystemExit(
+                f"ERROR: pipeline module `{self.module_name}` is missing "
+                f"{len(missing)} required symbol(s): {', '.join(missing)}\n"
+                f"  No fallback is attempted -- resolving these elsewhere would check the\n"
+                f"  pipeline against a stale copy of itself. Export them from\n"
+                f"  `{self.module_name}`, or point --pipeline at the module that has them."
+            )
+        return self
+
+    def get(self, symbol):
+        try:
+            return self.symbols[symbol]
+        except KeyError:
+            raise SystemExit(f"ERROR: `{symbol}` is not a declared pipeline symbol")
 
     def describe(self):
-        width = max(len(s) for s in self.sources)
-        return "\n".join(f"  {s.ljust(width)} <- {m}" for s, m in sorted(self.sources.items()))
+        width = max(len(s) for s in PIPELINE_SYMBOLS)
+        return "\n".join(f"  {s.ljust(width)} <- {self.module_name}" for s in PIPELINE_SYMBOLS)
 
 
 # --- payload rebuilding -----------------------------------------------------
 COVERAGE_DP = 4
 TOP_DP = 2
+
+# KEEP IN SYNC with the identical block in capture.py. This module deliberately
+# imports nothing from capture.py (see the Pipeline docstring), so the constants
+# are duplicated rather than shared; baseline/test_fixture.py asserts they agree.
+GRADE_CUTOFFS = (0.50, 0.20)
+BOUNDARY_WINDOW = 0.005
+
+
+def is_boundary(coverage_fraction):
+    """True if coverage_fraction sits within BOUNDARY_WINDOW of a grade cutoff."""
+    if coverage_fraction is None:
+        return False
+    return any(abs(float(coverage_fraction) - c) <= BOUNDARY_WINDOW for c in GRADE_CUTOFFS)
 
 
 def _round_bounds(geom):
@@ -159,16 +193,20 @@ def _num(value, dp):
 def build_actual(results, meta, get_artccs, gdf_artcc):
     polygons = []
     for r in _records(results, "graded_forecasts", "gdf_graded_fcst"):
-        polygons.append({
+        cov_frac = _num(r.get("coverage_fraction"), COVERAGE_DP)
+        entry = {
             "idx": int(r["idx"]),
             "category": r["category"],
             "coverage_code": int(r["coverage"]),
             "feat_type": r["feat_type"],
-            "coverage_fraction": _num(r.get("coverage_fraction"), COVERAGE_DP),
+            "coverage_fraction": cov_frac,
             "top_kft": _num(r.get("top"), TOP_DP),
             "artccs": get_artccs(r["geometry"], gdf_artcc),
             "bounds": _round_bounds(r["geometry"]),
-        })
+        }
+        if is_boundary(cov_frac):
+            entry["boundary"] = True
+        polygons.append(entry)
 
     misses = []
     for r in _records(results, "graded_misses", "gdf_graded_miss"):
@@ -198,6 +236,7 @@ def build_actual(results, meta, get_artccs, gdf_artcc):
             "verified_well": categories.get("Verified Well", 0),
             "verified_close": categories.get("Verified Close", 0),
             "overforecasted": categories.get("Overforecasted", 0),
+            "boundary": sum(1 for p in polygons if p.get("boundary")),
         },
     }
 
@@ -219,7 +258,15 @@ def _fmt(v):
 
 
 def diff_entry(label, exp, act, fields, strict, out):
-    """Per-field diff of one polygon/miss record."""
+    """Per-field diff of one polygon/miss record.
+
+    Every differing field is reported independently -- a grade-boundary flip
+    shows up as BOTH the coverage_fraction delta and the category change, never
+    one standing in for the other. If the polygon is flagged `boundary`, a note
+    is appended explaining that the category change is float noise on a cutoff
+    rather than a behavioural regression.
+    """
+    before = len(out)
     for field in fields:
         e, a = exp.get(field), act.get(field)
         if field == "bounds":
@@ -237,10 +284,20 @@ def diff_entry(label, exp, act, fields, strict, out):
             continue
 
         if not _close(field, e, a, strict):
-            if isinstance(e, (int, float)) and isinstance(a, (int, float)):
+            if isinstance(e, (int, float)) and not isinstance(e, bool) \
+                    and isinstance(a, (int, float)) and not isinstance(a, bool):
                 out.append(f"  {label}.{field}: expected {e}, got {a} (d={a - e:+.6f})")
             else:
                 out.append(f"  {label}.{field}: expected {_fmt(e)}, got {_fmt(a)}")
+
+    if len(out) == before:
+        return
+    if exp.get("category") != act.get("category") and (exp.get("boundary") or act.get("boundary")):
+        cutoff = min(GRADE_CUTOFFS,
+                     key=lambda c: abs((exp.get("coverage_fraction") or 0) - c))
+        out.append(f"    note: {label} sits within {BOUNDARY_WINDOW} of the {cutoff:.2f} "
+                   f"cutoff -- this category change is expected float sensitivity, "
+                   f"not necessarily a regression")
 
 
 def diff_list(kind, expected, actual, fields, strict, out):
@@ -275,7 +332,7 @@ def diff_expected(expected, actual, strict):
 
     diff_list("polygons", expected.get("polygons", []), actual.get("polygons", []),
               ("category", "coverage_code", "feat_type", "coverage_fraction",
-               "top_kft", "artccs", "idx", "bounds"), strict, out)
+               "top_kft", "artccs", "idx", "bounds", "boundary"), strict, out)
     diff_list("misses", expected.get("misses", []), actual.get("misses", []),
               ("idx", "artccs", "bounds"), strict, out)
 
@@ -289,11 +346,70 @@ def diff_expected(expected, actual, strict):
     return out
 
 
+# --- pass A (hand-captured report from the live app) ------------------------
+def _first_byte_difference(exp_bytes, act_bytes):
+    """Offset of the first differing byte, and a readable rendering of both sides."""
+    limit = min(len(exp_bytes), len(act_bytes))
+    for i in range(limit):
+        if exp_bytes[i] != act_bytes[i]:
+            return i, repr(exp_bytes[i:i + 1]), repr(act_bytes[i:i + 1])
+    if len(exp_bytes) == len(act_bytes):
+        return None, "", ""
+    if len(exp_bytes) > len(act_bytes):
+        return limit, repr(exp_bytes[limit:limit + 8]), "<end of file>"
+    return limit, "<end of file>", repr(act_bytes[limit:limit + 8])
+
+
+def diff_pass_a(event_dir, expected):
+    """Byte-for-byte diff of expected.json's report_text against pass_a_report.txt.
+
+    Deliberately unforgiving: no trailing-newline tolerance, no whitespace
+    normalisation, no line-ending fixups. The point of pass A is to prove the
+    headless pipeline reproduces what the live Streamlit app actually rendered,
+    and a report that differs by a stray CR or a lost trailing newline is not
+    the same report. Invisible differences get a byte offset so they are
+    findable.
+    """
+    out = []
+    path = os.path.join(event_dir, PASS_A_FILENAME)
+    if not os.path.exists(path):
+        return [f"  pass_a: {PASS_A_FILENAME} is missing -- paste the report text from the "
+                f"live app into {path}"]
+
+    with open(path, "rb") as f:
+        pass_a = f.read()
+    report = expected.get("report_text", "").encode("utf-8")
+
+    if pass_a == report:
+        return out
+
+    offset, exp_ch, act_ch = _first_byte_difference(report, pass_a)
+    out.append(f"  pass_a: report_text differs from {PASS_A_FILENAME} "
+               f"(expected.json {len(report)} bytes, pass A {len(pass_a)} bytes)")
+    if offset is not None:
+        line = report[:offset].count(b"\n") + 1
+        col = offset - (report.rfind(b"\n", 0, offset) + 1) + 1
+        out.append(f"    first difference at byte {offset} (line {line}, col {col}): "
+                   f"expected.json has {exp_ch}, pass A has {act_ch}")
+
+    for l in difflib.unified_diff(report.decode("utf-8", "replace").splitlines(),
+                                  pass_a.decode("utf-8", "replace").splitlines(),
+                                  fromfile="expected.json:report_text",
+                                  tofile=PASS_A_FILENAME, lineterm="", n=1):
+        out.append(f"    {l}")
+    return out
+
+
 # --- driver -----------------------------------------------------------------
-def check_event(event_dir, pipe, gdf_artcc, strict):
+def check_event(event_dir, pipe, gdf_artcc, strict, pass_a=False, replay=True):
+    """Diff one event. Returns (diff_lines, actual_payload_or_None)."""
     event_id = os.path.basename(event_dir)
     with open(os.path.join(event_dir, "expected.json"), "r", encoding="utf-8") as f:
         expected = json.load(f)
+
+    if not replay:
+        return diff_pass_a(event_dir, expected), None
+
     with open(os.path.join(event_dir, "tcf_raw.txt"), "r", encoding="utf-8") as f:
         raw_text = f.read()
 
@@ -320,7 +436,10 @@ def check_event(event_dir, pipe, gdf_artcc, strict):
         "lead_time": lead_time,
     }, pipe.get("get_artccs"), gdf_artcc)
 
-    return diff_expected(expected, actual, strict), actual
+    diffs = diff_expected(expected, actual, strict)
+    if pass_a:
+        diffs.extend(diff_pass_a(event_dir, expected))
+    return diffs, actual
 
 
 def discover_events(wanted):
@@ -343,14 +462,30 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("event_ids", nargs="*", help="event ids to check (default: all captured)")
     ap.add_argument("--pipeline", default=os.environ.get("TCF_PIPELINE"),
-                    help="module to import the pipeline from (tried before the defaults)")
+                    help="REQUIRED (unless --pass-a-only): module every pipeline symbol "
+                         "must come from. No search, no fallback.")
     ap.add_argument("--strict", action="store_true",
                     help="require exact equality instead of one-unit-in-last-place tolerance")
+    ap.add_argument("--pass-a", action="store_true",
+                    help="also require expected.json's report_text to match "
+                         f"{PASS_A_FILENAME} byte for byte")
+    ap.add_argument("--pass-a-only", action="store_true",
+                    help=f"only run the {PASS_A_FILENAME} comparison; skips the replay, "
+                         "so --pipeline is not needed")
     ap.add_argument("--allow-network", action="store_true",
                     help="do not install the outbound-socket guard (debugging only)")
     ap.add_argument("--dump-actual", metavar="DIR",
                     help="write each event's recomputed payload to DIR/<event_id>.json")
     args = ap.parse_args(argv)
+
+    replay = not args.pass_a_only
+    if replay and not args.pipeline:
+        ap.error("--pipeline MODULE is required.\n"
+                 "  Every pipeline symbol is resolved from that one module -- there is no\n"
+                 "  candidate list and no fallback to baseline.capture, because falling back\n"
+                 "  would check a half-moved pipeline against a stale copy of itself.\n"
+                 "  To verify the transcription itself: --pipeline baseline.capture\n"
+                 "  To skip the replay entirely:        --pass-a-only")
 
     if not args.allow_network:
         block_network()
@@ -358,7 +493,6 @@ def main(argv=None):
     # Import after the guard so a pipeline module cannot fetch anything at import time.
     sys.path.insert(0, REPO_ROOT)
     sys.path.insert(1, BASELINE_DIR)
-    pipe = Pipeline(args.pipeline)
 
     event_dirs = discover_events(set(args.event_ids))
     if not event_dirs:
@@ -367,29 +501,32 @@ def main(argv=None):
               f"       Run `python baseline/capture.py` first.", file=sys.stderr)
         return 2
 
-    # Resolve everything up front so the table below is complete and a missing
-    # symbol fails immediately rather than part-way through the first event.
-    for symbol in ("compute_valid_dt", "parse_iem_cow_text", "run_verification",
-                   "load_artccs", "get_artccs"):
-        pipe.get(symbol)
-
-    gdf_artcc = pipe.get("load_artccs")()
-    print("pipeline symbols resolved from:")
-    print(pipe.describe())
-    print(f"mode: {'strict (exact)' if args.strict else 'tolerant (one unit in last stored decimal)'}")
+    pipe, gdf_artcc = None, None
+    if replay:
+        # bind() resolves every required symbol up front, so a partially-moved
+        # pipeline fails here rather than part-way through the first event.
+        pipe = Pipeline(args.pipeline).bind()
+        gdf_artcc = pipe.get("load_artccs")()
+        print("pipeline symbols resolved from:")
+        print(pipe.describe())
+        print(f"mode: {'strict (exact)' if args.strict else 'tolerant (one unit in last stored decimal)'}"
+              + (f" + pass A ({PASS_A_FILENAME}, byte-exact)" if args.pass_a else ""))
+    else:
+        print(f"mode: pass A only ({PASS_A_FILENAME}, byte-exact); replay skipped")
     print()
 
     failed, errored = [], []
     for event_dir in event_dirs:
         event_id = os.path.basename(event_dir)
         try:
-            diffs, actual = check_event(event_dir, pipe, gdf_artcc, args.strict)
+            diffs, actual = check_event(event_dir, pipe, gdf_artcc, args.strict,
+                                        pass_a=args.pass_a, replay=replay)
         except Exception as exc:
             errored.append(event_id)
             print(f"ERROR {event_id}: {type(exc).__name__}: {exc}")
             continue
 
-        if args.dump_actual:
+        if args.dump_actual and actual is not None:
             os.makedirs(args.dump_actual, exist_ok=True)
             with open(os.path.join(args.dump_actual, f"{event_id}.json"), "w", encoding="utf-8") as f:
                 json.dump(actual, f, indent=2)
@@ -401,9 +538,17 @@ def main(argv=None):
             for line in diffs:
                 print(line)
             print()
+        elif actual is None:
+            print(f"PASS  {event_id}  (pass A report matches)")
         else:
             counts = actual["counts"]
-            print(f"PASS  {event_id}  ({counts['polygons']} polygons, {counts['misses']} misses)")
+            # An all-empty event is a legitimate baseline, but say so out loud --
+            # "PASS (0 polygons, 0 misses)" reads very differently from a bare PASS
+            # and stops an accidentally-empty capture from looking like a green run.
+            empty = " -- NOTHING GRADED" if counts["polygons"] == 0 and counts["misses"] == 0 else ""
+            boundary = f", {counts['boundary']} near a cutoff" if counts.get("boundary") else ""
+            print(f"PASS  {event_id}  ({counts['polygons']} polygons, "
+                  f"{counts['misses']} misses{boundary}){empty}")
 
     print()
     total = len(event_dirs)
