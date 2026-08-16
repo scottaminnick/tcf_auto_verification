@@ -3,25 +3,37 @@
 Before-pictures of the TCF verification pipeline as it behaves *today*, so a
 refactor can be shown to change nothing.
 
-The pipeline currently lives inline in the `if st.sidebar.button("Run
-Verification"):` block of `app.py`. `capture.py` is a Streamlit-free
-transcription of that block, deliberately bug-for-bug faithful — the 14 known
-defects are catalogued at the bottom of `capture.py` and **none of them are
-fixed here**. Fixing one would change the numbers, and the numbers are the
-point.
+The pipeline lives in **`tcf_pipeline.py`** at the repo root — one
+implementation, imported by both `app.py` and `capture.py`. It used to exist
+twice (inline in app.py, transcribed into capture.py); that transcription is
+gone, because a harness whose reference is a second hand-maintained copy of the
+code proves nothing about the code.
+
+    app.py               thin Streamlit cache wrappers + all display code
+    baseline/capture.py  EVENTS + serialisation of a run to disk
+    tcf_pipeline.py      the math, the parsing, the report text
+
+`tcf_pipeline.py` never imports streamlit: it raises instead of calling
+`st.stop()`, and progress goes to stderr or to a caller-supplied `log` callback
+(which is how app.py keeps its per-scan status lines). It is deliberately
+bug-for-bug faithful to the original — the 14 known defects are catalogued at
+the bottom of that file and **none of them are fixed**. Fixing one would change
+the numbers, and the numbers are the point.
 
 ## Layout
 
 ```
+tcf_pipeline.py      the shared pipeline (no streamlit)
 baseline/
   capture.py         freezes each event to disk (needs network)
   check.py           replays the frozen inputs and diffs (never touches network)
   test_fixture.py    tests the harness itself against synthetic data
+  test_app_parity.py drives app.py and diffs its report against the baseline
   <event_id>/
     arrays.npz         max_tops, max_refl, lons, lats — the rolling MRMS composite
     tcf_raw.txt        the raw IEM response for the TCF product
     expected.json      graded output: metadata, report_text, polygons, misses, counts
-    pass_a_report.txt  report text hand-copied from the live app (see below)
+    pass_a_report.txt  report text captured from the live app (see below)
 ```
 
 ## Events
@@ -71,25 +83,34 @@ Nothing else in this harness needs Docker or network.
 ## Checking
 
 ```sh
-make check PIPELINE=tcf_core            # replay + diff against the baselines
-make check-transcription                # replay through baseline/capture.py itself
-make check-pass-a PIPELINE=tcf_core     # also require byte-exact pass A reports
-make fixture                            # test the harness itself
+make check          # replay tcf_pipeline + diff against the baselines
+make check-pass-a   # also require byte-exact pass A reports
+make fixture        # test the harness itself
+make parity         # drive app.py and diff its report
+make test           # all three
 ```
 
-`--pipeline MODULE` is **mandatory** and every symbol
-(`compute_valid_dt`, `parse_iem_cow_text`, `run_verification`, `load_artccs`,
-`get_artccs`) must resolve inside that one module. There is no candidate list
-and no fallback to `baseline.capture`.
+`--pipeline MODULE` is **mandatory** (it defaults to `tcf_pipeline` in the
+Makefile) and every symbol — `compute_valid_dt`, `parse_iem_cow_text`,
+`run_verification`, `load_artccs`, `get_artccs` — must resolve inside that one
+module. There is no candidate list and no fallback.
 
 The fallback used to exist and was actively harmful: mid-refactor, a symbol that
 had been moved or renamed would quietly resolve against the frozen transcription
 instead, and the run would go green by comparing `capture.py` to itself. A
 missing symbol is now a hard error naming the symbol.
 
-`make check-transcription` is the one place `baseline.capture` is legitimate —
-it proves the stored arrays and `expected.json` are self-consistent. It proves
-nothing about a refactored pipeline.
+### What check.py cannot see
+
+`check.py` replays `tcf_pipeline` directly, so it covers the math but not
+app.py's own glue — the widget-to-argument wiring, the `log=st.write` progress
+seam, and the `session_state` stash the render functions read. A refactor that
+broke only the glue would leave `check.py` green and the dashboard wrong.
+
+`make parity` closes that gap: it drives `app.py` through streamlit's `AppTest`
+with the two network calls fed from the frozen baseline, clicks *Run
+Verification*, and requires the report the app ends up holding to equal
+`expected.json`'s `report_text` byte for byte.
 
 ### Comparison tolerance
 
@@ -106,19 +127,25 @@ flag, and a category change there is a real finding.
 
 ## Pass A reports
 
-`pass_a_report.txt` is the report text **hand-copied out of the running
-Streamlit app** for that event. It is the only artefact in the directory that a
-human produces, and `capture.py` will never write it — a machine-generated copy
-would just be `expected.json`'s `report_text` under a second filename and would
-prove nothing.
+`pass_a_report.txt` is the report text taken **out of the running Streamlit
+app** for that event, via the *Pass A* download button on the scorecard.
+`capture.py` never writes it: a copy written there would just be
+`expected.json`'s `report_text` under a second filename.
 
-Its job is to catch the failure mode this harness cannot otherwise see: the
-headless transcription drifting away from what the live dashboard actually
-renders.
+Its job is to catch the headless pipeline drifting away from what the live
+dashboard renders.
+
+One caveat worth knowing: the download button serves `R['report_text']`, the
+same string the pipeline produced, so a pass A file captured that way is only as
+independent as the app's rendering path. It still catches app-side drift after
+the fact — if app.py later diverges, re-downloading produces a file that no
+longer matches the frozen `expected.json` — but it is not an independent
+transcription of what a human read on screen. `make parity` is the stronger
+check on that path.
 
 ```sh
-python baseline/check.py --pipeline tcf_core --pass-a   # replay + pass A
-python baseline/check.py --pass-a-only                  # pass A alone, no pipeline needed
+python baseline/check.py --pipeline tcf_pipeline --pass-a  # replay + pass A
+python baseline/check.py --pass-a-only                     # pass A alone, no pipeline needed
 ```
 
 The comparison trims trailing whitespace from the end of both sides first — a
@@ -132,5 +159,6 @@ Failures print the byte offset, line and column of the first difference
 alongside a unified diff, because otherwise an invisible difference is
 unfindable.
 
-To record one: run the event in the live app, copy the FAA report panel verbatim
-into `baseline/<event_id>/pass_a_report.txt`, then run `--pass-a`.
+To record one: run the event in the live app, use the *Pass A* download button
+under the FAA report panel, save the file as
+`baseline/<event_id>/pass_a_report.txt`, then run `--pass-a`.

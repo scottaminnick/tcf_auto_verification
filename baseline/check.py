@@ -27,14 +27,11 @@ import time so an accidental IEM/S3 call fails loudly instead of silently
 re-fetching data. Use --allow-network only when debugging that guard.
 
 Usage:
-    python baseline/check.py --pipeline tcf_core
-    python baseline/check.py --pipeline tcf_core 20260524_19Z_F04
-    python baseline/check.py --pipeline tcf_core --strict
-    python baseline/check.py --pipeline tcf_core --pass-a   # also diff vs pass A
-    python baseline/check.py --pass-a-only                  # no pipeline needed
-
-    # Verifying the transcription itself, before any refactor exists:
-    python baseline/check.py --pipeline baseline.capture
+    python baseline/check.py --pipeline tcf_pipeline
+    python baseline/check.py --pipeline tcf_pipeline 20260524_19Z_F04
+    python baseline/check.py --pipeline tcf_pipeline --strict
+    python baseline/check.py --pipeline tcf_pipeline --pass-a  # also diff vs pass A
+    python baseline/check.py --pass-a-only                     # no pipeline needed
 
 Exit status: 0 = all events match, 1 = at least one mismatch, 2 = error.
 """
@@ -495,8 +492,8 @@ def main(argv=None):
                  "  Every pipeline symbol is resolved from that one module -- there is no\n"
                  "  candidate list and no fallback to baseline.capture, because falling back\n"
                  "  would check a half-moved pipeline against a stale copy of itself.\n"
-                 "  To verify the transcription itself: --pipeline baseline.capture\n"
-                 "  To skip the replay entirely:        --pass-a-only")
+                 "  The pipeline currently lives in tcf_pipeline: --pipeline tcf_pipeline\n"
+                 "  To skip the replay entirely:                 --pass-a-only")
 
     if not args.allow_network:
         block_network()

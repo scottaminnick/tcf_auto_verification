@@ -31,10 +31,13 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
 sys.path.insert(1, os.path.join(REPO_ROOT, "baseline"))
 
+import tcf_pipeline  # noqa: E402
 from baseline import capture  # noqa: E402
 import check as check_mod  # noqa: E402
 
-PIPELINE = "baseline.capture"
+# The pipeline under test. capture.py is imported too, but only for the
+# serialisation layer it still owns (EVENTS, build_expected, the boundary rule).
+PIPELINE = "tcf_pipeline"
 
 _results = []
 
@@ -131,10 +134,10 @@ def write_event(root, event_id, raw, blobs, issuance_hour=19, lead_time=4):
 
     event = {"event_id": event_id, "date": date(2026, 5, 24),
              "issuance_hour": issuance_hour, "lead_time": lead_time}
-    valid_dt = capture.compute_valid_dt(event["date"], issuance_hour, lead_time)
-    gdf_forecast = capture.parse_iem_cow_text(raw)
-    results = capture.run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
-                                       valid_dt, issuance_hour, lead_time, ARTCC)
+    valid_dt = tcf_pipeline.compute_valid_dt(event["date"], issuance_hour, lead_time)
+    gdf_forecast = tcf_pipeline.parse_iem_cow_text(raw)
+    results = tcf_pipeline.run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
+                                            valid_dt, issuance_hour, lead_time, ARTCC)
     expected = capture.build_expected(event, valid_dt, results, ARTCC)
     write_expected(root, event_id, expected)
     return expected
@@ -152,7 +155,7 @@ def write_expected(root, event_id, payload):
 
 
 # --- setup ------------------------------------------------------------------
-ARTCC = capture.load_artccs()
+ARTCC = tcf_pipeline.load_artccs()
 TMP = tempfile.mkdtemp(prefix="tcf_baseline_fixture_")
 check_mod.BASELINE_DIR = TMP
 
@@ -342,8 +345,8 @@ def _():
     # Everything except run_verification, which is the symbol most likely to be
     # mid-move during a refactor -- and exactly the one a fallback would hide.
     with open(os.path.join(stub_dir, "half_moved.py"), "w", encoding="utf-8") as f:
-        f.write("from baseline.capture import (compute_valid_dt, parse_iem_cow_text,\n"
-                "                              load_artccs, get_artccs)\n")
+        f.write("from tcf_pipeline import (compute_valid_dt, parse_iem_cow_text,\n"
+                "                          load_artccs, get_artccs)\n")
     sys.path.insert(0, stub_dir)
     err = io.StringIO()
     try:
@@ -475,7 +478,7 @@ def _():
     import datetime as dt
 
     evt = next(e for e in capture.EVENTS if e["event_id"] == "20260403_21Z_F04")
-    valid_dt = capture.compute_valid_dt(evt["date"], evt["issuance_hour"], evt["lead_time"])
+    valid_dt = tcf_pipeline.compute_valid_dt(evt["date"], evt["issuance_hour"], evt["lead_time"])
     assert valid_dt == dt.datetime(2026, 4, 4, 1, 0), \
         f"21Z + 4 should be 01Z the next day, got {valid_dt}"
 
@@ -486,15 +489,15 @@ def _():
         seen.append((product, dt_obj))
         return None
 
-    original = capture.download_mrms_scan
-    capture.download_mrms_scan = spy
+    original = tcf_pipeline.download_mrms_scan
+    tcf_pipeline.download_mrms_scan = spy
     try:
         try:
-            capture.build_composite(valid_dt)
+            tcf_pipeline.build_composite(valid_dt)
         except RuntimeError:
             pass  # expected: the spy reports no scans available
     finally:
-        capture.download_mrms_scan = original
+        tcf_pipeline.download_mrms_scan = original
 
     assert len(seen) == 14, f"expected 7 offsets x 2 products, got {len(seen)}"
     # The prefix download_mrms_scan builds is CONUS/<product>_00.50/<dt_obj date>/.

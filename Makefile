@@ -8,14 +8,17 @@
 #   make baseline-image                      build the image
 #   make capture                             capture every event in EVENTS
 #   make capture EVENT=20260524_19Z_F04      capture one event
-#   make check PIPELINE=tcf_core             replay + diff against the baselines
-#   make check-transcription                 replay against baseline.capture itself
-#   make check-pass-a PIPELINE=tcf_core      also require byte-exact pass A reports
+#   make check                               replay + diff against the baselines
+#   make check-pass-a                        also require byte-exact pass A reports
 #   make fixture                             run the harness's own fixture test
+#   make parity                              drive app.py and diff its report
+#   make test                                fixture + parity + check-pass-a
 
 IMAGE   ?= tcf-baseline
 EVENT   ?=
-PIPELINE ?=
+# The pipeline lives in tcf_pipeline.py, shared by app.py and baseline/capture.py.
+# Override only to check a differently-named module.
+PIPELINE ?= tcf_pipeline
 PYTHON  ?= python3
 
 # Write captured files back to the host as the invoking user rather than root.
@@ -25,7 +28,7 @@ DOCKER_RUN = docker run --rm \
 	-e HOME=/tmp \
 	$(IMAGE)
 
-.PHONY: baseline-image capture capture-shell check check-transcription check-pass-a fixture
+.PHONY: baseline-image capture capture-shell check check-pass-a fixture parity test
 
 baseline-image:
 	docker build -t $(IMAGE) .
@@ -42,25 +45,25 @@ capture-shell: baseline-image
 # check.py is offline and dependency-light, so it runs on the host by default.
 # Add `make check ... IN_DOCKER=1` to run it against the pinned stack instead.
 check:
-	@test -n "$(PIPELINE)" || { \
-		echo "PIPELINE=<module> is required, e.g. make check PIPELINE=tcf_core"; \
-		echo "(use 'make check-transcription' to check baseline/capture.py against itself)"; \
-		exit 2; }
 ifdef IN_DOCKER
 	$(DOCKER_RUN) python baseline/check.py --pipeline $(PIPELINE) $(EVENT)
 else
 	$(PYTHON) baseline/check.py --pipeline $(PIPELINE) $(EVENT)
 endif
 
-# Replays the baselines through baseline/capture.py itself. This proves the
-# stored arrays and expected.json are self-consistent; it proves NOTHING about a
-# refactored pipeline. Use `make check PIPELINE=<the new module>` for that.
-check-transcription:
-	$(PYTHON) baseline/check.py --pipeline baseline.capture $(EVENT)
-
+# Adds the byte-exact pass A comparison against the report text captured from
+# the live app.
 check-pass-a:
-	@test -n "$(PIPELINE)" || { echo "PIPELINE=<module> is required"; exit 2; }
 	$(PYTHON) baseline/check.py --pipeline $(PIPELINE) --pass-a $(EVENT)
 
 fixture:
 	$(PYTHON) baseline/test_fixture.py
+
+# Drives app.py through streamlit's AppTest with the network calls fed from the
+# frozen baseline, and diffs the report the app ends up holding. This is what
+# covers app.py's own glue, which check.py cannot see. Skips if streamlit is
+# not installed.
+parity:
+	$(PYTHON) baseline/test_app_parity.py
+
+test: fixture parity check-pass-a
