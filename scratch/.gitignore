@@ -1,0 +1,4 @@
+# Sample GRIB files are fetched on demand by bench_grib_decode.py; they are
+# large binaries and reproducible from S3, so they do not belong in git.
+grib_cache/
+*.idx
