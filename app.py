@@ -388,7 +388,7 @@ def render_scorecard(R):
             f'{escaped}</div>',
             unsafe_allow_html=True
         )
-
+        st.download_button("Pass A", R['report_text'], file_name="pass_a_report.txt")
 
 def render_reanalysis(R):
     """View 2: the objective 'truth' -- what the TCF should have been (sparse reanalysis)."""
