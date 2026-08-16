@@ -17,6 +17,7 @@ Exit status: 0 = all scenarios behaved as expected, 1 = a scenario failed.
 
 import contextlib
 import copy
+import dataclasses
 import io
 import json
 import os
@@ -459,6 +460,120 @@ def _():
     assert rc == 0, f"pass-A-only should pass, got {rc}:\n{out}"
     assert_in("pass A report matches", out, "pass A only result")
     assert_not_in("pipeline symbols resolved", out, "replay must be skipped")
+
+
+@scenario("(5) a lowered grade cutoff actually moves a polygon's category")
+def _():
+    """The parameters must be wired through, not accepted and ignored."""
+    lons, lats = make_grid()
+    max_tops, max_refl = make_arrays(lons, lats, MAIN_BLOBS)
+    gdf = tcf_pipeline.parse_iem_cow_text(MAIN_RAW)
+    valid_dt = tcf_pipeline.compute_valid_dt(date(2026, 5, 24), 19, 4)
+
+    def grade(params):
+        r = tcf_pipeline.run_verification(gdf, max_tops, max_refl, lons, lats,
+                                          valid_dt, 19, 4, ARTCC, params=params)
+        return {p["idx"]: (p["category"], p["coverage_fraction"]) for p in r["graded_forecasts"]}
+
+    default = grade(tcf_pipeline.GradingParams())
+    # The defaults must still be the frozen behaviour.
+    assert [c for c, _ in default.values()].count("Verified Well") == 1
+    close = [(i, f) for i, (c, f) in default.items() if c == "Verified Close"]
+    assert close, f"fixture should have a Verified Close polygon to promote: {default}"
+    idx, frac = close[0]
+
+    # Drop the cutoff below that polygon's coverage fraction: it must promote.
+    lowered = grade(tcf_pipeline.GradingParams(verified_well_cutoff=frac - 0.01))
+
+    changed = [i for i in default if default[i][0] != lowered[i][0]]
+    assert changed, (f"lowering verified_well_cutoff from 0.50 to {frac - 0.01:.4f} changed "
+                     f"no categories -- the parameter is being ignored:\n"
+                     f"  default {default}\n  lowered {lowered}")
+    assert lowered[idx][0] == "Verified Well", \
+        f"polygon {idx} (coverage {frac:.4f}) should promote to Verified Well, got {lowered[idx][0]}"
+    # Only the grade moved; the underlying fraction is the same measurement.
+    for i in default:
+        assert abs(default[i][1] - lowered[i][1]) < 1e-12, \
+            f"polygon {i}: a grade cutoff must not change the coverage fraction"
+    print(f"  cutoff 0.50 -> {frac - 0.01:.4f} promoted polygon {idx}: "
+          f"{default[idx][0]} -> {lowered[idx][0]}")
+
+
+@scenario("(5) every GradingParams field is consumed, not silently dropped")
+def _():
+    """Each field gets a deliberately extreme value; the output must move.
+
+    A separate probe fixture, because MAIN's only Medium (cov=2) forecast sits
+    over open ground -- its coverage is 0 whatever medium_truth_threshold says,
+    so MAIN alone cannot tell that field apart from a no-op.
+    """
+    lons, lats = make_grid()
+    max_tops, max_refl = make_arrays(lons, lats, MAIN_BLOBS)
+    box = [(-100.5, 36.5), (-95.5, 36.5), (-95.5, 41.5), (-100.5, 41.5)]   # over the big blob
+    clip = [(-97.5, 39.5), (-92.5, 39.5), (-92.5, 42.5), (-97.5, 42.5)]    # partial overlap
+    raw = ("<html><pre>\nTCFNTA CFP02 PROBE\n"
+           + area_block(2, box)     # Medium over truth -> medium_truth_threshold bites
+           + area_block(3, box)     # Sparse over truth -> sparse_truth_threshold bites
+           + area_block(3, clip)    # lands between the cutoffs -> both cutoffs bite
+           + "</pre></html>\n")
+    gdf = tcf_pipeline.parse_iem_cow_text(raw)
+    valid_dt = tcf_pipeline.compute_valid_dt(date(2026, 5, 24), 19, 4)
+
+    def summarise(params):
+        r = tcf_pipeline.run_verification(gdf, max_tops, max_refl, lons, lats,
+                                          valid_dt, 19, 4, ARTCC, params=params)
+        return (tuple((p["coverage"], round(p["coverage_fraction"], 6), p["category"])
+                      for p in r["graded_forecasts"]),
+                len(r["graded_misses"]))
+
+    base = summarise(tcf_pipeline.GradingParams())
+    assert {c for _, _, c in base[0]} >= {"Verified Close", "Verified Well"}, \
+        f"probe fixture should span both grade bands, got {base}"
+
+    probes = {
+        "sparse_truth_threshold": 0.60,
+        "medium_truth_threshold": 0.90,
+        "verified_well_cutoff": 0.90,
+        "verified_close_cutoff": 0.30,
+        "dilation_iterations": 6,
+        "smoothing_size": 40,
+        "min_area_m2": 1e13,
+    }
+    fields = {f.name for f in dataclasses.fields(tcf_pipeline.GradingParams)}
+    assert fields == set(probes), \
+        f"GradingParams fields changed; probe list is stale: {fields ^ set(probes)}"
+
+    ignored = []
+    for field, value in probes.items():
+        moved = summarise(dataclasses.replace(tcf_pipeline.GradingParams(), **{field: value}))
+        if moved == base:
+            ignored.append(f"{field}={value}")
+    assert not ignored, ("these GradingParams fields changed nothing and are therefore not "
+                        f"wired through: {', '.join(ignored)}\n  baseline output: {base}")
+
+
+@scenario("(5) GradingParams defaults are exactly the previously-hardcoded values")
+def _():
+    p = tcf_pipeline.GradingParams()
+    expected = {
+        "sparse_truth_threshold": 0.25,
+        "medium_truth_threshold": 0.40,
+        "verified_well_cutoff": 0.50,
+        "verified_close_cutoff": 0.20,
+        "dilation_iterations": 1,
+        "smoothing_size": 20,
+        "min_area_m2": 15_000_000_000,
+    }
+    for field, want in expected.items():
+        got = getattr(p, field)
+        assert got == want, f"GradingParams.{field}: expected {want}, got {got}"
+    # Frozen, so the shared default instance cannot be mutated mid-run.
+    try:
+        p.verified_well_cutoff = 0.9
+    except dataclasses.FrozenInstanceError:
+        pass
+    else:
+        raise AssertionError("GradingParams should be frozen")
 
 
 @scenario("(1) EVENTS holds the six configured events with the documented ids")

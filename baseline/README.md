@@ -112,6 +112,30 @@ with the two network calls fed from the frozen baseline, clicks *Run
 Verification*, and requires the report the app ends up holding to equal
 `expected.json`'s `report_text` byte for byte.
 
+### Tuning parameters
+
+The grading knobs live in `tcf_pipeline.GradingParams`, a frozen dataclass whose
+defaults are exactly the values that used to be hardcoded — truth thresholds
+(0.25 sparse / 0.40 medium), grade cutoffs (0.50 / 0.20), `binary_dilation`
+iterations (1), `uniform_filter` size (20) and the 15,000 km² minimum truth
+area. `run_verification(..., params=GradingParams())` is the only entry point;
+app.py, capture.py and check.py all pass nothing and get the frozen behaviour.
+
+The baselines encode the defaults, so `make check` will correctly go red for any
+other value — that is the point, not a limitation. To try a setting, pass a
+`params=` explicitly rather than editing the defaults.
+
+Two things are deliberately **not** parameters yet: the echo-top bands
+(25/30/35/40 kft) and the 40 dBZ convection floor, which are being corrected in
+their own step so the diff stays inspectable; and the `0.20` miss threshold,
+which is numerically equal to `verified_close_cutoff` today but answers the
+opposite question (how much of a truth blob the forecast captured, rather than
+how much of a forecast truth filled).
+
+`make fixture` proves the parameters are wired through rather than accepted and
+ignored: it lowers a grade cutoff and requires a polygon to change category, and
+separately gives every field an extreme value and requires the output to move.
+
 ### Comparison tolerance
 
 Floats are stored rounded (coverage fractions and bounds to 4 dp, echo tops to

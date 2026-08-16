@@ -30,6 +30,7 @@ import os
 import re
 import shutil
 import sys
+from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 
 import geopandas as gpd
@@ -41,6 +42,48 @@ from skimage import measure
 
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 ARTCC_PATH = os.path.join(REPO_ROOT, "artcc1.geojson")
+
+
+# --- Tuning parameters ------------------------------------------------------
+@dataclass(frozen=True)
+class GradingParams:
+    """The tuning knobs run_verification() grades with.
+
+    Every default is the literal that was hardcoded before this became a
+    parameter, so GradingParams() reproduces the frozen baselines exactly. The
+    point is to make the knobs nameable and overridable -- not to change any of
+    them. A non-default value is a deliberate experiment; the baselines under
+    baseline/<event_id>/ encode the defaults and will (correctly) go red for
+    anything else.
+
+    Frozen so a params object cannot be mutated halfway through a run.
+
+    Deliberately NOT here yet:
+      * the echo-top bands (25/30/35/40 kft) and the 40 dBZ convection floor.
+        The bands are wrong relative to the TCF flight levels and are being
+        corrected separately, so that diff stays inspectable on its own.
+      * the 0.20 miss threshold in the miss loop. It is numerically equal to
+        verified_close_cutoff today but is a different question ("did the
+        forecast capture this truth blob?" rather than "did truth fill this
+        forecast?"). Binding them to one field would silently couple two
+        thresholds that only coincide.
+    """
+
+    # Truth coverage thresholds. A Sparse (cov=3) forecast verifies against the
+    # 25%+ truth field; Medium/Dense (cov=1,2) against the 40%+ field.
+    sparse_truth_threshold: float = 0.25
+    medium_truth_threshold: float = 0.40
+
+    # Grade cutoffs on the hit/forecast area ratio.
+    verified_well_cutoff: float = 0.50
+    verified_close_cutoff: float = 0.20
+
+    # Truth-field construction, in decimated (5x) grid cells.
+    dilation_iterations: int = 1
+    smoothing_size: int = 20
+
+    # Minimum truth polygon area, m^2 (15,000 km^2), measured in EPSG:5070.
+    min_area_m2: float = 15_000_000_000
 
 
 def _log(msg):
@@ -373,12 +416,18 @@ def build_composite(valid_dt, log=_log):
 
 
 def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
-                     valid_dt, issuance_hour, lead_time, gdf_artcc):
+                     valid_dt, issuance_hour, lead_time, gdf_artcc,
+                     params=GradingParams()):
     """The verification math, pure and Streamlit-free.
 
     Everything downstream of the MRMS composite lives here: this is the function
     check.py replays against the frozen arrays, so it must stay a pure function
     of its arguments (no network, no globals, no session_state).
+
+    `params` carries the tuning knobs (see GradingParams). The default instance
+    holds exactly the values that were hardcoded here before, so callers that
+    pass nothing -- app.py, capture.py, check.py -- get the frozen behaviour.
+    The default is safe to share because GradingParams is frozen.
 
     Returns a dict with the same members app.py stashes in st.session_state
     ['results'], plus 'graded_forecasts'/'graded_misses' as plain lists of dicts.
@@ -398,16 +447,16 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
     top_verif_matrix[valid_convection & (max_tops >= 40)] = 4
 
     raw_cores = ((max_refl >= 40) & (max_tops >= 25))
-    buffered_cores = binary_dilation(raw_cores, iterations=1)
-    coverage_fraction = uniform_filter(buffered_cores.astype(float), size=20)
+    buffered_cores = binary_dilation(raw_cores, iterations=params.dilation_iterations)
+    coverage_fraction = uniform_filter(buffered_cores.astype(float), size=params.smoothing_size)
 
-    # 15_000_000_000 m^2 (15,000 km^2) truth-area filter, matching the notebook.
-    gdf_sparse = extract_tcf_polygons((coverage_fraction >= 0.25).astype(int), lons, lats,
-                                      min_area_m2=15_000_000_000)
+    # Truth-area filter (default 15,000 km^2), matching the notebook.
+    gdf_sparse = extract_tcf_polygons((coverage_fraction >= params.sparse_truth_threshold).astype(int),
+                                      lons, lats, min_area_m2=params.min_area_m2)
     # Medium (cov=2) and Dense (cov=1) forecasts must verify against 40%+ truth,
     # matching the TCF Medium coverage threshold (40-74%).
-    gdf_medium_truth = extract_tcf_polygons((coverage_fraction >= 0.40).astype(int), lons, lats,
-                                            min_area_m2=15_000_000_000)
+    gdf_medium_truth = extract_tcf_polygons((coverage_fraction >= params.medium_truth_threshold).astype(int),
+                                            lons, lats, min_area_m2=params.min_area_m2)
     del coverage_fraction, raw_cores, buffered_cores
     gc.collect()
 
@@ -443,8 +492,8 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
 
         actual_top_kft = np.percentile(valid_tops, 90) if len(valid_tops) > 5 else 0
 
-        cat, color = ("Verified Well", 'lime') if coverage >= 0.50 else \
-                     ("Verified Close", 'yellow') if coverage >= 0.20 else \
+        cat, color = ("Verified Well", 'lime') if coverage >= params.verified_well_cutoff else \
+                     ("Verified Close", 'yellow') if coverage >= params.verified_close_cutoff else \
                      ("Overforecasted", 'orange')
         row_feat = row['feat_type'] if 'feat_type' in fcst_iter.columns else 'AREA'
         graded_forecasts.append({'geometry': poly, 'category': cat, 'color': color,
@@ -459,6 +508,10 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
         if poly.is_empty:
             continue
         captured = (poly.intersection(fcst_union).area / poly.area) if poly.area > 0 else 0
+        # NOT params.verified_close_cutoff. This 0.20 asks the opposite question --
+        # how much of a truth blob the forecast captured, not how much of a
+        # forecast truth filled. The two happen to share a value today; see the
+        # note in GradingParams before merging them.
         if captured < 0.20:
             graded_misses.append({'geometry': poly, 'category': 'Missed', 'color': 'red', 'idx': idx + 1})
 
