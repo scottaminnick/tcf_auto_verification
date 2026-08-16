@@ -1,0 +1,211 @@
+{
+  "event_id": "20260524_19Z_F04",
+  "date": "2026-05-24",
+  "issuance_hour": 19,
+  "lead_time": 4,
+  "valid_time_hour": 23,
+  "valid_dt": "2026-05-24T23:00:00",
+  "report_text": "National System Review\nNWS TCF Review\nSunday, May 24, 2026\n  May 24, 2026   IT: 19Z   VT: 23Z   FCST HR: 04\nVerified Well:\nZDC/ZID/ZTL - Sparse (Area 2) [Top: 41.1 kft]\nZTL - Sparse (Area 4) [Top: 39.4 kft]\nZFW - Sparse (Area 9) [Top: 45.9 kft]\n\nVerified Close:\nZJX/ZTL - Sparse (Area 5) [Top: 42.3 kft]\n\nOver-forecast:\nZDC/ZJX - Sparse (Area 1)\nZJX/ZMA/ZTL - Sparse (Area 3) [Top: 51.9 kft]\nZHU/ZME - Sparse (Area 6)\nZHU - Sparse (Area 7)\nZHU - Sparse (Area 8)\nZHU - Sparse (Area 10) [Top: 45.9 kft]\nZDV/ZKC - Sparse (Area 11) [Top: 42.7 kft]\nZLC - Sparse (Area 12)\n\nMissed:\nZMP - Missed (Area M1)\n\n",
+  "polygons": [
+    {
+      "idx": 1,
+      "category": "Overforecasted",
+      "coverage_code": 3,
+      "feat_type": "AREA",
+      "coverage_fraction": 0.0,
+      "top_kft": 0.0,
+      "artccs": "ZDC/ZJX",
+      "bounds": [
+        -80.0,
+        33.4,
+        -77.1,
+        35.3
+      ]
+    },
+    {
+      "idx": 2,
+      "category": "Verified Well",
+      "coverage_code": 3,
+      "feat_type": "AREA",
+      "coverage_fraction": 0.5923,
+      "top_kft": 41.12,
+      "artccs": "ZDC/ZID/ZTL",
+      "bounds": [
+        -83.3,
+        36.9,
+        -80.4,
+        38.5
+      ]
+    },
+    {
+      "idx": 3,
+      "category": "Overforecasted",
+      "coverage_code": 3,
+      "feat_type": "AREA",
+      "coverage_fraction": 0.1185,
+      "top_kft": 51.87,
+      "artccs": "ZJX/ZMA/ZTL",
+      "bounds": [
+        -83.1,
+        26.2,
+        -81.4,
+        32.7
+      ]
+    },
+    {
+      "idx": 4,
+      "category": "Verified Well",
+      "coverage_code": 3,
+      "feat_type": "AREA",
+      "coverage_fraction": 0.5248,
+      "top_kft": 39.37,
+      "artccs": "ZTL",
+      "bounds": [
+        -85.4,
+        32.9,
+        -83.0,
+        35.4
+      ]
+    },
+    {
+      "idx": 5,
+      "category": "Verified Close",
+      "coverage_code": 3,
+      "feat_type": "AREA",
+      "coverage_fraction": 0.4796,
+      "top_kft": 42.34,
+      "artccs": "ZJX/ZTL",
+      "bounds": [
+        -85.9,
+        30.4,
+        -83.0,
+        33.3
+      ]
+    },
+    {
+      "idx": 6,
+      "category": "Overforecasted",
+      "coverage_code": 3,
+      "feat_type": "AREA",
+      "coverage_fraction": 0.0,
+      "top_kft": 0.0,
+      "artccs": "ZHU/ZME",
+      "bounds": [
+        -91.3,
+        31.0,
+        -89.8,
+        32.2
+      ]
+    },
+    {
+      "idx": 7,
+      "category": "Overforecasted",
+      "coverage_code": 3,
+      "feat_type": "AREA",
+      "coverage_fraction": 0.0,
+      "top_kft": 0.0,
+      "artccs": "ZHU",
+      "bounds": [
+        -91.7,
+        28.2,
+        -90.5,
+        29.3
+      ]
+    },
+    {
+      "idx": 8,
+      "category": "Overforecasted",
+      "coverage_code": 3,
+      "feat_type": "AREA",
+      "coverage_fraction": 0.0,
+      "top_kft": 0.0,
+      "artccs": "ZHU",
+      "bounds": [
+        -95.4,
+        27.1,
+        -94.5,
+        28.4
+      ]
+    },
+    {
+      "idx": 9,
+      "category": "Verified Well",
+      "coverage_code": 3,
+      "feat_type": "AREA",
+      "coverage_fraction": 0.6819,
+      "top_kft": 45.93,
+      "artccs": "ZFW",
+      "bounds": [
+        -99.1,
+        31.9,
+        -96.2,
+        33.0
+      ]
+    },
+    {
+      "idx": 10,
+      "category": "Overforecasted",
+      "coverage_code": 3,
+      "feat_type": "AREA",
+      "coverage_fraction": 0.0,
+      "top_kft": 45.93,
+      "artccs": "ZHU",
+      "bounds": [
+        -101.1,
+        28.7,
+        -97.5,
+        30.8
+      ]
+    },
+    {
+      "idx": 11,
+      "category": "Overforecasted",
+      "coverage_code": 3,
+      "feat_type": "AREA",
+      "coverage_fraction": 0.0,
+      "top_kft": 42.65,
+      "artccs": "ZDV/ZKC",
+      "bounds": [
+        -102.1,
+        37.1,
+        -99.1,
+        39.2
+      ]
+    },
+    {
+      "idx": 12,
+      "category": "Overforecasted",
+      "coverage_code": 3,
+      "feat_type": "AREA",
+      "coverage_fraction": 0.0,
+      "top_kft": 0.0,
+      "artccs": "ZLC",
+      "bounds": [
+        -110.1,
+        42.2,
+        -107.6,
+        43.0
+      ]
+    }
+  ],
+  "misses": [
+    {
+      "idx": 1,
+      "artccs": "ZMP",
+      "bounds": [
+        -96.395,
+        43.795,
+        -93.995,
+        45.345
+      ]
+    }
+  ],
+  "counts": {
+    "polygons": 12,
+    "misses": 1,
+    "verified_well": 3,
+    "verified_close": 1,
+    "overforecasted": 8,
+    "boundary": 0
+  }
+}

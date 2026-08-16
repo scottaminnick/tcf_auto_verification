@@ -1,0 +1,19 @@
+National System Review
+NWS TCF Review
+Saturday, April 04, 2026
+  Apr 04, 2026   IT: 21Z   VT: 01Z   FCST HR: 04
+Verified Well:
+ZAU/ZKC/ZMP - Sparse (Area 3) [Top: 45.9 kft]
+
+Verified Close:
+ZAU/ZKC - Sparse (Area 2) [Top: 48.8 kft]
+ZFW/ZKC/ZME - Sparse (Area 6) [Top: 52.5 kft]
+
+Over-forecast:
+ZJX - Sparse (Area 1) [Top: 36.1 kft]
+ZFW/ZKC - Dense (Line 4) [Top: 49.9 kft]
+ZFW/ZKC - Medium (Area 5) [Top: 52.5 kft]
+ZAB/ZFW/ZHU - Sparse (Area 7)
+
+Missed:
+None
