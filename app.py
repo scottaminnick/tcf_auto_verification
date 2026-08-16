@@ -3,7 +3,7 @@ import html
 import os
 import streamlit as st
 import requests
-from datetime import datetime
+from datetime import date, datetime, timezone
 import numpy as np
 import plotly.graph_objects as go
 import geopandas as gpd
@@ -108,6 +108,16 @@ ECHO_COLORSCALE = [
     [0.8, '#FF0000'], [1.0, '#FF0000'],
 ]
 
+# The legend key for the heatmap: (top_verif_matrix value, its colour in
+# ECHO_COLORSCALE, label). The thresholds come from tcf_pipeline and are not
+# restated here -- these labels describe the bands, they do not define them.
+ECHO_BANDS = [
+    (1, '#00FFFF', '25-30 kft'),
+    (2, '#FFFF00', '30-35 kft'),
+    (3, '#FF8000', '35-40 kft'),
+    (4, '#FF0000', '>40 kft'),
+]
+
 
 def _geom_to_xy(geom):
     """Flatten a shapely Polygon/MultiPolygon exterior(s) to x,y lists with None breaks
@@ -139,12 +149,42 @@ def _new_map_fig(R, title):
     safe on a locked-down network."""
     fig = go.Figure()
 
-    # Radar background. 0 (no convection) -> NaN so those cells render transparent.
-    z = np.where(R['top_verif_matrix'] == 0, np.nan, R['top_verif_matrix'].astype(float))
-    fig.add_trace(go.Heatmap(
-        x=R['lons'], y=R['lats'], z=z,
-        colorscale=ECHO_COLORSCALE, zmin=0, zmax=4,
-        showscale=False, hoverinfo='skip', name='Echo Tops'))
+    # Radar background, one trace per echo-top band rather than one for all four.
+    # Splitting it is what makes the legend entries below able to toggle a single
+    # band: plotly toggles every trace sharing a legendgroup, and a dummy scatter
+    # on its own would toggle nothing visible. Cells outside a band are NaN, so
+    # the traces are disjoint and the map renders exactly as the single trace did
+    # (same colorscale, same zmin/zmax).
+    #
+    # Each band is cropped to its own bounding box first. The full grid is
+    # 700x1400, and four uncropped copies of it would roughly quadruple what the
+    # browser has to load; cropping brings that back to about 2x on a typical
+    # event.
+    matrix = R['top_verif_matrix']
+    for value, color, label in ECHO_BANDS:
+        group = f'echo_band_{value}'
+        rows, cols = np.nonzero(matrix == value)
+        if rows.size:
+            r0, r1 = int(rows.min()), int(rows.max()) + 1
+            c0, c1 = int(cols.min()), int(cols.max()) + 1
+            block = matrix[r0:r1, c0:c1]
+            fig.add_trace(go.Heatmap(
+                x=R['lons'][c0:c1], y=R['lats'][r0:r1],
+                # float32, not float64: plotly ships z as binary, and the band
+                # values (1-4) and NaN are exact in single precision, so this is
+                # half the bytes for an identical picture. Splitting into four
+                # traces would otherwise more than double the figure payload.
+                z=np.where(block == value, np.float32(value), np.float32('nan')),
+                colorscale=ECHO_COLORSCALE, zmin=0, zmax=4,
+                showscale=False, showlegend=False, hoverinfo='skip',
+                legendgroup=group, name=label))
+        # The legend entry itself: an empty scatter, so it costs nothing and
+        # appears even for a band with no cells (a key that changes shape between
+        # events is harder to read than one that does not).
+        fig.add_trace(go.Scatter(
+            x=[None], y=[None], mode='markers',
+            marker=dict(size=10, color=color, symbol='square'),
+            name=label, legendgroup=group, showlegend=True, hoverinfo='skip'))
 
     sx, sy = _gdf_to_xy(gdf_states)
     if sx:
@@ -158,7 +198,9 @@ def _new_map_fig(R, title):
 
     # scaleratio ~1.25 corrects the lon/lat aspect near mid-CONUS (1/cos(37 deg)) so the
     # map isn't horizontally stretched. Zoom/pan/box-zoom come for free from Plotly.
+    # dragmode='pan' makes drag pan instead of box-zoom; scroll still zooms.
     fig.update_layout(
+        dragmode='pan',
         title=dict(text=title, font=dict(color='white', size=18)),
         template='plotly_dark', paper_bgcolor='black', plot_bgcolor='black',
         xaxis=dict(range=[-125, -65], showgrid=False, zeroline=False, color='white'),
@@ -211,7 +253,7 @@ def render_scorecard(R):
                                      textfont=dict(color='white', size=13, family='Arial Black'),
                                      hoverinfo='skip', showlegend=False))
 
-        st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
+        st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
 
     with col2:
         st.subheader("FAA Google Doc Report")
@@ -239,12 +281,23 @@ def render_reanalysis(R):
                                  line=dict(color='cyan', width=3, dash='dash'),
                                  hovertemplate="Objective truth area<extra></extra>"))
 
-    st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
+    st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
 
 
 # --- 4. SIDEBAR CONTROLS ---
+# Earliest selectable event. MRMS v12 went operational on 2020-10-15; the
+# archive before that is a different product version, so the echo tops would not
+# be comparable even where the S3 keys exist.
+MRMS_V12_START = date(2020, 10, 15)
+
 st.sidebar.header("Event Selection")
-target_date = st.sidebar.date_input("Select Event Date", datetime(2026, 5, 24))
+# UTC, not local. A forecaster working 2100 CDT is already on the next UTC day,
+# and every date this app handles -- TCF issuance hours, MRMS S3 key prefixes --
+# is UTC, so a local "today" would silently offer the wrong day.
+_today_utc = datetime.now(timezone.utc).date()
+target_date = st.sidebar.date_input(
+    "Select Event Date", value=_today_utc,
+    min_value=MRMS_V12_START, max_value=_today_utc)
 issuance_hour = st.sidebar.selectbox("Issuance Time (Z)", [5, 7, 9, 11, 13, 15, 17, 19, 21, 23], index=7)
 lead_time = st.sidebar.radio("Forecast Hour", [4, 6, 8])
 

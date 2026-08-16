@@ -11,8 +11,10 @@ stubbed out by the frozen baseline inputs, clicks "Run Verification", and
 asserts the report text the app ends up holding equals the event's
 expected.json report_text byte for byte.
 
-The app's default widget values (2026-05-24, 19Z, FH 4) are exactly the
-20260524_19Z_F04 event, so no widget manipulation is needed.
+The issuance/lead widgets still default to 19Z / FH 4, but the date input now
+defaults to today in UTC, so this drives that widget to the event's date before
+clicking. It also asserts the date widget's default and its min/max bounds,
+since those are display behaviour nothing else covers.
 
 Requires streamlit; skips cleanly (exit 0) if it is not installed, since the
 rest of the harness deliberately runs without it.
@@ -22,6 +24,7 @@ rest of the harness deliberately runs without it.
 Exit status: 0 = parity (or skipped), 1 = the app diverged from the baseline.
 """
 
+import datetime as dt
 import json
 import os
 import sys
@@ -81,7 +84,24 @@ if at.exception:
     print(f"FAIL: app.py raised on load: {[e.value for e in at.exception]}")
     sys.exit(1)
 
-# Default widgets already select the event; click Run Verification.
+date_widget = at.sidebar.date_input[0]
+today_utc = dt.datetime.now(dt.timezone.utc).date()
+bounds_failures = []
+if date_widget.value != today_utc:
+    bounds_failures.append(f"date default is {date_widget.value}, expected today UTC {today_utc}")
+if date_widget.proto.max != today_utc.isoformat():
+    bounds_failures.append(f"date max_value is {date_widget.proto.max}, expected {today_utc.isoformat()}")
+if date_widget.proto.min != "2020-10-15":
+    bounds_failures.append(f"date min_value is {date_widget.proto.min}, expected 2020-10-15 (MRMS v12)")
+
+# The date default is now dynamic, so drive it to the event under test rather
+# than relying on it. Issuance (19Z) and lead (FH 4) still default correctly.
+event_date = dt.datetime.strptime(expected["date"], "%Y-%m-%d").date()
+date_widget.set_value(event_date).run()
+if at.exception:
+    print(f"FAIL: app.py raised after setting the date: {[e.value for e in at.exception]}")
+    sys.exit(1)
+
 buttons = [b for b in at.sidebar.button if "Run Verification" in b.label]
 assert buttons, f"could not find the Run Verification button (found {[b.label for b in at.sidebar.button]})"
 buttons[0].click().run()
@@ -97,7 +117,7 @@ if "results" not in at.session_state:
     sys.exit(1)
 results = at.session_state["results"]
 
-failures = []
+failures = list(bounds_failures)
 
 if not scan_log:
     failures.append("app.py never called build_composite")
