@@ -80,6 +80,25 @@ def cached_fetch_iem_cow_tcf(date_obj, issue_hr, f_hr):
         st.sidebar.error(f"IEM Fetch Error: {e}")
         return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
+@st.cache_data(show_spinner=False)
+def cached_build_composite(valid_dt, window_minutes, cadence_minutes, step, _log=None):
+    """Cached wrapper around the pipeline's MRMS composite.
+
+    Keyed on the scalar arguments only. `_log` is underscore-prefixed so
+    Streamlit leaves it out of the cache key -- it is a callback, it has no
+    bearing on the arrays, and hashing it would defeat the cache on every rerun.
+    A cache hit therefore returns the composite without re-emitting the per-scan
+    progress lines, which is the point: the whole fetch is skipped.
+
+    The wrapper lives here rather than in tcf_pipeline, which must stay
+    streamlit-free.
+    """
+    return build_composite(valid_dt, log=_log or (lambda _msg: None),
+                           window_minutes=window_minutes,
+                           cadence_minutes=cadence_minutes,
+                           step=step)
+
+
 # Load geography once. These stay available on every rerun, so the render
 # functions below can reference them as globals (no need to stash in session_state).
 gdf_states, gdf_artcc = load_geography()
@@ -149,42 +168,34 @@ def _new_map_fig(R, title):
     safe on a locked-down network."""
     fig = go.Figure()
 
-    # Radar background, one trace per echo-top band rather than one for all four.
-    # Splitting it is what makes the legend entries below able to toggle a single
-    # band: plotly toggles every trace sharing a legendgroup, and a dummy scatter
-    # on its own would toggle nothing visible. Cells outside a band are NaN, so
-    # the traces are disjoint and the map renders exactly as the single trace did
-    # (same colorscale, same zmin/zmax).
+    # Radar background: ONE heatmap for all four bands. 0 (no convection) -> NaN
+    # so those cells render transparent.
     #
-    # Each band is cropped to its own bounding box first. The full grid is
-    # 700x1400, and four uncropped copies of it would roughly quadruple what the
-    # browser has to load; cropping brings that back to about 2x on a typical
-    # event.
-    matrix = R['top_verif_matrix']
+    # This was briefly one trace per band, paired with the legend entries below by
+    # legendgroup so clicking an entry toggled that band. It worked, but four
+    # traces cost +3.4 MB of figure payload (12.3 -> 15.7 MB) and the radar layer
+    # is about to become a static image, after which per-band toggling is cheap.
+    # Not worth carrying in between, so the entries below are a static key.
+    #
+    # float32 rather than float64 is kept: plotly ships z as binary, the band
+    # values (1-4) and NaN are exact in single precision, and it halves those
+    # bytes for an identical picture.
+    z = np.where(R['top_verif_matrix'] == 0,
+                 np.float32('nan'), R['top_verif_matrix'].astype(np.float32))
+    fig.add_trace(go.Heatmap(
+        x=R['lons'], y=R['lats'], z=z,
+        colorscale=ECHO_COLORSCALE, zmin=0, zmax=4,
+        showscale=False, hoverinfo='skip', name='Echo Tops'))
+
+    # Legend key for the bands above. Empty scatters, so they cost nothing and
+    # appear for every event whether or not that band has cells. They are a key,
+    # not a control: with a single heatmap there is nothing per-band to toggle,
+    # and clicking one hides only its own (invisible) trace.
     for value, color, label in ECHO_BANDS:
-        group = f'echo_band_{value}'
-        rows, cols = np.nonzero(matrix == value)
-        if rows.size:
-            r0, r1 = int(rows.min()), int(rows.max()) + 1
-            c0, c1 = int(cols.min()), int(cols.max()) + 1
-            block = matrix[r0:r1, c0:c1]
-            fig.add_trace(go.Heatmap(
-                x=R['lons'][c0:c1], y=R['lats'][r0:r1],
-                # float32, not float64: plotly ships z as binary, and the band
-                # values (1-4) and NaN are exact in single precision, so this is
-                # half the bytes for an identical picture. Splitting into four
-                # traces would otherwise more than double the figure payload.
-                z=np.where(block == value, np.float32(value), np.float32('nan')),
-                colorscale=ECHO_COLORSCALE, zmin=0, zmax=4,
-                showscale=False, showlegend=False, hoverinfo='skip',
-                legendgroup=group, name=label))
-        # The legend entry itself: an empty scatter, so it costs nothing and
-        # appears even for a band with no cells (a key that changes shape between
-        # events is harder to read than one that does not).
         fig.add_trace(go.Scatter(
             x=[None], y=[None], mode='markers',
             marker=dict(size=10, color=color, symbol='square'),
-            name=label, legendgroup=group, showlegend=True, hoverinfo='skip'))
+            name=label, showlegend=True, hoverinfo='skip'))
 
     sx, sy = _gdf_to_xy(gdf_states)
     if sx:
@@ -321,7 +332,12 @@ if st.sidebar.button("Run Verification"):
         # --- Rolling Composite ---
         # st.write is handed to the pipeline as its progress sink, so the per-scan
         # lines still appear in this status box.
-        max_tops, max_refl, lons, lats = build_composite(valid_dt, log=st.write)
+        max_tops, max_refl, lons, lats = cached_build_composite(
+            valid_dt,
+            tcf_pipeline.COMPOSITE_WINDOW_MINUTES,
+            tcf_pipeline.COMPOSITE_CADENCE_MINUTES,
+            tcf_pipeline.COMPOSITE_STEP,
+            _log=st.write)
 
         st.write("Building Objective Truth Polygons...")
         status.update(label="Data processing complete!", state="complete", expanded=False)

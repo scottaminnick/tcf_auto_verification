@@ -711,6 +711,177 @@ def _():
     assert "[Top:" not in lines[0], f"a zero top should print no bracket: {lines[0]!r}"
 
 
+# --- composite fetch (parallel downloads, fixed fold order) ------------------
+def _run_stubbed_composite(completion_delays, workers=8):
+    """Drive the real build_composite with S3 and cfgrib stubbed out.
+
+    completion_delays maps a scan offset (minutes) to a sleep in the fake
+    downloader, so downloads finish in a controlled, deliberately jumbled order.
+    Returns the composite plus the order the workers actually finished in.
+    """
+    import threading
+    import time as _time
+
+    lons, lats = make_grid()
+    # One distinct array per scan, with values that make the running max
+    # order-sensitive if it is ever folded in completion order.
+    rng = np.random.default_rng(1234)
+    per_scan = {}
+    for i, offset in enumerate(range(-15, 16, 5)):
+        tops = rng.uniform(0, 60, size=(len(lats), len(lons))).astype(np.float32)
+        refl = rng.uniform(0, 70, size=(len(lats), len(lons))).astype(np.float32)
+        # Signed zeros in overlapping cells: np.maximum keeps its FIRST argument
+        # when the two compare equal, so these are exactly the cells whose sign
+        # bit would follow fold order.
+        tops[i % 3::7] = -0.0 if i % 2 else 0.0
+        refl[i % 5::11] = 0.0 if i % 2 else -0.0
+        per_scan[offset] = (tops, refl)
+
+    finished = []
+    finished_lock = threading.Lock()
+    log_threads = set()
+
+    def fake_resolve(product, dt_obj, s3=None):
+        return f"{product}/{dt_obj:%H%M}"
+
+    def fake_download(key, dest_dir="mrms_data", s3=None):
+        offset = _key_offset(key)
+        _time.sleep(completion_delays.get(offset, 0.0))
+        with finished_lock:
+            finished.append((key, _time.perf_counter()))
+        return key
+
+    def fake_read(tops_file, refl_file, step):
+        offset = _key_offset(tops_file)
+        tops, refl = per_scan[offset]
+        return tops.copy(), refl.copy(), lons, lats
+
+    def spy_log(msg):
+        log_threads.add(threading.current_thread().name)
+
+    saved = (tcf_pipeline._resolve_scan_key, tcf_pipeline._download_key,
+             tcf_pipeline._read_scan_arrays, tcf_pipeline._s3_client)
+    tcf_pipeline._resolve_scan_key = fake_resolve
+    tcf_pipeline._download_key = fake_download
+    tcf_pipeline._read_scan_arrays = fake_read
+    tcf_pipeline._s3_client = lambda: None
+    try:
+        out = tcf_pipeline.build_composite(
+            VALID_DT, log=spy_log, max_workers=workers, dest_dir=TMP_MRMS)
+    finally:
+        (tcf_pipeline._resolve_scan_key, tcf_pipeline._download_key,
+         tcf_pipeline._read_scan_arrays, tcf_pipeline._s3_client) = saved
+    order = [k for k, _ in sorted(finished, key=lambda kv: kv[1])]
+    return out, order, log_threads
+
+
+def _key_offset(key):
+    """Recover the scan offset (minutes) from a stubbed key like 'EchoTop_18/2315'."""
+    hhmm = key.split('/')[-1]
+    scan = VALID_DT.replace(hour=int(hhmm[:2]), minute=int(hhmm[2:]))
+    delta = round((scan - VALID_DT).total_seconds() / 60)
+    # +/-15 min around 23:00 stays inside the day for this fixture's VALID_DT.
+    return delta
+
+
+VALID_DT = tcf_pipeline.compute_valid_dt(date(2026, 5, 24), 19, 4)
+TMP_MRMS = os.path.join(TMP, "mrms_stub")
+
+
+@scenario("(2b) composite is bit-identical regardless of download completion order")
+def _():
+    """The whole point of parallel fetch: workers finish in whatever order they
+    like, and the arrays must not care."""
+    (a_tops, a_refl, a_lons, a_lats), order_a, _ = _run_stubbed_composite({})
+    # Make the LAST scan finish first and the first finish last.
+    jumbled = {-15: 0.25, -10: 0.20, -5: 0.15, 0: 0.10, 5: 0.05, 10: 0.02, 15: 0.0}
+    (b_tops, b_refl, b_lons, b_lats), order_b, _ = _run_stubbed_composite(jumbled)
+    # And a third pass with a different jumble again.
+    shuffled = {-15: 0.05, -10: 0.0, -5: 0.22, 0: 0.02, 5: 0.18, 10: 0.09, 15: 0.12}
+    (c_tops, c_refl, _, _), order_c, _ = _run_stubbed_composite(shuffled)
+
+    assert order_a != order_b or order_b != order_c, \
+        "the stub failed to produce differing completion orders, so this proves nothing"
+
+    for name, x, y, z in (("max_tops", a_tops, b_tops, c_tops),
+                          ("max_refl", a_refl, b_refl, c_refl)):
+        # tobytes(), not array_equal: -0.0 == 0.0 compares equal but is a
+        # different bit pattern, and bit-identical is what was asked for.
+        assert x.tobytes() == y.tobytes() == z.tobytes(), \
+            f"{name} changed with download completion order -- the fold is not order-pinned"
+    assert a_lons.tobytes() == b_lons.tobytes() and a_lats.tobytes() == b_lats.tobytes(), \
+        "lons/lats came from a different scan depending on completion order"
+    print(f"  3 completion orders, identical bytes "
+          f"(first finisher: {order_a[0].split('/')[-1]} / {order_b[0].split('/')[-1]} / "
+          f"{order_c[0].split('/')[-1]})")
+
+
+@scenario("(2d) the log callback is only ever called from the calling thread")
+def _():
+    """st.write from a pool worker has no ScriptRunContext and its output can
+    interleave, so the pipeline must not hand the callback to workers."""
+    _, _, threads = _run_stubbed_composite({-15: 0.05, 15: 0.0})
+    assert threads, "the composite logged nothing at all"
+    assert threads == {"MainThread"}, \
+        f"log() was called from worker thread(s): {sorted(threads)}"
+
+
+@scenario("(2b) np.maximum is order-sensitive for signed zeros, which is why the fold is pinned")
+def _():
+    """Documents the hazard the pinned fold order exists to avoid.
+
+    If this ever starts failing, numpy changed and the fold order stopped being
+    load-bearing -- which would be good news, but the comment in build_composite
+    would need updating.
+    """
+    import functools
+    neg = np.float32(-0.0)
+    pos = np.float32(0.0)
+    assert np.maximum(neg, pos).tobytes() != np.maximum(pos, neg).tobytes(), \
+        "np.maximum no longer distinguishes signed zeros by argument order"
+
+    # Without signed zeros, any fold order agrees bit for bit.
+    rng = np.random.default_rng(7)
+    plain = [rng.uniform(1, 50, size=(30, 40)).astype(np.float32) for _ in range(7)]
+    folds = {functools.reduce(np.maximum, [plain[i] for i in perm]).tobytes()
+             for perm in ([0, 1, 2, 3, 4, 5, 6], [6, 5, 4, 3, 2, 1, 0], [3, 0, 6, 1, 5, 2, 4])}
+    assert len(folds) == 1, "np.maximum disagreed across fold orders on ordinary data"
+
+
+@scenario("(2a) each product-day is listed once and cached, not once per scan")
+def _():
+    calls = []
+
+    class FakeS3:
+        def get_paginator(self, _op):
+            class P:
+                def paginate(self, Bucket=None, Prefix=None):
+                    calls.append(Prefix)
+                    # Two pages, to prove pagination is followed rather than
+                    # only the first 1000 keys being read.
+                    yield {"Contents": [
+                        {"Key": f"{Prefix}MRMS_X_00.50_20260524-{h:02d}{m:02d}00.grib2.gz"}
+                        for h in range(12) for m in (0, 30)]}
+                    yield {"Contents": [
+                        {"Key": f"{Prefix}MRMS_X_00.50_20260524-{h:02d}{m:02d}00.grib2.gz"}
+                        for h in range(12, 24) for m in (0, 30)]}
+            return P()
+
+    tcf_pipeline._MRMS_KEY_CACHE.clear()
+    try:
+        fake = FakeS3()
+        first = tcf_pipeline.list_mrms_keys("EchoTop_18", "20260524", s3=fake)
+        assert len(first) == 48, f"pagination dropped keys: got {len(first)}, expected 48 across 2 pages"
+        for _ in range(13):
+            tcf_pipeline.list_mrms_keys("EchoTop_18", "20260524", s3=fake)
+        assert len(calls) == 1, f"listed {len(calls)} times for one product-day; the cache is not working"
+        # A different day is a different cache entry.
+        tcf_pipeline.list_mrms_keys("EchoTop_18", "20260525", s3=fake)
+        assert len(calls) == 2, f"a second day should list once more, got {len(calls)} total"
+    finally:
+        tcf_pipeline._MRMS_KEY_CACHE.clear()
+
+
 @scenario("(1) EVENTS holds the six configured events with the documented ids")
 def _():
     want = [("20260524_19Z_F04", date(2026, 5, 24), 19, 4),
@@ -725,39 +896,61 @@ def _():
 
 @scenario("(1) the day-rollover event pulls MRMS from the SCAN date, not the issuance date")
 def _():
-    import datetime as dt
+    import datetime as dtmod
 
     evt = next(e for e in capture.EVENTS if e["event_id"] == "20260403_21Z_F04")
     valid_dt = tcf_pipeline.compute_valid_dt(evt["date"], evt["issuance_hour"], evt["lead_time"])
-    assert valid_dt == dt.datetime(2026, 4, 4, 1, 0), \
+    assert valid_dt == dtmod.datetime(2026, 4, 4, 1, 0), \
         f"21Z + 4 should be 01Z the next day, got {valid_dt}"
 
-    # Record what download_mrms_scan would be asked for, without touching S3.
-    seen = []
+    # Record both what the composite asks for (product, scan datetime) and the
+    # product-day each listing is built for -- the latter is the actual S3
+    # prefix component, which is the thing that must not follow the issuance date.
+    asked, listed = [], []
+    real_resolve = tcf_pipeline._resolve_scan_key
 
-    def spy(product, dt_obj, dest_dir="mrms_data"):
-        seen.append((product, dt_obj))
-        return None
+    def spy_resolve(product, dt_obj, s3=None):
+        asked.append((product, dt_obj))
+        return real_resolve(product, dt_obj, s3=s3)
 
-    original = tcf_pipeline.download_mrms_scan
-    tcf_pipeline.download_mrms_scan = spy
+    # Stub at the S3 client, not at list_mrms_keys, so the real caching path runs
+    # and the listing count below means something.
+    class SilentS3:
+        def get_paginator(self, _op):
+            class P:
+                def paginate(self, Bucket=None, Prefix=None):
+                    listed.append(Prefix)
+                    yield {}          # no keys -> nothing resolves -> nothing downloads
+            return P()
+
+    saved = (tcf_pipeline._resolve_scan_key, tcf_pipeline._s3_client)
+    tcf_pipeline._resolve_scan_key = spy_resolve
+    tcf_pipeline._s3_client = SilentS3
+    tcf_pipeline._MRMS_KEY_CACHE.clear()
     try:
         try:
-            tcf_pipeline.build_composite(valid_dt)
+            tcf_pipeline.build_composite(valid_dt, log=lambda _m: None, dest_dir=TMP_MRMS)
         except RuntimeError:
-            pass  # expected: the spy reports no scans available
+            pass  # expected: the stub reports no scans available
     finally:
-        tcf_pipeline.download_mrms_scan = original
+        (tcf_pipeline._resolve_scan_key, tcf_pipeline._s3_client) = saved
+        tcf_pipeline._MRMS_KEY_CACHE.clear()
 
-    assert len(seen) == 14, f"expected 7 offsets x 2 products, got {len(seen)}"
-    # The prefix download_mrms_scan builds is CONUS/<product>_00.50/<dt_obj date>/.
-    dates = sorted({d.strftime("%Y%m%d") for _, d in seen})
+    assert len(asked) == 14, f"expected 7 offsets x 2 products, got {len(asked)}"
+    dates = sorted({d.strftime("%Y%m%d") for _, d in asked})
     assert dates == ["20260404"], \
-        f"MRMS keys must come from the scan date 20260404, not the issuance date; got {dates}"
-    assert "20260403" not in dates, "issuance date leaked into the S3 prefix"
+        f"scans must come from the scan date 20260404, not the issuance date; got {dates}"
     # +/-15 min around 01Z stays inside 2026-04-04.
-    assert min(d for _, d in seen) == dt.datetime(2026, 4, 4, 0, 45)
-    assert max(d for _, d in seen) == dt.datetime(2026, 4, 4, 1, 15)
+    assert min(d for _, d in asked) == dtmod.datetime(2026, 4, 4, 0, 45)
+    assert max(d for _, d in asked) == dtmod.datetime(2026, 4, 4, 1, 15)
+
+    # And the S3 prefix actually listed carries the same date.
+    listed_dates = sorted({pfx.rstrip("/").split("/")[-1] for pfx in listed})
+    assert listed_dates == ["20260404"], \
+        f"listing prefix used {listed_dates}, expected ['20260404']"
+    # One listing per product for the whole window, not one per scan per product.
+    assert len(listed) == 2, \
+        f"expected 2 listings (one per product), got {len(listed)}: {listed}"
 
 
 @scenario("the network guard blocks outbound connections")

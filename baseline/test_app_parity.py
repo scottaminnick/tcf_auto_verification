@@ -66,10 +66,18 @@ def fake_fetch(date_obj, issue_hr, f_hr):
     return tcf_pipeline.parse_iem_cow_text(raw_text)
 
 
-def fake_composite(valid_dt, log=None):
+def fake_composite(valid_dt, log=None, window_minutes=None, cadence_minutes=None,
+                   step=None, **kwargs):
     assert valid_dt.strftime("%Y-%m-%dT%H:%M:%S") == expected["valid_dt"], \
         f"app.py computed the wrong valid time: {valid_dt}"
     assert log is not None, "app.py should pass its own progress sink"
+    # The cached wrapper keys on these, so app.py must actually be passing them
+    # rather than letting the pipeline defaults apply invisibly.
+    assert (window_minutes, cadence_minutes, step) == (
+        tcf_pipeline.COMPOSITE_WINDOW_MINUTES,
+        tcf_pipeline.COMPOSITE_CADENCE_MINUTES,
+        tcf_pipeline.COMPOSITE_STEP), \
+        f"app.py passed unexpected composite settings: {(window_minutes, cadence_minutes, step)}"
     log("Pulling MRMS (stubbed from the frozen baseline)...")
     scan_log.append(valid_dt)
     return frozen

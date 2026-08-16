@@ -30,6 +30,8 @@ import os
 import re
 import shutil
 import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 
@@ -256,50 +258,103 @@ def get_artccs(poly, artcc_gdf):
     return "/".join(centers)
 
 
-def download_mrms_scan(product, dt_obj, dest_dir="mrms_data"):
+# --- MRMS S3 access ---------------------------------------------------------
+# One listing per (product, UTC day), cached for the life of the process. The
+# old code listed the bucket once per scan per product -- 14 listings to fetch 14
+# files -- and every one of those listings returned the same ~720 keys.
+_MRMS_BUCKET = 'noaa-mrms-pds'
+_MRMS_KEY_CACHE = {}
+_MRMS_KEY_CACHE_LOCK = threading.Lock()
+
+
+def _s3_client():
     import boto3
     import botocore
 
-    os.makedirs(dest_dir, exist_ok=True)
-    date_str = dt_obj.strftime('%Y%m%d')
-    bucket_name = 'noaa-mrms-pds'
+    return boto3.client('s3', config=botocore.client.Config(signature_version=botocore.UNSIGNED))
+
+
+def list_mrms_keys(product, date_str, s3=None):
+    """[(key, file_datetime)] for one product-day, newest listing cached.
+
+    Paginated. A 2-minute product is ~720 keys a day, comfortably under the
+    1000-key page limit the old single list_objects_v2 call relied on, but that
+    call had no IsTruncated guard at all -- it would silently see only the first
+    page and the afternoon scans would simply not resolve. Raising the file count
+    (a finer cadence) would have walked straight into that.
+    """
+    cache_key = (product, date_str)
+    with _MRMS_KEY_CACHE_LOCK:
+        cached = _MRMS_KEY_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    s3 = s3 or _s3_client()
     prefix = f"CONUS/{product}_00.50/{date_str}/"
-    s3 = boto3.client('s3', config=botocore.client.Config(signature_version=botocore.UNSIGNED))
-
-    try:
-        response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
-        if 'Contents' not in response:
-            return None
-
-        # Pick the file NEAREST in time to dt_obj, not an exact HHMM match.
-        best_key, best_diff = None, None
-        for obj in response['Contents']:
+    entries = []
+    for page in s3.get_paginator('list_objects_v2').paginate(Bucket=_MRMS_BUCKET, Prefix=prefix):
+        for obj in page.get('Contents', []):
             key = obj['Key']
             if not key.endswith('.grib2.gz'):
                 continue
             m = re.search(r'(\d{8})-(\d{6})', key.split('/')[-1])
             if not m:
                 continue
-            file_dt = datetime.strptime(m.group(1) + m.group(2), '%Y%m%d%H%M%S')
-            diff = abs((file_dt - dt_obj).total_seconds())
-            if best_diff is None or diff < best_diff:
-                best_key, best_diff = key, diff
+            entries.append((key, datetime.strptime(m.group(1) + m.group(2), '%Y%m%d%H%M%S')))
 
-        # Reject if the closest file is more than 5 min away (a genuine archive gap).
-        if best_key is None or best_diff > 5 * 60:
-            return None
+    with _MRMS_KEY_CACHE_LOCK:
+        _MRMS_KEY_CACHE[cache_key] = entries
+    return entries
 
-        local_gz = os.path.join(dest_dir, best_key.split('/')[-1])
+
+def _resolve_scan_key(product, dt_obj, s3=None):
+    """The archived key NEAREST in time to dt_obj, or None.
+
+    Same rule as before: nearest wins, and anything more than 5 minutes away is
+    a genuine archive gap rather than a usable scan. MRMS scans are stamped with
+    seconds (...20260524-231038), so requests on 5-minute marks rarely match
+    exactly and an exact-match lookup silently drops the scan.
+    """
+    try:
+        entries = list_mrms_keys(product, dt_obj.strftime('%Y%m%d'), s3=s3)
+    except Exception:
+        return None
+
+    best_key, best_diff = None, None
+    for key, file_dt in entries:
+        diff = abs((file_dt - dt_obj).total_seconds())
+        if best_diff is None or diff < best_diff:
+            best_key, best_diff = key, diff
+
+    if best_key is None or best_diff > 5 * 60:
+        return None
+    return best_key
+
+
+def _download_key(key, dest_dir="mrms_data", s3=None):
+    """Fetch and gunzip one key, returning the local .grib2 path (or None)."""
+    try:
+        os.makedirs(dest_dir, exist_ok=True)
+        local_gz = os.path.join(dest_dir, key.split('/')[-1])
         local_grib = local_gz.replace('.gz', '')
 
         if not os.path.exists(local_grib):
-            s3.download_file(bucket_name, best_key, local_gz)
+            (s3 or _s3_client()).download_file(_MRMS_BUCKET, key, local_gz)
             with gzip.open(local_gz, 'rb') as f_in, open(local_grib, 'wb') as f_out:
                 shutil.copyfileobj(f_in, f_out)
             os.remove(local_gz)
         return local_grib
     except Exception:
         return None
+
+
+def download_mrms_scan(product, dt_obj, dest_dir="mrms_data"):
+    """Resolve and fetch the scan nearest dt_obj. Unchanged behaviour, now built
+    on the cached listing rather than a fresh one per call."""
+    key = _resolve_scan_key(product, dt_obj)
+    if key is None:
+        return None
+    return _download_key(key, dest_dir)
 
 
 def extract_tcf_polygons(coverage_mask, lons, lats, min_area_m2=0):
@@ -448,45 +503,116 @@ def compute_valid_dt(target_date, issuance_hour, lead_time):
     return valid_dt
 
 
-def build_composite(valid_dt, log=_log):
+# Products the composite needs, in the order build_composite reads them.
+TOPS_PRODUCT = "EchoTop_18"
+REFL_PRODUCT = "MergedReflectivityQCComposite"
+
+# Defaults are exactly the values that were hardcoded in build_composite. They
+# are arguments so app.py can key its st.cache_data wrapper on them; changing
+# any of them changes the composite and will (correctly) fail the baselines.
+COMPOSITE_WINDOW_MINUTES = 15
+COMPOSITE_CADENCE_MINUTES = 5
+COMPOSITE_STEP = 5
+COMPOSITE_MAX_WORKERS = 8
+
+
+def _read_scan_arrays(tops_file, refl_file, step):
+    """Decode one scan pair into (tops_kft, refl, lons, lats).
+
+    Split out of build_composite so the fixture test can drive the whole fetch
+    path -- including the thread pool -- without cfgrib or S3.
+    """
+    # Imported at the point of use, not at module scope: that keeps this module
+    # importable without the cfgrib/ecCodes stack installed.
+    import xarray as xr
+
+    ds_t = xr.open_dataset(tops_file, engine='cfgrib', backend_kwargs={'indexpath': ''})
+    ds_r = xr.open_dataset(refl_file, engine='cfgrib', backend_kwargs={'indexpath': ''})
+
+    curr_tops = ds_t.unknown[::step, ::step].values * 3.28084
+    curr_refl = ds_r.unknown[::step, ::step].values
+
+    lons = ds_t.longitude[::step].values
+    lons = np.where(lons > 180, lons - 360, lons)
+    lats = ds_t.latitude[::step].values
+
+    ds_t.close()
+    ds_r.close()
+    del ds_t, ds_r
+    return curr_tops, curr_refl, lons, lats
+
+
+def build_composite(valid_dt, log=_log,
+                    window_minutes=COMPOSITE_WINDOW_MINUTES,
+                    cadence_minutes=COMPOSITE_CADENCE_MINUTES,
+                    step=COMPOSITE_STEP,
+                    max_workers=COMPOSITE_MAX_WORKERS,
+                    dest_dir="mrms_data"):
     """The rolling MRMS composite. Network-bound.
+
+    Scans are fetched concurrently but folded into the running max in a FIXED
+    order -- ascending time offset, exactly the order the old sequential loop
+    used. That is deliberate and load-bearing: np.maximum returns its first
+    argument when the two compare equal, so for a cell holding -0.0 in one scan
+    and +0.0 in another the RESULT'S SIGN BIT depends on fold order. The values
+    are numerically equal and nothing downstream can see the difference, but
+    "bit-identical" would not hold if the fold followed completion order.
+    Pinning the order makes download completion order irrelevant by construction;
+    baseline/test_fixture.py asserts it rather than trusting this comment.
 
     `log` is the one seam this module offers its callers: capture.py leaves it
     at the stderr default, app.py passes st.write so the per-scan progress lines
-    still appear in the dashboard's status box. It carries no data and cannot
-    affect the arrays.
+    still appear in the dashboard's status box. It is only ever called from the
+    calling thread -- never from a pool worker -- so a Streamlit callback cannot
+    be invoked off-script-thread and the lines cannot interleave. It carries no
+    data and cannot affect the arrays.
 
-    Returns (max_tops, max_refl, lons, lats). Raises if no scan in the +/-15 min
-    window could be read -- the original inline version had no such guard and
-    blew up later with a TypeError on None (see BUG 1 at the bottom of this file).
+    Returns (max_tops, max_refl, lons, lats). Raises if no scan in the window
+    could be read -- the original inline version had no such guard and blew up
+    later with a TypeError on None (see BUG 1 at the bottom of this file).
     """
-    time_offsets = list(range(-15, 16, 5))
-    max_tops, max_refl = None, None
-    lons, lats = None, None
-    step = 5
+    time_offsets = list(range(-window_minutes, window_minutes + 1, cadence_minutes))
 
+    # Resolve every scan first. Each distinct (product, UTC day) is listed once
+    # and cached, so this is 2 listings for a window inside one day and 4 across
+    # a midnight rollover -- not one per scan per product.
+    s3 = _s3_client()
+    plan = []
     for offset in time_offsets:
         scan_dt = valid_dt + timedelta(minutes=offset)
+        plan.append((scan_dt,
+                     _resolve_scan_key(TOPS_PRODUCT, scan_dt, s3=s3),
+                     _resolve_scan_key(REFL_PRODUCT, scan_dt, s3=s3)))
+
+    # Deduplicate before fetching. Adjacent offsets can resolve to the same
+    # archived file when the archive is sparse; downloading a key twice would be
+    # wasted work sequentially and a write race in parallel, since both would
+    # target the same path.
+    wanted = sorted({key for _, tk, rk in plan for key in (tk, rk) if key})
+    log(f"Fetching {len(wanted)} MRMS files for {len(time_offsets)} scans "
+        f"({max_workers} at a time)...")
+
+    paths = {}
+    if wanted:
+        with ThreadPoolExecutor(max_workers=min(max_workers, len(wanted))) as pool:
+            for key, path in zip(wanted, pool.map(
+                    lambda k: _download_key(k, dest_dir, s3=s3), wanted)):
+                paths[key] = path
+
+    max_tops, max_refl = None, None
+    lons, lats = None, None
+
+    for scan_dt, tops_key, refl_key in plan:
+        tops_file = paths.get(tops_key)
+        refl_file = paths.get(refl_key)
         log(f"Pulling MRMS for {scan_dt.strftime('%H:%MZ')}...")
-        tops_file = download_mrms_scan("EchoTop_18", scan_dt)
-        refl_file = download_mrms_scan("MergedReflectivityQCComposite", scan_dt)
 
         if tops_file and refl_file:
-            # Imported at the point of use, not at module scope: that keeps the
-            # composite loop exercisable (and this module importable) without the
-            # cfgrib/ecCodes stack installed.
-            import xarray as xr
-
-            ds_t = xr.open_dataset(tops_file, engine='cfgrib', backend_kwargs={'indexpath': ''})
-            ds_r = xr.open_dataset(refl_file, engine='cfgrib', backend_kwargs={'indexpath': ''})
-
-            curr_tops = ds_t.unknown[::step, ::step].values * 3.28084
-            curr_refl = ds_r.unknown[::step, ::step].values
+            curr_tops, curr_refl, curr_lons, curr_lats = _read_scan_arrays(
+                tops_file, refl_file, step)
 
             if lons is None:
-                lons = ds_t.longitude[::step].values
-                lons = np.where(lons > 180, lons - 360, lons)
-                lats = ds_t.latitude[::step].values
+                lons, lats = curr_lons, curr_lats
 
             if max_tops is None:
                 max_tops, max_refl = curr_tops, curr_refl
@@ -494,16 +620,15 @@ def build_composite(valid_dt, log=_log):
                 max_tops = np.maximum(max_tops, curr_tops)
                 max_refl = np.maximum(max_refl, curr_refl)
 
-            ds_t.close()
-            ds_r.close()
-            del ds_t, ds_r, curr_tops, curr_refl
+            del curr_tops, curr_refl
             gc.collect()
 
-    if os.path.exists("mrms_data"):
-        shutil.rmtree("mrms_data")
+    if os.path.exists(dest_dir):
+        shutil.rmtree(dest_dir)
 
     if max_tops is None:
-        raise RuntimeError(f"No MRMS scans available in the +/-15 min window around {valid_dt}")
+        raise RuntimeError(f"No MRMS scans available in the +/-{window_minutes} min "
+                           f"window around {valid_dt}")
 
     return max_tops, max_refl, lons, lats
 
