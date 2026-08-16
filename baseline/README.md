@@ -112,25 +112,46 @@ with the two network calls fed from the frozen baseline, clicks *Run
 Verification*, and requires the report the app ends up holding to equal
 `expected.json`'s `report_text` byte for byte.
 
+### Report building is two stages
+
+`run_verification` no longer formats text from geometry in one pass:
+
+    build_review_table(gdf_graded_fcst, gdf_graded_miss, gdf_artcc) -> DataFrame
+    build_report(review_table, valid_dt, issuance_hour, lead_time)  -> str
+
+The table is one row per graded polygon and per miss, carrying everything the
+report is derived from — idx, kind, category, coverage code, feat type, ARTCCs,
+coverage fraction, top and the boundary flag — in plain nullable pandas dtypes
+with no geometry, so it can round-trip through `st.data_editor`. All the
+geometry work and the ARTCC lookups happen in the first stage; the second only
+formats. That gap is where an editable review table drops in.
+
+`run_verification` returns the table as `results['review_table']` alongside the
+report, and `make fixture` proves the seam is real by editing a category, an
+ARTCC and a top in the frame and requiring the rebuilt report to follow. If
+editing the table did not change the report, the split would be decorative.
+
 ### Tuning parameters
 
 The grading knobs live in `tcf_pipeline.GradingParams`, a frozen dataclass whose
 defaults are exactly the values that used to be hardcoded — truth thresholds
 (0.25 sparse / 0.40 medium), grade cutoffs (0.50 / 0.20), `binary_dilation`
-iterations (1), `uniform_filter` size (20) and the 15,000 km² minimum truth
-area. `run_verification(..., params=GradingParams())` is the only entry point;
+iterations (1), `uniform_filter` size (20), the 0.20 miss-capture threshold and
+the 15,000 km² minimum truth area. `run_verification(..., params=GradingParams())` is the only entry point;
 app.py, capture.py and check.py all pass nothing and get the frozen behaviour.
 
 The baselines encode the defaults, so `make check` will correctly go red for any
 other value — that is the point, not a limitation. To try a setting, pass a
 `params=` explicitly rather than editing the defaults.
 
-Two things are deliberately **not** parameters yet: the echo-top bands
-(25/30/35/40 kft) and the 40 dBZ convection floor, which are being corrected in
-their own step so the diff stays inspectable; and the `0.20` miss threshold,
-which is numerically equal to `verified_close_cutoff` today but answers the
-opposite question (how much of a truth blob the forecast captured, rather than
-how much of a forecast truth filled).
+Still deliberately **not** parameters: the echo-top bands (25/30/35/40 kft) and
+the 40 dBZ convection floor, which are being corrected in their own step so the
+diff stays inspectable.
+
+`miss_capture_threshold` is its own field rather than a reuse of
+`verified_close_cutoff`. They hold the same 0.20 today but answer opposite
+questions — how much of a *truth blob* the forecast captured, versus how much of
+a *forecast* truth filled — so they have to be able to move independently.
 
 `make fixture` proves the parameters are wired through rather than accepted and
 ignored: it lowers a grade cutoff and requires a polygon to change category, and

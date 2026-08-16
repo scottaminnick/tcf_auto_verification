@@ -34,6 +34,7 @@ from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 
 import geopandas as gpd
+import pandas as pd
 import numpy as np
 from matplotlib.path import Path
 from scipy.ndimage import binary_dilation, uniform_filter
@@ -58,15 +59,10 @@ class GradingParams:
 
     Frozen so a params object cannot be mutated halfway through a run.
 
-    Deliberately NOT here yet:
-      * the echo-top bands (25/30/35/40 kft) and the 40 dBZ convection floor.
-        The bands are wrong relative to the TCF flight levels and are being
-        corrected separately, so that diff stays inspectable on its own.
-      * the 0.20 miss threshold in the miss loop. It is numerically equal to
-        verified_close_cutoff today but is a different question ("did the
-        forecast capture this truth blob?" rather than "did truth fill this
-        forecast?"). Binding them to one field would silently couple two
-        thresholds that only coincide.
+    Deliberately NOT here yet: the echo-top bands (25/30/35/40 kft) and the
+    40 dBZ convection floor. The bands are wrong relative to the TCF flight
+    levels and are being corrected separately, so that diff stays inspectable
+    on its own.
     """
 
     # Truth coverage thresholds. A Sparse (cov=3) forecast verifies against the
@@ -78,12 +74,39 @@ class GradingParams:
     verified_well_cutoff: float = 0.50
     verified_close_cutoff: float = 0.20
 
+    # A truth blob counts as Missed when the forecast captured less than this
+    # much of it. Numerically equal to verified_close_cutoff, but a separate
+    # field on purpose: it asks the opposite question (how much of a TRUTH blob
+    # the forecast captured, not how much of a FORECAST truth filled), so the
+    # two must be able to move independently.
+    miss_capture_threshold: float = 0.20
+
     # Truth-field construction, in decimated (5x) grid cells.
     dilation_iterations: int = 1
     smoothing_size: int = 20
 
     # Minimum truth polygon area, m^2 (15,000 km^2), measured in EPSG:5070.
     min_area_m2: float = 15_000_000_000
+
+
+# How close to a grade cutoff a coverage fraction has to land before it counts
+# as fragile -- see is_boundary(). Not a GradingParams field: it does not affect
+# a single graded outcome, it only annotates one.
+BOUNDARY_WINDOW = 0.005
+
+
+def is_boundary(coverage_fraction, params=GradingParams()):
+    """True if coverage_fraction sits within BOUNDARY_WINDOW of a grade cutoff.
+
+    Such a polygon can flip category on nothing worse than a different BLAS or
+    a geometry-library point release, so both the review table and the baseline
+    harness flag it rather than treating a category change there as a
+    regression.
+    """
+    if coverage_fraction is None:
+        return False
+    cutoffs = (params.verified_well_cutoff, params.verified_close_cutoff)
+    return any(abs(float(coverage_fraction) - c) <= BOUNDARY_WINDOW for c in cutoffs)
 
 
 def _log(msg):
@@ -302,33 +325,103 @@ def extract_tcf_polygons(coverage_mask, lons, lats, min_area_m2=0):
     return gdf
 
 
-def build_report(gdf_graded_fcst, gdf_graded_miss, valid_dt, issuance_hour, lead_time, gdf_artcc):
-    """Assembles the copy-paste FAA/NWS text report.
+# Column order and dtypes of the review table. Nullable pandas dtypes throughout
+# (miss rows have no coverage code, feat type, fraction or top), so the frame can
+# round-trip through st.data_editor without integers turning into floats -- an
+# idx that came back as 1.0 would render as "(Area 1.0)" in the report.
+REVIEW_COLUMNS = {
+    'idx': 'Int64',
+    'kind': 'string',
+    'category': 'string',
+    'coverage_code': 'Int64',
+    'feat_type': 'string',
+    'artccs': 'string',
+    'coverage_fraction': 'Float64',
+    'top_kft': 'Float64',
+    'boundary': 'boolean',
+}
 
-    Identical to app.py's build_report(); gdf_artcc is an explicit argument here
-    instead of a module-level global left over from load_geography().
+
+def build_review_table(gdf_graded_fcst, gdf_graded_miss, gdf_artcc, params=GradingParams()):
+    """Everything build_report needs, as a plain DataFrame -- one row per graded
+    polygon and per miss.
+
+    This is the seam an editable review table sits in: geometry, ARTCC lookups
+    and grading all happen here, and build_report() below formats text from the
+    result and nothing else. Anything a reviewer can change about the report has
+    to be a column, because the frame is the only thing build_report() sees.
+
+    No geometry and no numpy scalars in the output -- it has to survive a round
+    trip through st.data_editor.
+
+    top_kft carries the RAW top, not the value expected.json rounds to 2 dp. The
+    report formats it with :.1f, and rounding twice can land on a different last
+    digit.
+    """
+    rows = []
+
+    if not gdf_graded_fcst.empty:
+        for _, row in gdf_graded_fcst.iterrows():
+            coverage_fraction = getattr(row, 'coverage_fraction', None)
+            rows.append({
+                'idx': int(row.idx),
+                'kind': 'forecast',
+                'category': row.category,
+                # getattr defaults preserved verbatim from the original
+                # build_report -- 25 is not a coverage code (BUG 7), it just
+                # happens to fall through _coverage_label to "Sparse".
+                'coverage_code': int(getattr(row, 'coverage', 25)),
+                'feat_type': getattr(row, 'feat_type', 'AREA'),
+                'artccs': get_artccs(row.geometry, gdf_artcc),
+                'coverage_fraction': (None if coverage_fraction is None
+                                      else float(coverage_fraction)),
+                'top_kft': float(row.top),
+                'boundary': bool(is_boundary(coverage_fraction, params)),
+            })
+
+    if not gdf_graded_miss.empty:
+        for _, row in gdf_graded_miss.iterrows():
+            rows.append({
+                'idx': int(row.idx),
+                'kind': 'miss',
+                'category': 'Missed',
+                'coverage_code': None,
+                'feat_type': None,
+                'artccs': get_artccs(row.geometry, gdf_artcc),
+                'coverage_fraction': None,
+                'top_kft': None,
+                'boundary': False,
+            })
+
+    table = pd.DataFrame(rows, columns=list(REVIEW_COLUMNS))
+    return table.astype(REVIEW_COLUMNS)
+
+
+def build_report(review_table, valid_dt, issuance_hour, lead_time):
+    """Assembles the copy-paste FAA/NWS text report from the review table.
+
+    Formatting only: no geometry, no ARTCC lookups, no grading. Whatever the
+    table says is what the report says -- which is what makes an edited table
+    produce an edited report.
     """
     report_text = ""
     doc_report = {"Verified Well:": [], "Verified Close:": [], "Over-forecast:": [], "Missed:": []}
 
-    if not gdf_graded_fcst.empty:
-        for _, row in gdf_graded_fcst.iterrows():
-            artccs = get_artccs(row.geometry, gdf_artcc)
-            top_str = f" [Top: {row.top:.1f} kft]" if row.top > 0 else ""
-            cov_label = _coverage_label(getattr(row, 'coverage', 25))
-            feat_label = "Line" if getattr(row, 'feat_type', 'AREA') == 'LINE' else "Area"
-            line_text = f"{artccs} - {cov_label} ({feat_label} {row.idx}){top_str}"
-            if row.category == "Verified Well":
-                doc_report["Verified Well:"].append(line_text)
-            elif row.category == "Verified Close":
-                doc_report["Verified Close:"].append(line_text)
-            elif row.category == "Overforecasted":
-                doc_report["Over-forecast:"].append(line_text)
+    for row in review_table.itertuples(index=False):
+        if row.kind == 'miss':
+            doc_report["Missed:"].append(f"{row.artccs} - Missed (Area M{row.idx})")
+            continue
 
-    if not gdf_graded_miss.empty:
-        for _, row in gdf_graded_miss.iterrows():
-            artccs = get_artccs(row.geometry, gdf_artcc)
-            doc_report["Missed:"].append(f"{artccs} - Missed (Area M{row.idx})")
+        top_str = f" [Top: {row.top_kft:.1f} kft]" if row.top_kft > 0 else ""
+        cov_label = _coverage_label(row.coverage_code)
+        feat_label = "Line" if row.feat_type == 'LINE' else "Area"
+        line_text = f"{row.artccs} - {cov_label} ({feat_label} {row.idx}){top_str}"
+        if row.category == "Verified Well":
+            doc_report["Verified Well:"].append(line_text)
+        elif row.category == "Verified Close":
+            doc_report["Verified Close:"].append(line_text)
+        elif row.category == "Overforecasted":
+            doc_report["Over-forecast:"].append(line_text)
 
     report_text = f"National System Review\nNWS TCF Review\n{valid_dt.strftime('%A, %B %d, %Y')}\n"
     report_text += f"  {valid_dt.strftime('%b %d, %Y')}   IT: {issuance_hour:02d}Z   VT: {valid_dt.strftime('%H')}Z   FCST HR: {lead_time:02d}\n"
@@ -508,11 +601,9 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
         if poly.is_empty:
             continue
         captured = (poly.intersection(fcst_union).area / poly.area) if poly.area > 0 else 0
-        # NOT params.verified_close_cutoff. This 0.20 asks the opposite question --
-        # how much of a truth blob the forecast captured, not how much of a
-        # forecast truth filled. The two happen to share a value today; see the
-        # note in GradingParams before merging them.
-        if captured < 0.20:
+        # NOT params.verified_close_cutoff -- see the note on that field. Same
+        # value today, opposite question.
+        if captured < params.miss_capture_threshold:
             graded_misses.append({'geometry': poly, 'category': 'Missed', 'color': 'red', 'idx': idx + 1})
 
     # ORDER EAST -> WEST: east = larger (least-negative) longitude, so sort centroid.x
@@ -527,8 +618,11 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
     gdf_graded_fcst = gpd.GeoDataFrame(graded_forecasts, crs="EPSG:4326") if graded_forecasts else gpd.GeoDataFrame(geometry=[])
     gdf_graded_miss = gpd.GeoDataFrame(graded_misses, crs="EPSG:4326") if graded_misses else gpd.GeoDataFrame(geometry=[])
 
-    report_out = build_report(gdf_graded_fcst, gdf_graded_miss, valid_dt,
-                              issuance_hour, lead_time, gdf_artcc)
+    # Two stages: everything geometric collapses into the review table, then the
+    # report is formatted from that table alone. An editable table drops in
+    # between these two lines.
+    review_table = build_review_table(gdf_graded_fcst, gdf_graded_miss, gdf_artcc, params=params)
+    report_out = build_report(review_table, valid_dt, issuance_hour, lead_time)
 
     return {
         'lons': lons, 'lats': lats,
@@ -538,6 +632,7 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
         'gdf_sparse': gdf_sparse,
         'graded_forecasts': graded_forecasts,
         'graded_misses': graded_misses,
+        'review_table': review_table,
         'report_text': report_out,
         'valid_dt': valid_dt,
     }

@@ -44,11 +44,14 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import tcf_pipeline  # noqa: E402
 from tcf_pipeline import (  # noqa: E402
+    GradingParams,
     build_composite,
     compute_valid_dt,
     fetch_iem_cow_raw,
     get_artccs,
+    is_boundary,
     load_artccs,
     parse_iem_cow_text,
     run_verification,
@@ -88,21 +91,12 @@ BASELINE_DIR = os.path.join(REPO_ROOT, "baseline")
 COVERAGE_DP = 4   # decimal places for coverage_fraction and geometry bounds
 TOP_DP = 2        # decimal places for top_kft
 
-# A polygon whose coverage fraction lands this close to a grade cutoff can flip
-# category on pure float noise (a different BLAS, a geometry-library point
-# release). Marking those polygons lets check.py say "this category change is
-# expected fragility" instead of "the pipeline regressed".
-# KEEP IN SYNC with the identical block in check.py -- check.py deliberately does
-# not import from this module, so the two definitions must be maintained together.
-GRADE_CUTOFFS = (0.50, 0.20)
-BOUNDARY_WINDOW = 0.005
-
-
-def is_boundary(coverage_fraction):
-    """True if coverage_fraction sits within BOUNDARY_WINDOW of a grade cutoff."""
-    if coverage_fraction is None:
-        return False
-    return any(abs(float(coverage_fraction) - c) <= BOUNDARY_WINDOW for c in GRADE_CUTOFFS)
+# The boundary rule comes from the pipeline (it is derived from the grade
+# cutoffs, which are GradingParams fields). check.py still keeps its own copy on
+# purpose -- it must not import anything from the module it is checking -- so
+# test_fixture.py asserts the two agree.
+GRADE_CUTOFFS = (GradingParams().verified_well_cutoff, GradingParams().verified_close_cutoff)
+BOUNDARY_WINDOW = tcf_pipeline.BOUNDARY_WINDOW
 
 
 def _round_bounds(geom):

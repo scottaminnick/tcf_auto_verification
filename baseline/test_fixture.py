@@ -18,6 +18,7 @@ Exit status: 0 = all scenarios behaved as expected, 1 = a scenario failed.
 import contextlib
 import copy
 import dataclasses
+import difflib
 import io
 import json
 import os
@@ -535,6 +536,7 @@ def _():
         "medium_truth_threshold": 0.90,
         "verified_well_cutoff": 0.90,
         "verified_close_cutoff": 0.30,
+        "miss_capture_threshold": 1.01,   # > 1.0: every truth blob becomes a miss
         "dilation_iterations": 6,
         "smoothing_size": 40,
         "min_area_m2": 1e13,
@@ -560,6 +562,7 @@ def _():
         "medium_truth_threshold": 0.40,
         "verified_well_cutoff": 0.50,
         "verified_close_cutoff": 0.20,
+        "miss_capture_threshold": 0.20,
         "dilation_iterations": 1,
         "smoothing_size": 20,
         "min_area_m2": 15_000_000_000,
@@ -574,6 +577,138 @@ def _():
         pass
     else:
         raise AssertionError("GradingParams should be frozen")
+
+
+def _fixture_review_table():
+    """The main fixture's review table, plus the pieces build_report needs."""
+    lons, lats = make_grid()
+    max_tops, max_refl = make_arrays(lons, lats, MAIN_BLOBS)
+    gdf = tcf_pipeline.parse_iem_cow_text(MAIN_RAW)
+    valid_dt = tcf_pipeline.compute_valid_dt(date(2026, 5, 24), 19, 4)
+    results = tcf_pipeline.run_verification(gdf, max_tops, max_refl, lons, lats,
+                                            valid_dt, 19, 4, ARTCC)
+    return results, valid_dt
+
+
+def _report_sections(text):
+    """Split a report into {heading: [lines]} so a line can be located by section."""
+    sections, current = {}, None
+    for line in text.split("\n"):
+        if line.endswith(":") and not line.startswith(" "):
+            current = line
+            sections[current] = []
+        elif current and line.strip() and line != "None":
+            sections[current].append(line)
+    return sections
+
+
+@scenario("(1) build_review_table carries every column build_report needs")
+def _():
+    results, _ = _fixture_review_table()
+    table = results["review_table"]
+
+    assert list(table.columns) == list(tcf_pipeline.REVIEW_COLUMNS), \
+        f"unexpected columns: {list(table.columns)}"
+    assert len(table) == 4, f"3 forecasts + 1 miss expected, got {len(table)} rows"
+    assert list(table["kind"]) == ["forecast"] * 3 + ["miss"], \
+        f"forecast rows then miss rows expected, got {list(table['kind'])}"
+
+    # Pandas-native nullable dtypes throughout, so the frame survives
+    # st.data_editor -- in particular idx must stay an integer, since an idx that
+    # came back as 1.0 would render as "(Area 1.0)".
+    assert dict(table.dtypes.astype(str)) == dict(tcf_pipeline.REVIEW_COLUMNS), \
+        f"dtypes drifted: {dict(table.dtypes.astype(str))}"
+
+    # No geometry anywhere -- that is the thing which would not round-trip.
+    for col in table.columns:
+        assert "geometry" not in col
+        for value in table[col]:
+            assert not hasattr(value, "geom_type"), \
+                f"column {col} holds a shapely {type(value).__name__}"
+
+    fcst = table[table["kind"] == "forecast"]
+    assert set(fcst["category"]) == {"Verified Well", "Verified Close", "Overforecasted"}
+    assert set(fcst["coverage_code"]) <= {1, 2, 3}
+    assert all(a and a != "UNKNOWN" for a in table["artccs"]), \
+        f"ARTCC lookup should have happened in the table: {list(table['artccs'])}"
+    assert fcst["top_kft"].notna().all() and fcst["coverage_fraction"].notna().all()
+
+
+@scenario("(3) run_verification's report equals build_report on its own table")
+def _():
+    results, valid_dt = _fixture_review_table()
+    rebuilt = tcf_pipeline.build_report(results["review_table"], valid_dt, 19, 4)
+    assert rebuilt == results["report_text"], (
+        "rebuilding the report from the returned table must reproduce it exactly:\n"
+        + "\n".join(difflib.unified_diff(results["report_text"].splitlines(),
+                                         rebuilt.splitlines(),
+                                         fromfile="run_verification", tofile="rebuilt",
+                                         lineterm="", n=1)))
+
+
+@scenario("(5) editing a category in the table changes the report text")
+def _():
+    """The seam is only real if the table is what the report is built from."""
+    results, valid_dt = _fixture_review_table()
+    table = results["review_table"]
+    before = tcf_pipeline.build_report(table, valid_dt, 19, 4)
+
+    well = table.index[(table["kind"] == "forecast") & (table["category"] == "Verified Well")]
+    assert len(well) >= 1, f"fixture should grade something Verified Well:\n{table}"
+    row = well[0]
+    idx, feat = int(table.at[row, "idx"]), table.at[row, "feat_type"]
+    label = f"({'Line' if feat == 'LINE' else 'Area'} {idx})"
+
+    edited = table.copy()
+    edited.at[row, "category"] = "Overforecasted"
+    after = tcf_pipeline.build_report(edited, valid_dt, 19, 4)
+
+    assert after != before, "editing a category changed nothing -- the seam is fake"
+
+    sec_before, sec_after = _report_sections(before), _report_sections(after)
+    moved = [ln for ln in sec_before["Verified Well:"] if label in ln]
+    assert moved, f"could not find {label} under Verified Well:\n{before}"
+    line = moved[0]
+
+    assert line not in sec_after.get("Verified Well:", []), \
+        f"{label} should have left Verified Well:\n{after}"
+    assert line in sec_after.get("Over-forecast:", []), \
+        f"{label} should now be under Over-forecast:\n{after}"
+    # Only that one line moved; nothing else in the report shifted.
+    for heading in ("Verified Close:", "Missed:"):
+        assert sec_before.get(heading, []) == sec_after.get(heading, []), \
+            f"{heading} should be untouched by the edit"
+    print(f"  edited {label}: Verified Well -> Over-forecast, report followed")
+
+
+@scenario("(5) editing artccs and top_kft in the table also reaches the report")
+def _():
+    """Category is not a special case -- every column the report reads is live."""
+    results, valid_dt = _fixture_review_table()
+    table = results["review_table"]
+
+    edited = table.copy()
+    row = edited.index[edited["kind"] == "forecast"][0]
+    edited.at[row, "artccs"] = "ZZZ/ZYY"
+    edited.at[row, "top_kft"] = 47.0
+    miss_row = edited.index[edited["kind"] == "miss"][0]
+    edited.at[miss_row, "artccs"] = "ZQQ"
+
+    after = tcf_pipeline.build_report(edited, valid_dt, 19, 4)
+    assert "ZZZ/ZYY - " in after, f"edited ARTCC did not reach the report:\n{after}"
+    assert "[Top: 47.0 kft]" in after, f"edited top did not reach the report:\n{after}"
+    assert "ZQQ - Missed" in after, f"edited miss ARTCC did not reach the report:\n{after}"
+
+    # A zero top drops the bracket entirely, as it always has. Check the line for
+    # THIS polygon, not whichever line happens to sort first.
+    idx, feat = int(table.at[row, "idx"]), table.at[row, "feat_type"]
+    label = f"({'Line' if feat == 'LINE' else 'Area'} {idx})"
+    zeroed = table.copy()
+    zeroed.at[row, "top_kft"] = 0.0
+    lines = [ln for sec in _report_sections(tcf_pipeline.build_report(zeroed, valid_dt, 19, 4)).values()
+             for ln in sec if label in ln]
+    assert len(lines) == 1, f"expected exactly one line for {label}, got {lines}"
+    assert "[Top:" not in lines[0], f"a zero top should print no bracket: {lines[0]!r}"
 
 
 @scenario("(1) EVENTS holds the six configured events with the documented ids")
