@@ -1,0 +1,23 @@
+National System Review
+NWS TCF Review
+Monday, May 25, 2026
+  May 25, 2026   IT: 19Z   VT: 01Z   FCST HR: 06
+Verified Well:
+ZDC/ZID/ZOB/ZTL - Sparse (Area 1) [Top: 36.1 kft]
+ZFW/ZHU - Sparse (Area 8) [Top: 42.7 kft]
+
+Verified Close:
+ZJX/ZTL - Sparse (Area 3) [Top: 45.1 kft]
+ZMP - Sparse (Area 6) [Top: 52.4 kft]
+
+Over-forecast:
+ZJX/ZMA - Sparse (Area 2) [Top: 47.6 kft]
+ZHU - Sparse (Area 4) [Top: 55.8 kft]
+ZHU/ZME - Sparse (Area 5)
+ZHU - Sparse (Area 7)
+ZKC - Sparse (Area 9)
+
+Missed:
+ZJX - Missed (Area M1)
+ZMP - Missed (Area M2)
+UNKNOWN - Missed (Area M3)

@@ -5,14 +5,14 @@
   "lead_time": 6,
   "valid_time_hour": 1,
   "valid_dt": "2026-05-25T01:00:00",
-  "report_text": "National System Review\nNWS TCF Review\nMonday, May 25, 2026\n  May 25, 2026   IT: 19Z   VT: 01Z   FCST HR: 06\nVerified Well:\nZDC/ZID/ZOB/ZTL - Sparse (Area 1) [Top: 36.1 kft]\nZFW/ZHU - Sparse (Area 8) [Top: 42.7 kft]\n\nVerified Close:\nZJX/ZTL - Sparse (Area 3) [Top: 42.7 kft]\nZMP - Sparse (Area 6) [Top: 52.4 kft]\n\nOver-forecast:\nZJX/ZMA - Sparse (Area 2)\nZHU - Sparse (Area 4) [Top: 55.8 kft]\nZHU/ZME - Sparse (Area 5)\nZHU - Sparse (Area 7)\nZKC - Sparse (Area 9)\n\nMissed:\nZJX - Missed (Area M1)\nZMP - Missed (Area M2)\nUNKNOWN - Missed (Area M3)\n\n",
+  "report_text": "National System Review\nNWS TCF Review\nMonday, May 25, 2026\n  May 25, 2026   IT: 19Z   VT: 01Z   FCST HR: 06\nVerified Well:\nZDC/ZID/ZOB/ZTL - Sparse (Area 1) [Top: 36.1 kft]\nZFW/ZHU - Sparse (Area 8) [Top: 42.7 kft]\n\nVerified Close:\nZJX/ZTL - Sparse (Area 3) [Top: 45.1 kft]\nZMP - Sparse (Area 6) [Top: 52.4 kft]\n\nOver-forecast:\nZJX/ZMA - Sparse (Area 2) [Top: 47.6 kft]\nZHU - Sparse (Area 4) [Top: 55.8 kft]\nZHU/ZME - Sparse (Area 5)\nZHU - Sparse (Area 7)\nZKC - Sparse (Area 9)\n\nMissed:\nZJX - Missed (Area M1)\nZMP - Missed (Area M2)\nUNKNOWN - Missed (Area M3)\n\n",
   "polygons": [
     {
       "idx": 1,
       "category": "Verified Well",
       "coverage_code": 3,
       "feat_type": "AREA",
-      "coverage_fraction": 0.6624,
+      "coverage_fraction": 0.6391,
       "top_kft": 36.09,
       "artccs": "ZDC/ZID/ZOB/ZTL",
       "bounds": [
@@ -28,7 +28,7 @@
       "coverage_code": 3,
       "feat_type": "AREA",
       "coverage_fraction": 0.0,
-      "top_kft": 0.0,
+      "top_kft": 47.57,
       "artccs": "ZJX/ZMA",
       "bounds": [
         -82.9,
@@ -42,16 +42,15 @@
       "category": "Verified Close",
       "coverage_code": 3,
       "feat_type": "AREA",
-      "coverage_fraction": 0.4973,
-      "top_kft": 42.65,
+      "coverage_fraction": 0.4911,
+      "top_kft": 45.14,
       "artccs": "ZJX/ZTL",
       "bounds": [
         -83.5,
         29.4,
         -81.9,
         35.3
-      ],
-      "boundary": true
+      ]
     },
     {
       "idx": 4,
@@ -88,7 +87,7 @@
       "category": "Verified Close",
       "coverage_code": 3,
       "feat_type": "AREA",
-      "coverage_fraction": 0.4616,
+      "coverage_fraction": 0.4568,
       "top_kft": 52.42,
       "artccs": "ZMP",
       "bounds": [
@@ -118,7 +117,7 @@
       "category": "Verified Well",
       "coverage_code": 3,
       "feat_type": "AREA",
-      "coverage_fraction": 0.7289,
+      "coverage_fraction": 0.7134,
       "top_kft": 42.65,
       "artccs": "ZFW/ZHU",
       "bounds": [
@@ -149,10 +148,10 @@
       "idx": 1,
       "artccs": "ZJX",
       "bounds": [
-        -86.095,
-        29.795,
-        -83.995,
-        31.395
+        -86.145,
+        29.845,
+        -84.095,
+        31.345
       ]
     },
     {
@@ -161,7 +160,7 @@
       "bounds": [
         -94.895,
         43.695,
-        -92.945,
+        -92.895,
         45.045
       ]
     },
@@ -169,10 +168,10 @@
       "idx": 3,
       "artccs": "UNKNOWN",
       "bounds": [
-        -99.795,
+        -99.645,
         24.045,
         -97.795,
-        25.345
+        25.295
       ]
     }
   ],
@@ -182,6 +181,6 @@
     "verified_well": 2,
     "verified_close": 2,
     "overforecasted": 5,
-    "boundary": 1
+    "boundary": 0
   }
 }

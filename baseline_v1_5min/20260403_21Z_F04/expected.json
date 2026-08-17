@@ -5,7 +5,7 @@
   "lead_time": 4,
   "valid_time_hour": 1,
   "valid_dt": "2026-04-04T01:00:00",
-  "report_text": "National System Review\nNWS TCF Review\nSaturday, April 04, 2026\n  Apr 04, 2026   IT: 21Z   VT: 01Z   FCST HR: 04\nVerified Well:\nZAU/ZKC/ZMP - Sparse (Area 3) [Top: 45.9 kft]\n\nVerified Close:\nZAU/ZKC - Sparse (Area 2) [Top: 48.6 kft]\nZFW/ZKC/ZME - Sparse (Area 6) [Top: 52.5 kft]\n\nOver-forecast:\nZJX - Sparse (Area 1) [Top: 36.1 kft]\nZFW/ZKC - Dense (Line 4) [Top: 52.5 kft]\nZFW/ZKC - Medium (Area 5) [Top: 52.5 kft]\nZAB/ZFW/ZHU - Sparse (Area 7)\n\nMissed:\nZID/ZOB - Missed (Area M1)\n\n",
+  "report_text": "National System Review\nNWS TCF Review\nSaturday, April 04, 2026\n  Apr 04, 2026   IT: 21Z   VT: 01Z   FCST HR: 04\nVerified Well:\nZAU/ZKC/ZMP - Sparse (Area 3) [Top: 45.9 kft]\n\nVerified Close:\nZAU/ZKC - Sparse (Area 2) [Top: 48.8 kft]\nZFW/ZKC/ZME - Sparse (Area 6) [Top: 52.5 kft]\n\nOver-forecast:\nZJX - Sparse (Area 1) [Top: 36.1 kft]\nZFW/ZKC - Dense (Line 4) [Top: 49.9 kft]\nZFW/ZKC - Medium (Area 5) [Top: 52.5 kft]\nZAB/ZFW/ZHU - Sparse (Area 7)\n\nMissed:\nNone\n\n",
   "polygons": [
     {
       "idx": 1,
@@ -27,8 +27,8 @@
       "category": "Verified Close",
       "coverage_code": 3,
       "feat_type": "AREA",
-      "coverage_fraction": 0.4097,
-      "top_kft": 48.62,
+      "coverage_fraction": 0.3918,
+      "top_kft": 48.82,
       "artccs": "ZAU/ZKC",
       "bounds": [
         -91.5,
@@ -42,7 +42,7 @@
       "category": "Verified Well",
       "coverage_code": 3,
       "feat_type": "AREA",
-      "coverage_fraction": 0.7148,
+      "coverage_fraction": 0.6998,
       "top_kft": 45.93,
       "artccs": "ZAU/ZKC/ZMP",
       "bounds": [
@@ -58,7 +58,7 @@
       "coverage_code": 1,
       "feat_type": "LINE",
       "coverage_fraction": 0.0,
-      "top_kft": 52.49,
+      "top_kft": 49.87,
       "artccs": "ZFW/ZKC",
       "bounds": [
         -97.8,
@@ -87,7 +87,7 @@
       "category": "Verified Close",
       "coverage_code": 3,
       "feat_type": "AREA",
-      "coverage_fraction": 0.2567,
+      "coverage_fraction": 0.2341,
       "top_kft": 52.49,
       "artccs": "ZFW/ZKC/ZME",
       "bounds": [
@@ -113,21 +113,10 @@
       ]
     }
   ],
-  "misses": [
-    {
-      "idx": 1,
-      "artccs": "ZID/ZOB",
-      "bounds": [
-        -83.295,
-        40.045,
-        -81.095,
-        40.995
-      ]
-    }
-  ],
+  "misses": [],
   "counts": {
     "polygons": 7,
-    "misses": 1,
+    "misses": 0,
     "verified_well": 1,
     "verified_close": 2,
     "overforecasted": 4,

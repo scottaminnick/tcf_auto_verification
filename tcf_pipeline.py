@@ -47,6 +47,28 @@ REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 ARTCC_PATH = os.path.join(REPO_ROOT, "artcc1.geojson")
 
 
+@dataclass(frozen=True)
+class DisplayRaster:
+    """Native-resolution tops/reflectivity for drawing only.
+
+    Deliberately separate from the verification arrays: those stay decimated to
+    COMPOSITE_STEP because GradingParams (smoothing_size, min_area_m2, the
+    dilation) is calibrated against that grid spacing. Nothing here is ever fed
+    to run_verification.
+    """
+
+    max_tops: object
+    max_refl: object
+    lons: object
+    lats: object
+
+    @property
+    def extent(self):
+        """(lon_min, lon_max, lat_min, lat_max) for anchoring the image."""
+        return (float(self.lons.min()), float(self.lons.max()),
+                float(self.lats.min()), float(self.lats.max()))
+
+
 # --- Tuning parameters ------------------------------------------------------
 @dataclass(frozen=True)
 class GradingParams:
@@ -511,13 +533,28 @@ REFL_PRODUCT = "MergedReflectivityQCComposite"
 # are arguments so app.py can key its st.cache_data wrapper on them; changing
 # any of them changes the composite and will (correctly) fail the baselines.
 COMPOSITE_WINDOW_MINUTES = 15
-COMPOSITE_CADENCE_MINUTES = 5
-COMPOSITE_STEP = 5
+COMPOSITE_CADENCE_MINUTES = 2
+COMPOSITE_STEP = 5          # verification grid: 0.05 deg, what GradingParams is calibrated to
+DISPLAY_STEP = 1            # display raster: native 0.01 deg
 COMPOSITE_MAX_WORKERS = 8
 
 
+def scan_offsets(window_minutes=COMPOSITE_WINDOW_MINUTES,
+                 cadence_minutes=COMPOSITE_CADENCE_MINUTES):
+    """Scan offsets in minutes, symmetric about the valid time.
+
+    Built as multiples of the cadence outward from 0 rather than
+    range(-window, window+1, cadence). At the old 5-minute cadence the two are
+    identical (-15..15), but at 2 minutes range() would start at -15 and step to
+    +15 WITHOUT EVER LANDING ON 0 -- the scan at the valid time itself would be
+    dropped, and there would be 16 scans rather than 15.
+    """
+    k = window_minutes // cadence_minutes
+    return [i * cadence_minutes for i in range(-k, k + 1)]
+
+
 def _read_scan_arrays(tops_file, refl_file, step):
-    """Decode one scan pair into (tops_kft, refl, lons, lats).
+    """Decode one scan pair into (tops_kft, refl, lons, lats) at `step`.
 
     Split out of build_composite so the fixture test can drive the whole fetch
     path -- including the thread pool -- without cfgrib or S3.
@@ -547,7 +584,8 @@ def build_composite(valid_dt, log=_log,
                     cadence_minutes=COMPOSITE_CADENCE_MINUTES,
                     step=COMPOSITE_STEP,
                     max_workers=COMPOSITE_MAX_WORKERS,
-                    dest_dir="mrms_data"):
+                    dest_dir="mrms_data",
+                    with_display=False):
     """The rolling MRMS composite. Network-bound.
 
     Scans are fetched concurrently but folded into the running max in a FIXED
@@ -571,7 +609,7 @@ def build_composite(valid_dt, log=_log,
     could be read -- the original inline version had no such guard and blew up
     later with a TypeError on None (see BUG 1 at the bottom of this file).
     """
-    time_offsets = list(range(-window_minutes, window_minutes + 1, cadence_minutes))
+    time_offsets = scan_offsets(window_minutes, cadence_minutes)
 
     # Resolve every scan first. Each distinct (product, UTC day) is listed once
     # and cached, so this is 2 listings for a window inside one day and 4 across
@@ -601,6 +639,8 @@ def build_composite(valid_dt, log=_log,
 
     max_tops, max_refl = None, None
     lons, lats = None, None
+    disp_tops, disp_refl = None, None
+    disp_lons, disp_lats = None, None
 
     for scan_dt, tops_key, refl_key in plan:
         tops_file = paths.get(tops_key)
@@ -608,8 +648,29 @@ def build_composite(valid_dt, log=_log,
         log(f"Pulling MRMS for {scan_dt.strftime('%H:%MZ')}...")
 
         if tops_file and refl_file:
-            curr_tops, curr_refl, curr_lons, curr_lats = _read_scan_arrays(
-                tops_file, refl_file, step)
+            if with_display:
+                # Decode ONCE at native resolution and slice the verification
+                # grid out of it. ds.unknown[::5,::5].values and
+                # ds.unknown.values[::5,::5] are bit-identical (checked in
+                # scratch/bench_grib_decode.py), so this changes no verification
+                # number while giving the display raster for free -- decoding
+                # each file twice would double the slowest phase of the build.
+                full_tops, full_refl, full_lons, full_lats = _read_scan_arrays(
+                    tops_file, refl_file, DISPLAY_STEP)
+                curr_tops = full_tops[::step, ::step]
+                curr_refl = full_refl[::step, ::step]
+                curr_lons, curr_lats = full_lons[::step], full_lats[::step]
+
+                if disp_tops is None:
+                    disp_tops, disp_refl = full_tops, full_refl
+                    disp_lons, disp_lats = full_lons, full_lats
+                else:
+                    disp_tops = np.maximum(disp_tops, full_tops)
+                    disp_refl = np.maximum(disp_refl, full_refl)
+                del full_tops, full_refl
+            else:
+                curr_tops, curr_refl, curr_lons, curr_lats = _read_scan_arrays(
+                    tops_file, refl_file, step)
 
             if lons is None:
                 lons, lats = curr_lons, curr_lats
@@ -630,6 +691,9 @@ def build_composite(valid_dt, log=_log,
         raise RuntimeError(f"No MRMS scans available in the +/-{window_minutes} min "
                            f"window around {valid_dt}")
 
+    if with_display:
+        return (max_tops, max_refl, lons, lats,
+                DisplayRaster(disp_tops, disp_refl, disp_lons, disp_lats))
     return max_tops, max_refl, lons, lats
 
 

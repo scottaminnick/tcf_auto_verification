@@ -1,5 +1,7 @@
+import base64
 import gc
 import html
+import io
 import os
 import streamlit as st
 import requests
@@ -7,6 +9,9 @@ from datetime import date, datetime, timezone
 import numpy as np
 import plotly.graph_objects as go
 import geopandas as gpd
+import matplotlib
+matplotlib.use("Agg")          # headless: no display, no GUI backend
+import matplotlib.image as mimage
 
 # The pipeline (parsing, MRMS composite, verification math, report text) lives in
 # tcf_pipeline.py and is shared verbatim with baseline/capture.py. This file owns
@@ -96,7 +101,25 @@ def cached_build_composite(valid_dt, window_minutes, cadence_minutes, step, _log
     return build_composite(valid_dt, log=_log or (lambda _msg: None),
                            window_minutes=window_minutes,
                            cadence_minutes=cadence_minutes,
-                           step=step)
+                           step=step,
+                           with_display=True)
+
+
+@st.cache_data(show_spinner=False, max_entries=3)
+def cached_display_png(valid_dt, window_minutes, cadence_minutes, _raster=None):
+    """Cached PNG of the display raster, keyed separately from the composite.
+
+    Its own cache entry rather than a field on the composite's: the PNG is the
+    only large thing the browser ever sees, and colouring it is pure display
+    work. Re-rendering it (a palette change) must not evict or invalidate the
+    verification arrays, and vice versa. max_entries is small because each entry
+    holds a full-resolution image.
+
+    `_raster` is underscore-prefixed so streamlit does not try to hash a pair of
+    24.5M-point arrays on every rerun -- the scalars above already identify it.
+    """
+    png, factor = display_png(_raster.max_tops, _raster.max_refl)
+    return png, _raster.extent, factor
 
 
 # Load geography once. These stay available on every rerun, so the render
@@ -127,15 +150,75 @@ ECHO_COLORSCALE = [
     [0.8, '#FF0000'], [1.0, '#FF0000'],
 ]
 
-# The legend key for the heatmap: (top_verif_matrix value, its colour in
-# ECHO_COLORSCALE, label). The thresholds come from tcf_pipeline and are not
-# restated here -- these labels describe the bands, they do not define them.
+# Echo-top bands for cells at or above CONVECTIVE_DBZ, coloured as on the AWC
+# product: (lower bound in kft, colour, label). The <25 kft band is drawn now --
+# previously anything under 25 kft was simply invisible, which made weak-topped
+# convection look like no convection at all.
+CONVECTIVE_DBZ = 40        # at/above this the cell is coloured by echo top
 ECHO_BANDS = [
-    (1, '#00FFFF', '25-30 kft'),
-    (2, '#FFFF00', '30-35 kft'),
-    (3, '#FF8000', '35-40 kft'),
-    (4, '#FF0000', '>40 kft'),
+    (0,  '#3D5AA8', '<25 kft'),
+    (25, '#00FFFF', '25-30 kft'),
+    (30, '#FFFF00', '30-35 kft'),
+    (35, '#FF8000', '35-40 kft'),
+    (40, '#FF0000', '>40 kft'),
 ]
+
+# Below CONVECTIVE_DBZ the cell is drawn as plain reflectivity on a grey ramp,
+# so stratiform rain reads as context rather than competing with the convective
+# colours. Anything under GREY_MIN_DBZ is left fully transparent.
+GREY_MIN_DBZ = 5
+GREY_MAX_DBZ = 40
+GREY_DARK, GREY_LIGHT = 0.28, 0.86
+
+
+def _hex_to_rgb(h):
+    return tuple(int(h[i:i + 2], 16) for i in (1, 3, 5))
+
+
+def display_rgba(max_tops, max_refl):
+    """Colour the display raster the way the AWC product does.
+
+    Greyscale ramp for reflectivity below CONVECTIVE_DBZ, echo-top band colours
+    at or above it, transparent where there is nothing to show. Returns uint8
+    RGBA, built with numpy rather than a matplotlib colormap so the band edges
+    land exactly on the thresholds instead of on colormap interpolation.
+    """
+    rgba = np.zeros(max_refl.shape + (4,), dtype=np.uint8)
+
+    weak = (max_refl >= GREY_MIN_DBZ) & (max_refl < CONVECTIVE_DBZ)
+    if weak.any():
+        frac = np.clip((max_refl[weak] - GREY_MIN_DBZ) / (GREY_MAX_DBZ - GREY_MIN_DBZ), 0, 1)
+        grey = ((GREY_DARK + frac * (GREY_LIGHT - GREY_DARK)) * 255).astype(np.uint8)
+        rgba[weak, 0] = rgba[weak, 1] = rgba[weak, 2] = grey
+        rgba[weak, 3] = 255
+
+    convective = max_refl >= CONVECTIVE_DBZ
+    for lower, color, _label in ECHO_BANDS:
+        upper = next((b[0] for b in ECHO_BANDS if b[0] > lower), None)
+        band = convective & (max_tops >= lower)
+        if upper is not None:
+            band &= max_tops < upper
+        if not band.any():
+            continue
+        r, g, b = _hex_to_rgb(color)
+        rgba[band, 0], rgba[band, 1], rgba[band, 2] = r, g, b
+        rgba[band, 3] = 255
+
+    return rgba
+
+
+def display_png(max_tops, max_refl, max_width=3500):
+    """RGBA raster -> in-memory PNG bytes.
+
+    Downsampled to max_width because the native grid is 7000 px across and a
+    browser gains nothing from more pixels than the map is ever drawn at; the
+    verification grid is untouched either way.
+    """
+    factor = max(1, int(np.ceil(max_refl.shape[1] / max_width)))
+    rgba = display_rgba(max_tops[::factor, ::factor], max_refl[::factor, ::factor])
+    buf = io.BytesIO()
+    mimage.imsave(buf, rgba, format="png")
+    return buf.getvalue(), factor
 
 
 def _geom_to_xy(geom):
@@ -168,34 +251,25 @@ def _new_map_fig(R, title):
     safe on a locked-down network."""
     fig = go.Figure()
 
-    # Radar background: ONE heatmap for all four bands. 0 (no convection) -> NaN
-    # so those cells render transparent.
+    # Radar background as a STATIC IMAGE, not a heatmap trace.
     #
-    # This was briefly one trace per band, paired with the legend entries below by
-    # legendgroup so clicking an entry toggled that band. It worked, but four
-    # traces cost +3.4 MB of figure payload (12.3 -> 15.7 MB) and the radar layer
-    # is about to become a static image, after which per-band toggling is cheap.
-    # Not worth carrying in between, so the entries below are a static key.
+    # The heatmap shipped one z value per grid cell to the browser -- ~7 MB of
+    # JSON/binary for a picture that never changes once drawn. Rendering the same
+    # raster to a PNG server-side and anchoring it to the lon/lat extent sends a
+    # few hundred KB instead, and lets the display raster stay at native 0.01 deg
+    # resolution rather than being decimated to keep the payload sane.
     #
-    # float32 rather than float64 is kept: plotly ships z as binary, the band
-    # values (1-4) and NaN are exact in single precision, and it halves those
-    # bytes for an identical picture.
-    z = np.where(R['top_verif_matrix'] == 0,
-                 np.float32('nan'), R['top_verif_matrix'].astype(np.float32))
-    fig.add_trace(go.Heatmap(
-        x=R['lons'], y=R['lats'], z=z,
-        colorscale=ECHO_COLORSCALE, zmin=0, zmax=4,
-        showscale=False, hoverinfo='skip', name='Echo Tops'))
-
-    # Legend key for the bands above. Empty scatters, so they cost nothing and
-    # appear for every event whether or not that band has cells. They are a key,
-    # not a control: with a single heatmap there is nothing per-band to toggle,
-    # and clicking one hides only its own (invisible) trace.
-    for value, color, label in ECHO_BANDS:
-        fig.add_trace(go.Scatter(
-            x=[None], y=[None], mode='markers',
-            marker=dict(size=10, color=color, symbol='square'),
-            name=label, showlegend=True, hoverinfo='skip'))
+    # Everything else -- polygons, borders, labels, the legend -- stays vector on
+    # top, so hover, zoom and legend toggling still work on those.
+    if R.get('display_png'):
+        lon_min, lon_max, lat_min, lat_max = R['display_extent']
+        fig.add_layout_image(dict(
+            source="data:image/png;base64," + base64.b64encode(R['display_png']).decode(),
+            xref="x", yref="y",
+            x=lon_min, y=lat_max,                    # anchored top-left
+            sizex=lon_max - lon_min, sizey=lat_max - lat_min,
+            xanchor="left", yanchor="top",
+            sizing="stretch", layer="below", opacity=1.0))
 
     sx, sy = _gdf_to_xy(gdf_states)
     if sx:
@@ -332,12 +406,19 @@ if st.sidebar.button("Run Verification"):
         # --- Rolling Composite ---
         # st.write is handed to the pipeline as its progress sink, so the per-scan
         # lines still appear in this status box.
-        max_tops, max_refl, lons, lats = cached_build_composite(
+        max_tops, max_refl, lons, lats, raster = cached_build_composite(
             valid_dt,
             tcf_pipeline.COMPOSITE_WINDOW_MINUTES,
             tcf_pipeline.COMPOSITE_CADENCE_MINUTES,
             tcf_pipeline.COMPOSITE_STEP,
             _log=st.write)
+
+        st.write("Rendering display raster...")
+        display_png_bytes, display_extent, _factor = cached_display_png(
+            valid_dt,
+            tcf_pipeline.COMPOSITE_WINDOW_MINUTES,
+            tcf_pipeline.COMPOSITE_CADENCE_MINUTES,
+            _raster=raster)
 
         st.write("Building Objective Truth Polygons...")
         status.update(label="Data processing complete!", state="complete", expanded=False)
@@ -353,6 +434,8 @@ if st.sidebar.button("Run Verification"):
 
     # STASH everything the render functions need so it survives reruns (radio toggles).
     st.session_state['results'] = {
+        'display_png': display_png_bytes,
+        'display_extent': display_extent,
         'lons': R['lons'], 'lats': R['lats'],
         'top_verif_matrix': R['top_verif_matrix'],
         'gdf_graded_fcst': R['gdf_graded_fcst'],

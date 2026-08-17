@@ -67,7 +67,7 @@ def fake_fetch(date_obj, issue_hr, f_hr):
 
 
 def fake_composite(valid_dt, log=None, window_minutes=None, cadence_minutes=None,
-                   step=None, **kwargs):
+                   step=None, with_display=False, **kwargs):
     assert valid_dt.strftime("%Y-%m-%dT%H:%M:%S") == expected["valid_dt"], \
         f"app.py computed the wrong valid time: {valid_dt}"
     assert log is not None, "app.py should pass its own progress sink"
@@ -80,6 +80,12 @@ def fake_composite(valid_dt, log=None, window_minutes=None, cadence_minutes=None
         f"app.py passed unexpected composite settings: {(window_minutes, cadence_minutes, step)}"
     log("Pulling MRMS (stubbed from the frozen baseline)...")
     scan_log.append(valid_dt)
+    if with_display:
+        # The frozen arrays are the verification grid; for display purposes the
+        # app only needs something with the same extent, and this keeps the
+        # parity test independent of full-resolution scans it does not have.
+        return frozen + (tcf_pipeline.DisplayRaster(
+            frozen[0], frozen[1], frozen[2], frozen[3]),)
     return frozen
 
 

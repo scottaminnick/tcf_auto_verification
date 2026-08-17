@@ -727,7 +727,7 @@ def _run_stubbed_composite(completion_delays, workers=8):
     # order-sensitive if it is ever folded in completion order.
     rng = np.random.default_rng(1234)
     per_scan = {}
-    for i, offset in enumerate(range(-15, 16, 5)):
+    for i, offset in enumerate(tcf_pipeline.scan_offsets()):
         tops = rng.uniform(0, 60, size=(len(lats), len(lons))).astype(np.float32)
         refl = rng.uniform(0, 70, size=(len(lats), len(lons))).astype(np.float32)
         # Signed zeros in overlapping cells: np.maximum keeps its FIRST argument
@@ -792,12 +792,15 @@ TMP_MRMS = os.path.join(TMP, "mrms_stub")
 def _():
     """The whole point of parallel fetch: workers finish in whatever order they
     like, and the arrays must not care."""
+    offsets = tcf_pipeline.scan_offsets()
     (a_tops, a_refl, a_lons, a_lats), order_a, _ = _run_stubbed_composite({})
     # Make the LAST scan finish first and the first finish last.
-    jumbled = {-15: 0.25, -10: 0.20, -5: 0.15, 0: 0.10, 5: 0.05, 10: 0.02, 15: 0.0}
+    jumbled = {o: 0.20 * (len(offsets) - 1 - i) / len(offsets)
+               for i, o in enumerate(offsets)}
     (b_tops, b_refl, b_lons, b_lats), order_b, _ = _run_stubbed_composite(jumbled)
     # And a third pass with a different jumble again.
-    shuffled = {-15: 0.05, -10: 0.0, -5: 0.22, 0: 0.02, 5: 0.18, 10: 0.09, 15: 0.12}
+    shuffled = {o: 0.20 * ((i * 7) % len(offsets)) / len(offsets)
+                for i, o in enumerate(offsets)}
     (c_tops, c_refl, _, _), order_c, _ = _run_stubbed_composite(shuffled)
 
     assert order_a != order_b or order_b != order_c, \
@@ -820,7 +823,8 @@ def _():
 def _():
     """st.write from a pool worker has no ScriptRunContext and its output can
     interleave, so the pipeline must not hand the callback to workers."""
-    _, _, threads = _run_stubbed_composite({-15: 0.05, 15: 0.0})
+    _offsets = tcf_pipeline.scan_offsets()
+    _, _, threads = _run_stubbed_composite({_offsets[0]: 0.05, _offsets[-1]: 0.0})
     assert threads, "the composite logged nothing at all"
     assert threads == {"MainThread"}, \
         f"log() was called from worker thread(s): {sorted(threads)}"
@@ -882,6 +886,23 @@ def _():
         tcf_pipeline._MRMS_KEY_CACHE.clear()
 
 
+@scenario("(1) scan offsets are symmetric about the valid time and include it")
+def _():
+    """A naive range(-window, window+1, cadence) drops the valid-time scan at any
+    cadence that does not divide the window."""
+    offsets = tcf_pipeline.scan_offsets()
+    assert 0 in offsets, f"the scan at the valid time itself is missing: {offsets}"
+    assert offsets == sorted(offsets), "offsets should be in ascending time order"
+    assert offsets[0] == -offsets[-1], f"offsets are not symmetric: {offsets}"
+    assert all(abs(b - a) == tcf_pipeline.COMPOSITE_CADENCE_MINUTES
+               for a, b in zip(offsets, offsets[1:])), "uneven spacing"
+    assert abs(offsets[0]) <= tcf_pipeline.COMPOSITE_WINDOW_MINUTES, \
+        "offsets escape the configured window"
+    # The 5-minute form this replaced must still come out identical.
+    assert tcf_pipeline.scan_offsets(15, 5) == list(range(-15, 16, 5))
+    assert len(tcf_pipeline.scan_offsets(15, 2)) == 15
+
+
 @scenario("(1) EVENTS holds the six configured events with the documented ids")
 def _():
     want = [("20260524_19Z_F04", date(2026, 5, 24), 19, 4),
@@ -936,13 +957,16 @@ def _():
         (tcf_pipeline._resolve_scan_key, tcf_pipeline._s3_client) = saved
         tcf_pipeline._MRMS_KEY_CACHE.clear()
 
-    assert len(asked) == 14, f"expected 7 offsets x 2 products, got {len(asked)}"
+    n_scans = len(tcf_pipeline.scan_offsets())
+    assert len(asked) == n_scans * 2, \
+        f"expected {n_scans} offsets x 2 products, got {len(asked)}"
     dates = sorted({d.strftime("%Y%m%d") for _, d in asked})
     assert dates == ["20260404"], \
         f"scans must come from the scan date 20260404, not the issuance date; got {dates}"
-    # +/-15 min around 01Z stays inside 2026-04-04.
-    assert min(d for _, d in asked) == dtmod.datetime(2026, 4, 4, 0, 45)
-    assert max(d for _, d in asked) == dtmod.datetime(2026, 4, 4, 1, 15)
+    # The window around 01Z stays inside 2026-04-04 whatever the cadence.
+    edge = tcf_pipeline.scan_offsets()[-1]
+    assert min(d for _, d in asked) == valid_dt - dtmod.timedelta(minutes=edge)
+    assert max(d for _, d in asked) == valid_dt + dtmod.timedelta(minutes=edge)
 
     # And the S3 prefix actually listed carries the same date.
     listed_dates = sorted({pfx.rstrip("/").split("/")[-1] for pfx in listed})

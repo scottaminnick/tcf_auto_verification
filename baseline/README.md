@@ -207,3 +207,18 @@ unfindable.
 To record one: run the event in the live app, use the *Pass A* download button
 under the FAA report panel, save the file as
 `baseline/<event_id>/pass_a_report.txt`, then run `--pass-a`.
+
+## Cadence v1 -> v2, and the pass A files
+
+`baseline/` is now **v2**: 2-minute cadence, 15 scans, 30 files per composite.
+The 5-minute set it replaced is frozen in `baseline_v1_5min/` and must not be
+regenerated — it is the before-picture for this change.
+
+`make check` is 6/6 against v2. **`make check-pass-a` is red for 5 of 6 events,
+and that is correct**: `pass_a_report.txt` holds the report a human downloaded
+from the live app under the 5-minute cadence, and the 2-minute pipeline produces
+a different report. Those files are the one artefact this repo must not
+regenerate itself — a machine-written copy would make the check vacuous. Re-run
+each event in the dashboard, use the *Pass A* button, and replace the file.
+
+`20260324_13Z_F04` still passes pass A because its graded output did not change.
