@@ -11,7 +11,7 @@ ZFW/ZKC/ZME - Sparse (Area 6) [Top: 52.5 kft]
 
 Over-forecast:
 ZJX - Sparse (Area 1) [Top: 36.1 kft]
-ZFW/ZKC - Dense (Line 4) [Top: 52.5 kft]
+ZFW/ZKC - Dense (Line 4) [Top: 47.6 kft]
 ZFW/ZKC - Medium (Area 5) [Top: 52.5 kft]
 ZAB/ZFW/ZHU - Sparse (Area 7)
 
