@@ -168,6 +168,12 @@ def _coverage_label(cov_val):
     return "Sparse"
 
 
+# Half-width applied to a LINE feature, in degrees. Unchanged from the original
+# literal -- widening or narrowing it, and whether a line should be graded on
+# area at all, is a separate decision from the geometry fix below.
+LINE_BUFFER_DEG = 0.15
+
+
 def parse_iem_cow_text(text_data):
     """Parses legacy NWS/AWIPS AREA/LINE text into a GeoDataFrame, fixing line-wraps with regex."""
     records = []
@@ -203,12 +209,22 @@ def parse_iem_cow_text(text_data):
                     coords.append((lon, lat))
                     idx += 2
 
-            if len(coords) >= 3:
+            # A LINE is a line at any point count. The old form tested only
+            # len(coords) and so closed every 3+ point LINE into a Polygon --
+            # a 3-point line became a triangle -- which inflated both the
+            # forecast area and the hit area. Only 2-point lines ever reached
+            # the buffer path. AREA is untouched: 3+ points still make a
+            # polygon, and a degenerate 2-point AREA still falls back to the
+            # same buffered line it always did.
+            if feat_type == 'LINE' and len(coords) >= 2:
+                poly = LineString(coords).buffer(LINE_BUFFER_DEG)
+                records.append({'geometry': poly, 'coverage': cov_val, 'feat_type': feat_type})
+            elif len(coords) >= 3:
                 poly = Polygon(coords).buffer(0)
                 if not poly.is_empty:
                     records.append({'geometry': poly, 'coverage': cov_val, 'feat_type': feat_type})
             elif len(coords) >= 2:
-                poly = LineString(coords).buffer(0.15)
+                poly = LineString(coords).buffer(LINE_BUFFER_DEG)
                 records.append({'geometry': poly, 'coverage': cov_val, 'feat_type': feat_type})
 
         except Exception:
@@ -846,11 +862,14 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
 #     copy) and app.py now inherits it: the failure is still an unhandled
 #     exception surfaced by Streamlit, but a legible one. No grading math differs.
 #
-#  2. LINE features become polygons (parse_iem_cow_text). parse_iem_cow_text only
-#     buffers a LineString when the feature has exactly 2 points; a LINE with 3+
-#     points falls into the `len(coords) >= 3` branch and is closed into a
-#     Polygon. Multi-point TCF lines are therefore graded as filled areas, which
-#     inflates both the forecast area and the hit area.
+#  2. FIXED -- LINE features no longer become polygons. parse_iem_cow_text used
+#     to buffer a LineString only when the feature had exactly 2 points; a LINE
+#     with 3+ points fell into the `len(coords) >= 3` branch and was closed into
+#     a Polygon, so multi-point TCF lines were graded as filled areas. Lines are
+#     now buffered at any point count. The 0.15 deg buffer itself is unchanged,
+#     and so is the way a line is graded once buffered -- both are open
+#     questions, deliberately not settled here. Baselines before the fix are
+#     frozen in baseline_v2_line_closed/.
 #
 #  3. Truth contours are truncated, not interpolated (extract_tcf_polygons).
 #     extract_tcf_polygons indexes lons/lats with int(p[1]) / int(p[0]), throwing

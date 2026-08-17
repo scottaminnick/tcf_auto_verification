@@ -171,6 +171,20 @@ GREY_MAX_DBZ = 40
 GREY_DARK, GREY_LIGHT = 0.28, 0.86
 
 
+def composite_label():
+    """Describe the composite the way the pipeline is actually configured.
+
+    Both map labels used to hardcode a cadence -- "5-Min Rolling Swath" and
+    "30-min rolling composite" -- and both were wrong by the time anyone read
+    them: the first was stale after the move to 2 minutes, and the second
+    described the window (+/-15 = 30 min) as if it were the cadence. Deriving
+    the wording keeps them honest.
+    """
+    scans = len(tcf_pipeline.scan_offsets())
+    return (f"{scans} scans @ {tcf_pipeline.COMPOSITE_CADENCE_MINUTES}-min over "
+            f"+/-{tcf_pipeline.COMPOSITE_WINDOW_MINUTES} min")
+
+
 def _hex_to_rgb(h):
     return tuple(int(h[i:i + 2], 16) for i in (1, 3, 5))
 
@@ -303,7 +317,8 @@ def render_scorecard(R):
 
     with col1:
         st.subheader("Objective Verification Scorecard Map")
-        fig = _new_map_fig(R, f"TCF Verification | VT: {R['valid_dt'].strftime('%H:00Z')} | 5-Min Rolling Swath")
+        fig = _new_map_fig(R, f"TCF Verification | VT: {R['valid_dt'].strftime('%H:00Z')} "
+                              f"| {composite_label()}")
 
         gf, gm = R['gdf_graded_fcst'], R['gdf_graded_miss']
         label_x, label_y, label_txt = [], [], []
@@ -355,7 +370,9 @@ def render_scorecard(R):
 def render_reanalysis(R):
     """View 2: the objective 'truth' -- what the TCF should have been (sparse reanalysis)."""
     st.subheader("Objective TCF Reanalysis (Ground Truth)")
-    st.caption("30-min rolling composite, 25% coverage rule. Cyan dashed = objective sparse areas.")
+    st.caption(f"{composite_label()} composite; truth is the "
+               f"{tcf_pipeline.GradingParams().sparse_truth_threshold:.0%} coverage contour. "
+               f"Cyan dashed = objective sparse areas.")
 
     fig = _new_map_fig(R, f"Objective TCF Reanalysis (Truth) | VT: {R['valid_dt'].strftime('%H:00Z')}")
 

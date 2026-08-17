@@ -886,6 +886,68 @@ def _():
         tcf_pipeline._MRMS_KEY_CACHE.clear()
 
 
+def _feature_block(kind, cov, pts):
+    """One AREA or LINE feature in the AWIPS tenths-of-a-degree encoding."""
+    flat = " ".join(f"{int(round(la * 10))} {int(round(abs(lo) * 10))}" for lo, la in pts)
+    head = f"{cov} {len(pts)}" if kind == "LINE" else f"{cov} 3 0 400 20 270 {len(pts)}"
+    return f"{kind} \t{head} {flat}\n"
+
+
+@scenario("(BUG 2 fixed) a LINE is buffered as a line at any point count")
+def _():
+    """The old parser branched on point count alone, so a 3+ point LINE was
+    closed into a Polygon and graded as a filled area."""
+    zigzag = [(-100.0, 40.0), (-98.0, 41.0), (-96.0, 40.0), (-94.0, 41.0)]
+
+    areas = {}
+    for n in (2, 3, 4):
+        gdf = tcf_pipeline.parse_iem_cow_text(
+            "<pre>" + _feature_block("LINE", 3, zigzag[:n]) + "</pre>")
+        assert len(gdf) == 1, f"{n}-point LINE did not parse"
+        assert gdf["feat_type"].iloc[0] == "LINE"
+        areas[n] = gdf.geometry.iloc[0].area
+
+    # A buffered open line grows with each added segment. A closed polygon does
+    # not: the 3-point zigzag encloses a triangle, and the 4-point one folds
+    # back on itself, so under the old behaviour area would have gone DOWN from
+    # 3 points to 4.
+    assert areas[2] < areas[3] < areas[4], \
+        f"LINE area should grow with each segment, got {areas}"
+
+    # Each extra segment adds roughly the same corridor area.
+    step_a, step_b = areas[3] - areas[2], areas[4] - areas[3]
+    assert abs(step_a - step_b) < 0.25 * step_a, \
+        f"segments should contribute comparable area, got {step_a:.4f} then {step_b:.4f}"
+
+    # The 3-point LINE must NOT equal the closed triangle it used to become.
+    from shapely.geometry import Polygon as _Poly
+    closed = _Poly(zigzag[:3]).buffer(0)
+    assert abs(areas[3] - closed.area) > 1e-6, \
+        "3-point LINE still has the area of the closed polygon -- the fix is not applied"
+
+
+@scenario("(BUG 2 fixed) AREA features are untouched by the LINE fix")
+def _():
+    quad = [(-100.0, 40.0), (-98.0, 40.0), (-98.0, 42.0), (-100.0, 42.0)]
+    from shapely.geometry import LineString as _Line, Polygon as _Poly
+
+    gdf = tcf_pipeline.parse_iem_cow_text(
+        "<pre>" + _feature_block("AREA", 2, quad) + "</pre>")
+    assert gdf["feat_type"].iloc[0] == "AREA"
+    assert abs(gdf.geometry.iloc[0].area - _Poly(quad).buffer(0).area) < 1e-9, \
+        "a 4-point AREA should still be the closed polygon"
+
+    # A degenerate 2-point AREA keeps its long-standing buffered-line fallback.
+    gdf2 = tcf_pipeline.parse_iem_cow_text(
+        "<pre>" + _feature_block("AREA", 2, quad[:2]) + "</pre>")
+    expected = _Line(quad[:2]).buffer(tcf_pipeline.LINE_BUFFER_DEG).area
+    assert abs(gdf2.geometry.iloc[0].area - expected) < 1e-9, \
+        "2-point AREA fallback changed"
+
+    # And the buffer itself was not retuned as part of the geometry fix.
+    assert tcf_pipeline.LINE_BUFFER_DEG == 0.15
+
+
 @scenario("(1) scan offsets are symmetric about the valid time and include it")
 def _():
     """A naive range(-window, window+1, cadence) drops the valid-time scan at any

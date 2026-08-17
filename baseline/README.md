@@ -222,3 +222,18 @@ regenerate itself — a machine-written copy would make the check vacuous. Re-ru
 each event in the dashboard, use the *Pass A* button, and replace the file.
 
 `20260324_13Z_F04` still passes pass A because its graded output did not change.
+
+## LINE geometry fix (v2 -> v3)
+
+`baseline/` is now **v3**: `parse_iem_cow_text` buffers a LINE feature as a line
+at any point count. Previously it branched on point count alone, so a 3+ point
+LINE was closed into a `Polygon` and graded as a filled area. The set before the
+fix is frozen in `baseline_v2_line_closed/`.
+
+The MRMS composite is unaffected — same valid times, same cadence — so
+`arrays.npz` is bit-identical between v2 and v3 and only the forecast geometry
+differs. The re-capture reused the frozen arrays rather than re-downloading.
+
+`20260403_21Z_F04` holds the set's only LINE feature and is the one event whose
+`expected.json` moved. Its `pass_a_report.txt` is therefore stale by one line and
+needs re-downloading from the live app; the other five still pass pass A.
