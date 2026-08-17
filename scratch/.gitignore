@@ -2,3 +2,4 @@
 # large binaries and reproducible from S3, so they do not belong in git.
 grib_cache/
 *.idx
+composite_cache/
