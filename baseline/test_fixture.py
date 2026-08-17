@@ -97,6 +97,38 @@ def make_arrays(lons, lats, blobs):
     return max_tops, max_refl
 
 
+def make_wide_grid():
+    """Grid that reaches past the verification domain's northern edge.
+
+    make_grid() stops at 45N, entirely inside ARTCC territory, so nothing on it
+    can be outside the domain -- a mask scenario built on it would pass whether
+    the mask worked or not. This one runs to 54N so blobs can be placed in
+    Canada.
+    """
+    lats = np.arange(54.0, 30.0, -0.05)
+    lons = np.arange(-105.0, -85.0, 0.05)
+    return lons, lats
+
+
+def grade_blobs(lons, lats, blobs, raw, params=None):
+    """Run one synthetic event end to end and return the results dict."""
+    max_tops, max_refl = make_arrays(lons, lats, blobs)
+    gdf = tcf_pipeline.parse_iem_cow_text(raw)
+    valid_dt = tcf_pipeline.compute_valid_dt(date(2026, 5, 24), 19, 4)
+    return tcf_pipeline.run_verification(
+        gdf, max_tops, max_refl, lons, lats, valid_dt, 19, 4, ARTCC,
+        params=params or tcf_pipeline.GradingParams())
+
+
+def truth_centroids(results):
+    """(lat, lon) of every surviving truth polygon part, for locating blobs."""
+    gs = results["gdf_sparse"]
+    if gs.empty or gs.is_empty.all():
+        return []
+    return [(round(p.centroid.y, 2), round(p.centroid.x, 2))
+            for p in gs.explode(index_parts=False).geometry]
+
+
 def area_block(cov, pts):
     """One AREA feature in the AWIPS tenths-of-a-degree encoding the parser expects."""
     flat = " ".join(f"{int(round(la * 10))} {int(round(abs(lo) * 10))}" for lo, la in pts)
@@ -119,6 +151,23 @@ MAIN_BLOBS = [
     (-93.0, -90.0, 33.0, 36.0, 47.0, 33.0),     # truth with no forecast -> miss
     (-102.0, -101.5, 31.0, 31.5, 45.0, 28.0),   # too small, dropped by the area filter
 ]
+
+# --- domain-mask fixtures ---------------------------------------------------
+# Blobs big enough to clear min_area_m2 on their own; the domain's northern edge
+# is 49N here (ARTCC), west of the CMAC supplement's -90 western limit.
+IN_DOMAIN_BLOB = (-100.0, -96.0, 37.0, 41.0, 52.0, 41.0)          # Kansas/Nebraska
+OUT_OF_DOMAIN_BLOB = (-100.0, -96.0, 50.5, 53.5, 52.0, 41.0)      # Canada, north of 49N
+# Mostly Saskatchewan, clipping into the scored area only along its southern
+# edge: ~127,000 km2 whole, ~4,000 km2 after the clip, against a 15,000 floor.
+STRADDLE_BLOB = (-100.0, -96.0, 49.2, 52.2, 52.0, 41.0)
+
+# One forecast far from all of them: these scenarios are about truth survival,
+# and a forecast polygon overlapping a blob would suppress it as a miss.
+FAR_FORECAST = ("<html><pre>\nTCFNTA CFP02 DOMAIN TEST\n"
+                + area_block(3, [(-89.0, 31.0), (-87.0, 31.0), (-87.0, 32.5), (-89.0, 32.5)])
+                + "</pre></html>\n")
+
+
 
 
 def write_event(root, event_id, raw, blobs, issuance_hour=19, lead_time=4):
@@ -508,8 +557,11 @@ def _():
     over open ground -- its coverage is 0 whatever medium_truth_threshold says,
     so MAIN alone cannot tell that field apart from a no-op.
     """
-    lons, lats = make_grid()
-    max_tops, max_refl = make_arrays(lons, lats, MAIN_BLOBS)
+    # The wide grid plus an out-of-domain blob, so apply_domain_mask has
+    # something to bite on: on make_grid() everything is inside ARTCC territory
+    # and the field would look like a no-op.
+    lons, lats = make_wide_grid()
+    max_tops, max_refl = make_arrays(lons, lats, MAIN_BLOBS + [OUT_OF_DOMAIN_BLOB])
     box = [(-100.5, 36.5), (-95.5, 36.5), (-95.5, 41.5), (-100.5, 41.5)]   # over the big blob
     clip = [(-97.5, 39.5), (-92.5, 39.5), (-92.5, 42.5), (-97.5, 42.5)]    # partial overlap
     raw = ("<html><pre>\nTCFNTA CFP02 PROBE\n"
@@ -540,6 +592,7 @@ def _():
         "dilation_iterations": 6,
         "smoothing_size": 40,
         "min_area_m2": 1e13,
+        "apply_domain_mask": False,
     }
     fields = {f.name for f in dataclasses.fields(tcf_pipeline.GradingParams)}
     assert fields == set(probes), \
@@ -566,6 +619,7 @@ def _():
         "dilation_iterations": 1,
         "smoothing_size": 20,
         "min_area_m2": 15_000_000_000,
+        "apply_domain_mask": True,
     }
     for field, want in expected.items():
         got = getattr(p, field)
@@ -946,6 +1000,86 @@ def _():
 
     # And the buffer itself was not retuned as part of the geometry fix.
     assert tcf_pipeline.LINE_BUFFER_DEG == 0.15
+
+
+@scenario("(5) the domain mask is live: out-of-domain truth vanishes, in-domain survives")
+def _():
+    lons, lats = make_wide_grid()
+    blobs = [IN_DOMAIN_BLOB, OUT_OF_DOMAIN_BLOB]
+
+    on = grade_blobs(lons, lats, blobs, FAR_FORECAST,
+                     tcf_pipeline.GradingParams(apply_domain_mask=True))
+    off = grade_blobs(lons, lats, blobs, FAR_FORECAST,
+                      tcf_pipeline.GradingParams(apply_domain_mask=False))
+
+    on_lats = [lat for lat, _lon in truth_centroids(on)]
+    off_lats = [lat for lat, _lon in truth_centroids(off)]
+
+    assert any(lat > 49 for lat in off_lats), \
+        f"the out-of-domain blob should survive with the mask OFF, got {off_lats}"
+    assert not any(lat > 49 for lat in on_lats), \
+        f"the out-of-domain blob should be gone with the mask ON, got {on_lats}"
+    assert any(35 < lat < 45 for lat in on_lats), \
+        f"the in-domain blob must survive the mask, got {on_lats}"
+
+    # And it is the miss count that this is really about.
+    assert len(on["graded_misses"]) < len(off["graded_misses"]), \
+        (f"masking should remove a miss: {len(off['graded_misses'])} unmasked -> "
+         f"{len(on['graded_misses'])} masked")
+    print(f"  misses {len(off['graded_misses'])} unmasked -> "
+          f"{len(on['graded_misses'])} masked; truth lats {off_lats} -> {on_lats}")
+
+
+@scenario("(5) ORDERING: a straddling blob is clipped BEFORE the area floor")
+def _():
+    """If anyone reorders clip and filter, this is the scenario that fails.
+
+    The blob clears min_area_m2 at full extent but not after the domain clip, so
+    filter-then-clip keeps it (graded on area it does not have inside the scored
+    region) and clip-then-filter deletes it.
+    """
+    lons, lats = make_wide_grid()
+    params = tcf_pipeline.GradingParams()
+    domain = tcf_pipeline.verification_domain()
+
+    max_tops, max_refl = make_arrays(lons, lats, [STRADDLE_BLOB])
+    raw_cores = (max_refl >= 40) & (max_tops >= 25)
+    from scipy.ndimage import binary_dilation as _dil, uniform_filter as _uni
+    field = _uni(_dil(raw_cores, iterations=params.dilation_iterations).astype(float),
+                 size=params.smoothing_size)
+    mask = (field >= params.sparse_truth_threshold).astype(int)
+
+    # Unfiltered, unclipped: what the blob measures at full extent.
+    whole = tcf_pipeline.extract_tcf_polygons(mask, lons, lats, min_area_m2=0)
+    whole_m2 = float(whole.to_crs("EPSG:5070").geometry.area.iloc[0])
+    # Unfiltered but clipped: what is left inside the scored area.
+    clipped = tcf_pipeline.extract_tcf_polygons(mask, lons, lats, min_area_m2=0,
+                                               domain=domain)
+    clipped_m2 = (float(clipped.to_crs("EPSG:5070").geometry.area.iloc[0])
+                  if not clipped.empty else 0.0)
+
+    assert whole_m2 >= params.min_area_m2, \
+        (f"fixture is not exercising the ordering: the blob must clear the floor "
+         f"whole ({whole_m2 / 1e6:,.0f} km2 vs {params.min_area_m2 / 1e6:,.0f} km2)")
+    assert clipped_m2 < params.min_area_m2, \
+        (f"fixture is not exercising the ordering: the blob must fall BELOW the "
+         f"floor once clipped ({clipped_m2 / 1e6:,.0f} km2)")
+
+    # Clip-then-filter, which is what the pipeline does: nothing survives.
+    survivors = tcf_pipeline.extract_tcf_polygons(
+        mask, lons, lats, min_area_m2=params.min_area_m2, domain=domain)
+    assert survivors.empty or survivors.is_empty.all(), \
+        ("the straddling blob survived -- min_area_m2 was applied before the clip, "
+         "so it was measured at its full extent")
+
+    # Filter-then-clip, the wrong order, spelled out so the difference is visible.
+    wrong = tcf_pipeline.extract_tcf_polygons(mask, lons, lats,
+                                              min_area_m2=params.min_area_m2)
+    assert not (wrong.empty or wrong.is_empty.all()), \
+        "the wrong order should keep this blob; if it does not, the fixture is stale"
+    print(f"  straddling blob {whole_m2 / 1e6:,.0f} km2 whole -> "
+          f"{clipped_m2 / 1e6:,.0f} km2 clipped (floor "
+          f"{params.min_area_m2 / 1e6:,.0f}): DELETED, correct order")
 
 
 @scenario("(1) scan offsets are symmetric about the valid time and include it")

@@ -1,0 +1,25 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "CMAC verification domain supplement",
+        "note": "Traced from a TCF graphic, not an official shapefile. See cmac_domain.README.md."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-90.0, 48.0],
+            [-68.5, 48.0],
+            [-68.5, 47.0],
+            [-70.0, 43.0],
+            [-90.0, 43.0],
+            [-90.0, 48.0]
+          ]
+        ]
+      }
+    }
+  ]
+}
