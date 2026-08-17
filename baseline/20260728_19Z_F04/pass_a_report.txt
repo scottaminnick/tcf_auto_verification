@@ -3,11 +3,10 @@ NWS TCF Review
 Tuesday, July 28, 2026
   Jul 28, 2026   IT: 19Z   VT: 23Z   FCST HR: 04
 Verified Well:
-None
+ZDC/ZNY - Medium (Area 2) [Top: 49.2 kft]
 
 Verified Close:
 ZBW/ZDC/ZNY - Sparse (Area 1) [Top: 45.9 kft]
-ZDC/ZNY - Medium (Area 2) [Top: 47.6 kft]
 ZDC/ZJX/ZTL - Sparse (Area 5) [Top: 55.8 kft]
 
 Over-forecast:
@@ -20,8 +19,7 @@ ZAB/ZDV/ZLA - Sparse (Area 9) [Top: 59.1 kft]
 ZDV - Sparse (Area 10) [Top: 45.9 kft]
 ZDV/ZLC - Sparse (Area 11)
 ZLC - Sparse (Area 12)
-ZLC - Sparse (Area 13) [Top: 42.7 kft]
+ZLC - Sparse (Area 13) [Top: 44.0 kft]
 
 Missed:
 UNKNOWN - Missed (Area M1)
-UNKNOWN - Missed (Area M2)

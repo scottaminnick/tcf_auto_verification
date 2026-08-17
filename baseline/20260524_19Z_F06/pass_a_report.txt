@@ -7,11 +7,11 @@ ZDC/ZID/ZOB/ZTL - Sparse (Area 1) [Top: 36.1 kft]
 ZFW/ZHU - Sparse (Area 8) [Top: 42.7 kft]
 
 Verified Close:
-ZJX/ZTL - Sparse (Area 3) [Top: 45.1 kft]
+ZJX/ZTL - Sparse (Area 3) [Top: 42.7 kft]
 ZMP - Sparse (Area 6) [Top: 52.4 kft]
 
 Over-forecast:
-ZJX/ZMA - Sparse (Area 2) [Top: 47.6 kft]
+ZJX/ZMA - Sparse (Area 2)
 ZHU - Sparse (Area 4) [Top: 55.8 kft]
 ZHU/ZME - Sparse (Area 5)
 ZHU - Sparse (Area 7)
