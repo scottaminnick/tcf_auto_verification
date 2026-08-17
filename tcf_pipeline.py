@@ -23,6 +23,7 @@ moved verbatim; the known defects are preserved deliberately and catalogued in
 the BUG INVENTORY at the bottom of this file.
 """
 
+import functools
 import gc
 import gzip
 import json
@@ -45,6 +46,7 @@ from skimage import measure
 
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 ARTCC_PATH = os.path.join(REPO_ROOT, "artcc1.geojson")
+CMAC_DOMAIN_PATH = os.path.join(REPO_ROOT, "cmac_domain.geojson")
 
 
 @dataclass(frozen=True)
@@ -112,6 +114,12 @@ class GradingParams:
     # Minimum truth polygon area, m^2 (15,000 km^2), measured in EPSG:5070.
     min_area_m2: float = 15_000_000_000
 
+    # Clip truth to the verification domain (ARTCC boundaries unioned with
+    # cmac_domain.geojson) before the area filter. On means convection outside
+    # the scored area cannot be reported as a miss. Off is for comparison runs --
+    # it is what the baselines captured before the domain existed.
+    apply_domain_mask: bool = True
+
 
 # How close to a grade cutoff a coverage fraction has to land before it counts
 # as fragile -- see is_boundary(). Not a GradingParams field: it does not affect
@@ -139,6 +147,25 @@ def _log(msg):
 
 
 # --- Geography --------------------------------------------------------------
+@functools.lru_cache(maxsize=1)
+def verification_domain(artcc_path=ARTCC_PATH, cmac_path=CMAC_DOMAIN_PATH):
+    """The scored area: ARTCC boundaries unioned with the CMAC supplement.
+
+    Cached for the life of the process -- it is read from two files, dissolved
+    and repaired, and none of that depends on the event, so rebuilding it per run
+    would be pure waste. lru_cache keys on the paths, so a test can point at a
+    different domain without disturbing the cached default.
+
+    buffer(0) after the union dissolves the shared interior edges and repairs any
+    self-intersection the two independently drawn boundaries introduce where they
+    overlap.
+    """
+    artccs = load_artccs(artcc_path)
+    with open(cmac_path, "r", encoding="utf-8") as f:
+        cmac = gpd.GeoDataFrame.from_features(json.load(f)["features"], crs="EPSG:4326")
+    return artccs.union_all().union(cmac.union_all()).buffer(0)
+
+
 def load_artccs(path=ARTCC_PATH):
     """ARTCC boundaries, read with plain json (the parsing half of app.py's
     load_geography()).
@@ -395,8 +422,13 @@ def download_mrms_scan(product, dt_obj, dest_dir="mrms_data"):
     return _download_key(key, dest_dir)
 
 
-def extract_tcf_polygons(coverage_mask, lons, lats, min_area_m2=0):
-    """Turns a binary coverage mask into dissolved 'truth' polygons."""
+def extract_tcf_polygons(coverage_mask, lons, lats, min_area_m2=0, domain=None):
+    """Turns a binary coverage mask into dissolved 'truth' polygons.
+
+    `domain`, when given, is the verification domain from
+    verification_domain(). Truth is clipped to it BEFORE min_area_m2 is applied
+    -- see the comment at the clip.
+    """
     contours = measure.find_contours(coverage_mask, 0.5)
     polygons = []
     for contour in contours:
@@ -408,6 +440,24 @@ def extract_tcf_polygons(coverage_mask, lons, lats, min_area_m2=0):
     gdf = gpd.GeoDataFrame(geometry=polygons, crs="EPSG:4326")
     if gdf.is_empty.all():
         return gdf
+
+    if domain is not None:
+        # ORDER OF OPERATIONS: clip to the domain FIRST, then apply min_area_m2
+        # below. Filtering first would measure each blob at its full extent and
+        # keep anything that cleared the floor, including a blob that is 95% in
+        # Saskatchewan and only clips into a corner of the scored area -- it
+        # would survive on area it does not have, and then be graded. Clipping
+        # first means the floor is applied to the part that actually counts.
+        #
+        # buffer(0) after the intersection cleans the slivers and
+        # zero-width spikes clipping leaves along the boundary, and normalises a
+        # GeometryCollection (a clip can return lines or points where a contour
+        # runs tangent to the edge) back to something polygonal.
+        gdf = gpd.GeoDataFrame(geometry=gdf.geometry.intersection(domain).buffer(0),
+                               crs="EPSG:4326")
+        gdf = gdf[~gdf.is_empty]
+        if gdf.empty:
+            return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
     gdf_m = gdf.to_crs("EPSG:5070")
     if min_area_m2 > 0:
@@ -748,13 +798,19 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
     buffered_cores = binary_dilation(raw_cores, iterations=params.dilation_iterations)
     coverage_fraction = uniform_filter(buffered_cores.astype(float), size=params.smoothing_size)
 
+    # The scored area. None disables clipping entirely, which is what the
+    # baselines captured before the domain mask existed.
+    domain = verification_domain() if params.apply_domain_mask else None
+
     # Truth-area filter (default 15,000 km^2), matching the notebook.
     gdf_sparse = extract_tcf_polygons((coverage_fraction >= params.sparse_truth_threshold).astype(int),
-                                      lons, lats, min_area_m2=params.min_area_m2)
+                                      lons, lats, min_area_m2=params.min_area_m2,
+                                      domain=domain)
     # Medium (cov=2) and Dense (cov=1) forecasts must verify against 40%+ truth,
     # matching the TCF Medium coverage threshold (40-74%).
     gdf_medium_truth = extract_tcf_polygons((coverage_fraction >= params.medium_truth_threshold).astype(int),
-                                            lons, lats, min_area_m2=params.min_area_m2)
+                                            lons, lats, min_area_m2=params.min_area_m2,
+                                            domain=domain)
     del coverage_fraction, raw_cores, buffered_cores
     gc.collect()
 

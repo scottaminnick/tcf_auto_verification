@@ -3,3 +3,4 @@
 grib_cache/
 *.idx
 composite_cache/
+diagnose_*.txt
