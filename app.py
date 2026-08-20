@@ -102,7 +102,8 @@ def cached_build_composite(valid_dt, window_minutes, cadence_minutes, step, _log
                            window_minutes=window_minutes,
                            cadence_minutes=cadence_minutes,
                            step=step,
-                           with_display=True)
+                           with_display=True,
+                           with_provenance=True)
 
 
 @st.cache_data(show_spinner=False, max_entries=3)
@@ -311,8 +312,62 @@ def _new_map_fig(R, title):
     return fig
 
 
+def _duration(seconds):
+    """Compact absolute duration for factual MRMS provenance display."""
+    if seconds is None:
+        return "n/a"
+    seconds = abs(float(seconds))
+    minutes, remainder = divmod(int(round(seconds)), 60)
+    return f"{minutes}m {remainder:02d}s" if minutes else f"{remainder}s"
+
+
+def render_mrms_provenance(provenance):
+    """Concise reviewer-only MRMS provenance; never enters the FAA report."""
+    if provenance is None:
+        return
+
+    largest_offset = max(
+        (v for v in (provenance.max_reflectivity_offset_seconds,
+                     provenance.max_echo_top_offset_seconds) if v is not None),
+        default=None)
+    excluded_grid = any(record.grid_compatible is False
+                        for record in provenance.observations)
+    grid_text = ("Excluded mismatch" if excluded_grid else
+                 "OK" if provenance.all_used_grids_compatible else "No usable grid")
+    st.markdown("**MRMS Data Used**")
+    st.caption(
+        f"Requested times: {provenance.total_requested} · "
+        f"Paired observations used: {provenance.observations_used} · "
+        f"Reflectivity resolved: {provenance.reflectivity_resolved}/{provenance.total_requested} · "
+        f"Echo tops resolved: {provenance.echo_top_resolved}/{provenance.total_requested} · "
+        f"Largest scan offset: {_duration(largest_offset)} · "
+        f"Largest product-pair separation: "
+        f"{_duration(provenance.max_product_separation_seconds)} · "
+        f"Grid consistency: {grid_text}")
+
+    excluded = [record for record in provenance.observations if not record.used]
+    if excluded:
+        with st.expander(f"Excluded or unavailable observations ({len(excluded)})"):
+            rows = []
+            for record in excluded:
+                rows.append({
+                    "Requested UTC": record.requested_time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "Reflectivity UTC": (record.reflectivity_time.strftime("%H:%M:%S")
+                                           if record.reflectivity_time else "Unavailable"),
+                    "Refl offset (s)": record.reflectivity_offset_seconds,
+                    "Echo top UTC": (record.echo_top_time.strftime("%H:%M:%S")
+                                     if record.echo_top_time else "Unavailable"),
+                    "Top offset (s)": record.echo_top_offset_seconds,
+                    "Pair separation (s)": record.product_separation_seconds,
+                    "Grid compatible": record.grid_compatible,
+                    "Reason": record.exclusion_reason,
+                })
+            st.dataframe(rows, hide_index=True, use_container_width=True)
+
+
 def render_scorecard(R):
     """View 1: graded forecast polygons + misses (interactive), plus the FAA text report."""
+    render_mrms_provenance(R.get('mrms_provenance'))
     col1, col2 = st.columns([2, 1])
 
     with col1:
@@ -329,10 +384,17 @@ def render_scorecard(R):
                 xs, ys = _geom_to_xy(row.geometry)
                 show = row.category not in seen
                 seen.add(row.category)
+                top_text = (f"{row.top:.1f} kft"
+                            if row.top is not None and not np.isnan(row.top)
+                            else "Unavailable")
+                coverage_label = tcf_pipeline._coverage_label(
+                    row.feat_type, row.coverage)
+                feature_label = "Line" if row.feat_type == "LINE" else "Area"
                 fig.add_trace(go.Scatter(
                     x=xs, y=ys, mode='lines', line=dict(color=row.color, width=3),
                     name=row.category, legendgroup=row.category, showlegend=show,
-                    hovertemplate=f"Area {row.idx} — {row.category}<br>Top: {row.top:.1f} kft<extra></extra>"))
+                    hovertemplate=(f"{coverage_label} {feature_label} {row.idx} — "
+                                   f"{row.category}<br>Top: {top_text}<extra></extra>")))
                 c = row.geometry.centroid
                 label_x.append(c.x); label_y.append(c.y); label_txt.append(str(row.idx))
 
@@ -342,8 +404,9 @@ def render_scorecard(R):
                 xs, ys = _geom_to_xy(row.geometry)
                 fig.add_trace(go.Scatter(
                     x=xs, y=ys, mode='lines', fill='toself', fillcolor='rgba(255,0,0,0.35)',
-                    line=dict(color='red', width=2), name='Missed', legendgroup='Missed',
-                    showlegend=show, hovertemplate=f"Missed Area M{row.idx}<extra></extra>"))
+                    line=dict(color='red', width=2), name='Candidate Miss',
+                    legendgroup='Candidate Miss', showlegend=show,
+                    hovertemplate=f"Candidate Miss M{row.idx}<extra></extra>"))
                 show = False
                 c = row.geometry.centroid
                 label_x.append(c.x); label_y.append(c.y); label_txt.append(f"M{row.idx}")
@@ -356,6 +419,15 @@ def render_scorecard(R):
         st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
 
     with col2:
+        st.subheader("Meteorologist Review")
+        st.caption("Candidate Misses enter the FAA draft only after checking "
+                   "approved_for_report.")
+        edited_table = st.data_editor(
+            R['review_table'], hide_index=True, use_container_width=True,
+            key="methodology_review_table")
+        R['review_table'] = edited_table.astype(tcf_pipeline.REVIEW_COLUMNS)
+        R['report_text'] = tcf_pipeline.build_report(
+            R['review_table'], R['valid_dt'], R['issuance_hour'], R['lead_time'])
         st.subheader("FAA Google Doc Report")
         escaped = html.escape(R['report_text'])
         st.markdown(
@@ -416,19 +488,42 @@ if st.sidebar.button("Run Verification"):
         st.write("Pulling Forecast from IEM Archives...")
         gdf_forecast = cached_fetch_iem_cow_tcf(target_date, issuance_hour, lead_time)
 
+        parse_diagnostics = gdf_forecast.attrs.get("parse_diagnostics", ())
+        if parse_diagnostics:
+            st.warning(f"{len(parse_diagnostics)} malformed or unsupported TCF "
+                       f"feature(s) were excluded from verification.")
+            with st.expander("Excluded TCF feature details"):
+                st.dataframe([{
+                    "Record": item.record_index,
+                    "Type": item.feature_type,
+                    "Reason": item.message,
+                    "Coverage code": item.coverage_code,
+                    "Declared points": item.declared_points,
+                    "Available pairs": item.available_coordinate_pairs,
+                } for item in parse_diagnostics], hide_index=True,
+                    use_container_width=True)
+
         if gdf_forecast.empty:
-            st.warning("IEM failed or data missing for this issuance/lead time.")
+            st.warning("No valid TCF features were available for this issuance/lead time.")
             st.stop()
 
         # --- Rolling Composite ---
         # st.write is handed to the pipeline as its progress sink, so the per-scan
         # lines still appear in this status box.
-        max_tops, max_refl, lons, lats, raster = cached_build_composite(
-            valid_dt,
-            tcf_pipeline.COMPOSITE_WINDOW_MINUTES,
-            tcf_pipeline.COMPOSITE_CADENCE_MINUTES,
-            tcf_pipeline.COMPOSITE_STEP,
-            _log=st.write)
+        try:
+            composite = cached_build_composite(
+                valid_dt,
+                tcf_pipeline.COMPOSITE_WINDOW_MINUTES,
+                tcf_pipeline.COMPOSITE_CADENCE_MINUTES,
+                tcf_pipeline.COMPOSITE_STEP,
+                _log=st.write)
+        except tcf_pipeline.MRMSCompositeUnavailableError as exc:
+            st.error(str(exc))
+            render_mrms_provenance(exc.provenance)
+            st.stop()
+
+        (max_tops, max_refl, qualifying_mask, lons, lats, raster,
+         mrms_provenance) = composite
 
         st.write("Rendering display raster...")
         display_png_bytes, display_extent, _factor = cached_display_png(
@@ -443,7 +538,8 @@ if st.sidebar.button("Run Verification"):
     # --- Verification Math ---
     with st.spinner("Calculating Spatial Overlap & Echo Tops..."):
         R = run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
-                             valid_dt, issuance_hour, lead_time, gdf_artcc)
+                             valid_dt, issuance_hour, lead_time, gdf_artcc,
+                             qualifying_mask=qualifying_mask)
 
         # max_tops / max_refl no longer needed; keep top_verif_matrix for plotting
         del max_tops, max_refl
@@ -458,8 +554,12 @@ if st.sidebar.button("Run Verification"):
         'gdf_graded_fcst': R['gdf_graded_fcst'],
         'gdf_graded_miss': R['gdf_graded_miss'],
         'gdf_sparse': R['gdf_sparse'],
+        'review_table': R['review_table'],
+        'mrms_provenance': mrms_provenance,
         'report_text': R['report_text'],
         'valid_dt': R['valid_dt'],
+        'issuance_hour': issuance_hour,
+        'lead_time': lead_time,
     }
 
 

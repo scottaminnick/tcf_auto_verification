@@ -51,18 +51,20 @@ def recapture(event, gdf_artcc, dry_run=False):
         event["date"], event["issuance_hour"], event["lead_time"])
 
     t0 = time.perf_counter()
-    max_tops, max_refl, lons, lats = tcf_pipeline.build_composite(
+    max_tops, max_refl, qualifying_mask, lons, lats = tcf_pipeline.build_composite(
         valid_dt, log=lambda m: None)
     fetch_s = time.perf_counter() - t0
 
     results = tcf_pipeline.run_verification(
         gdf_forecast, max_tops, max_refl, lons, lats,
-        valid_dt, event["issuance_hour"], event["lead_time"], gdf_artcc)
+        valid_dt, event["issuance_hour"], event["lead_time"], gdf_artcc,
+        qualifying_mask=qualifying_mask)
     expected = capture.build_expected(event, valid_dt, results, gdf_artcc)
 
     if not dry_run:
         np.savez_compressed(os.path.join(event_dir, "arrays.npz"),
-                            max_tops=max_tops, max_refl=max_refl, lons=lons, lats=lats)
+                            max_tops=max_tops, max_refl=max_refl,
+                            qualifying_mask=qualifying_mask, lons=lons, lats=lats)
         with open(os.path.join(event_dir, "expected.json"), "w", encoding="utf-8") as f:
             json.dump(expected, f, indent=2, sort_keys=False)
             f.write("\n")

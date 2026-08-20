@@ -1,0 +1,25 @@
+{
+  "archive_collection_performed": false,
+  "historical_evidence": {
+    "detail_source": "supplied externally for this task; per-slot manifest not committed",
+    "events": 6,
+    "nominal_pairs": 90,
+    "one_second_pairs": 2,
+    "separation_range_seconds": [
+      0,
+      1
+    ],
+    "zero_second_pairs": 88
+  },
+  "recommendation": "OPTION_C_prefer_authoritative_same_cycle_identity_with_reviewer_fallback_but_evidence_required",
+  "scope": "analysis_only_no_pair_acceptance_rule",
+  "supplied_noaa_context": {
+    "both_described_as_derived_from_3d_reflectivity_cube": true,
+    "both_product_frequencies_minutes": 2,
+    "filename_timestamp_resolution": "seconds",
+    "filename_timestamp_semantics": "unresolved",
+    "same_cycle_guarantee": "not supplied"
+  },
+  "synthetic_case_count": 10,
+  "threshold_selected": null
+}

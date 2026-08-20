@@ -17,8 +17,10 @@ error so that a half-moved pipeline fails loudly.
 Required pipeline symbols (all from the module named by --pipeline):
     compute_valid_dt(date, issuance_hour, lead_time) -> datetime
     parse_iem_cow_text(raw_text) -> GeoDataFrame
-    run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
-                     valid_dt, issuance_hour, lead_time, gdf_artcc) -> dict
+    run_verification_legacy_independent_max(
+        gdf_forecast, max_tops, max_refl, lons, lats,
+        valid_dt, issuance_hour, lead_time, gdf_artcc) -> dict
+    run_verification(..., qualifying_mask=mask) -> dict
     load_artccs() -> GeoDataFrame
     get_artccs(poly, artcc_gdf) -> str
 
@@ -54,6 +56,7 @@ PIPELINE_SYMBOLS = (
     "compute_valid_dt",
     "parse_iem_cow_text",
     "run_verification",
+    "run_verification_legacy_independent_max",
     "load_artccs",
     "get_artccs",
 )
@@ -425,6 +428,21 @@ def check_event(event_dir, pipe, gdf_artcc, strict, pass_a=False, replay=True):
         max_refl = npz["max_refl"]
         lons = npz["lons"]
         lats = npz["lats"]
+        qualifying_mask = npz["qualifying_mask"] if "qualifying_mask" in npz else None
+
+    methodology_version = expected.get("methodology_version")
+    if methodology_version and qualifying_mask is None:
+        raise SystemExit(
+            f"ERROR: {event_id} declares methodology_version={methodology_version!r} "
+            "but arrays.npz has no qualifying_mask; versioned Methodology 1.0 "
+            "artifacts may not use legacy independent-max replay."
+        )
+    if methodology_version and not os.path.exists(
+            os.path.join(event_dir, "mrms_provenance.json")):
+        raise SystemExit(
+            f"ERROR: {event_id} declares methodology_version={methodology_version!r} "
+            "but has no mrms_provenance.json source manifest."
+        )
 
     target_date = _datetime.datetime.strptime(expected["date"], "%Y-%m-%d").date()
     issuance_hour = expected["issuance_hour"]
@@ -432,9 +450,17 @@ def check_event(event_dir, pipe, gdf_artcc, strict, pass_a=False, replay=True):
 
     gdf_forecast = pipe.get("parse_iem_cow_text")(raw_text)
     valid_dt = pipe.get("compute_valid_dt")(target_date, issuance_hour, lead_time)
-    results = pipe.get("run_verification")(
-        gdf_forecast, max_tops, max_refl, lons, lats,
-        valid_dt, issuance_hour, lead_time, gdf_artcc)
+    if qualifying_mask is None:
+        print(f"LEGACY {event_id}: maxima-only artifact; using explicitly named "
+              "pre-1.0 independent-max replay")
+        results = pipe.get("run_verification_legacy_independent_max")(
+            gdf_forecast, max_tops, max_refl, lons, lats,
+            valid_dt, issuance_hour, lead_time, gdf_artcc)
+    else:
+        results = pipe.get("run_verification")(
+            gdf_forecast, max_tops, max_refl, lons, lats,
+            valid_dt, issuance_hour, lead_time, gdf_artcc,
+            qualifying_mask=qualifying_mask)
 
     actual = build_actual(results, {
         "event_id": event_id,

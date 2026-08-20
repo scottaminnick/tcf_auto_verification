@@ -115,7 +115,7 @@ def grade_blobs(lons, lats, blobs, raw, params=None):
     max_tops, max_refl = make_arrays(lons, lats, blobs)
     gdf = tcf_pipeline.parse_iem_cow_text(raw)
     valid_dt = tcf_pipeline.compute_valid_dt(date(2026, 5, 24), 19, 4)
-    return tcf_pipeline.run_verification(
+    return tcf_pipeline.run_verification_legacy_independent_max(
         gdf, max_tops, max_refl, lons, lats, valid_dt, 19, 4, ARTCC,
         params=params or tcf_pipeline.GradingParams())
 
@@ -187,7 +187,7 @@ def write_event(root, event_id, raw, blobs, issuance_hour=19, lead_time=4):
              "issuance_hour": issuance_hour, "lead_time": lead_time}
     valid_dt = tcf_pipeline.compute_valid_dt(event["date"], issuance_hour, lead_time)
     gdf_forecast = tcf_pipeline.parse_iem_cow_text(raw)
-    results = tcf_pipeline.run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
+    results = tcf_pipeline.run_verification_legacy_independent_max(gdf_forecast, max_tops, max_refl, lons, lats,
                                             valid_dt, issuance_hour, lead_time, ARTCC)
     expected = capture.build_expected(event, valid_dt, results, ARTCC)
     write_expected(root, event_id, expected)
@@ -248,7 +248,8 @@ def _():
 @scenario("scalar, bounds, count and report perturbations are each reported")
 def _():
     exp = copy.deepcopy(MAIN_EXPECTED)
-    exp["polygons"][0]["top_kft"] = round(exp["polygons"][0]["top_kft"] + 3.5, 2)
+    top_polygon = next(p for p in exp["polygons"] if p["top_kft"] is not None)
+    top_polygon["top_kft"] = round(top_polygon["top_kft"] + 3.5, 2)
     exp["polygons"][0]["coverage_fraction"] = round(exp["polygons"][0]["coverage_fraction"] - 0.11, 4)
     exp["polygons"][-1]["bounds"][0] = round(exp["polygons"][-1]["bounds"][0] - 0.5, 4)
     exp["counts"]["misses"] += 1
@@ -521,7 +522,7 @@ def _():
     valid_dt = tcf_pipeline.compute_valid_dt(date(2026, 5, 24), 19, 4)
 
     def grade(params):
-        r = tcf_pipeline.run_verification(gdf, max_tops, max_refl, lons, lats,
+        r = tcf_pipeline.run_verification_legacy_independent_max(gdf, max_tops, max_refl, lons, lats,
                                           valid_dt, 19, 4, ARTCC, params=params)
         return {p["idx"]: (p["category"], p["coverage_fraction"]) for p in r["graded_forecasts"]}
 
@@ -573,7 +574,7 @@ def _():
     valid_dt = tcf_pipeline.compute_valid_dt(date(2026, 5, 24), 19, 4)
 
     def summarise(params):
-        r = tcf_pipeline.run_verification(gdf, max_tops, max_refl, lons, lats,
+        r = tcf_pipeline.run_verification_legacy_independent_max(gdf, max_tops, max_refl, lons, lats,
                                           valid_dt, 19, 4, ARTCC, params=params)
         return (tuple((p["coverage"], round(p["coverage_fraction"], 6), p["category"])
                       for p in r["graded_forecasts"]),
@@ -639,7 +640,7 @@ def _fixture_review_table():
     max_tops, max_refl = make_arrays(lons, lats, MAIN_BLOBS)
     gdf = tcf_pipeline.parse_iem_cow_text(MAIN_RAW)
     valid_dt = tcf_pipeline.compute_valid_dt(date(2026, 5, 24), 19, 4)
-    results = tcf_pipeline.run_verification(gdf, max_tops, max_refl, lons, lats,
+    results = tcf_pipeline.run_verification_legacy_independent_max(gdf, max_tops, max_refl, lons, lats,
                                             valid_dt, 19, 4, ARTCC)
     return results, valid_dt
 
@@ -664,8 +665,8 @@ def _():
     assert list(table.columns) == list(tcf_pipeline.REVIEW_COLUMNS), \
         f"unexpected columns: {list(table.columns)}"
     assert len(table) == 4, f"3 forecasts + 1 miss expected, got {len(table)} rows"
-    assert list(table["kind"]) == ["forecast"] * 3 + ["miss"], \
-        f"forecast rows then miss rows expected, got {list(table['kind'])}"
+    assert list(table["kind"]) == ["forecast"] * 3 + ["candidate_miss"], \
+        f"forecast rows then candidate rows expected, got {list(table['kind'])}"
 
     # Pandas-native nullable dtypes throughout, so the frame survives
     # st.data_editor -- in particular idx must stay an integer, since an idx that
@@ -685,7 +686,9 @@ def _():
     assert set(fcst["coverage_code"]) <= {1, 2, 3}
     assert all(a and a != "UNKNOWN" for a in table["artccs"]), \
         f"ARTCC lookup should have happened in the table: {list(table['artccs'])}"
-    assert fcst["top_kft"].notna().all() and fcst["coverage_fraction"].notna().all()
+    assert fcst["top_kft"].notna().any(), "fixture should retain numeric echo tops"
+    assert fcst["top_kft"].isna().any(), "insufficient echo-top samples should remain nullable"
+    assert fcst["coverage_fraction"].notna().all()
 
 
 @scenario("(3) run_verification's report equals build_report on its own table")
@@ -745,8 +748,9 @@ def _():
     row = edited.index[edited["kind"] == "forecast"][0]
     edited.at[row, "artccs"] = "ZZZ/ZYY"
     edited.at[row, "top_kft"] = 47.0
-    miss_row = edited.index[edited["kind"] == "miss"][0]
+    miss_row = edited.index[edited["kind"] == "candidate_miss"][0]
     edited.at[miss_row, "artccs"] = "ZQQ"
+    edited.at[miss_row, "approved_for_report"] = True
 
     after = tcf_pipeline.build_report(edited, valid_dt, 19, 4)
     assert "ZZZ/ZYY - " in after, f"edited ARTCC did not reach the report:\n{after}"
@@ -847,21 +851,22 @@ def _():
     """The whole point of parallel fetch: workers finish in whatever order they
     like, and the arrays must not care."""
     offsets = tcf_pipeline.scan_offsets()
-    (a_tops, a_refl, a_lons, a_lats), order_a, _ = _run_stubbed_composite({})
+    (a_tops, a_refl, a_qual, a_lons, a_lats), order_a, _ = _run_stubbed_composite({})
     # Make the LAST scan finish first and the first finish last.
     jumbled = {o: 0.20 * (len(offsets) - 1 - i) / len(offsets)
                for i, o in enumerate(offsets)}
-    (b_tops, b_refl, b_lons, b_lats), order_b, _ = _run_stubbed_composite(jumbled)
+    (b_tops, b_refl, b_qual, b_lons, b_lats), order_b, _ = _run_stubbed_composite(jumbled)
     # And a third pass with a different jumble again.
     shuffled = {o: 0.20 * ((i * 7) % len(offsets)) / len(offsets)
                 for i, o in enumerate(offsets)}
-    (c_tops, c_refl, _, _), order_c, _ = _run_stubbed_composite(shuffled)
+    (c_tops, c_refl, c_qual, _, _), order_c, _ = _run_stubbed_composite(shuffled)
 
     assert order_a != order_b or order_b != order_c, \
         "the stub failed to produce differing completion orders, so this proves nothing"
 
     for name, x, y, z in (("max_tops", a_tops, b_tops, c_tops),
-                          ("max_refl", a_refl, b_refl, c_refl)):
+                          ("max_refl", a_refl, b_refl, c_refl),
+                          ("qualifying_mask", a_qual, b_qual, c_qual)):
         # tobytes(), not array_equal: -0.0 == 0.0 compares equal but is a
         # different bit pattern, and bit-identical is what was asked for.
         assert x.tobytes() == y.tobytes() == z.tobytes(), \
@@ -956,7 +961,7 @@ def _():
     areas = {}
     for n in (2, 3, 4):
         gdf = tcf_pipeline.parse_iem_cow_text(
-            "<pre>" + _feature_block("LINE", 3, zigzag[:n]) + "</pre>")
+            "<pre>" + _feature_block("LINE", 1, zigzag[:n]) + "</pre>")
         assert len(gdf) == 1, f"{n}-point LINE did not parse"
         assert gdf["feat_type"].iloc[0] == "LINE"
         areas[n] = gdf.geometry.iloc[0].area
@@ -1030,7 +1035,7 @@ def _():
           f"{len(on['graded_misses'])} masked; truth lats {off_lats} -> {on_lats}")
 
 
-@scenario("(5) ORDERING: a straddling blob is clipped BEFORE the area floor")
+@scenario("(5) ORDERING: Candidate Miss geometry is clipped BEFORE its area floor")
 def _():
     """If anyone reorders clip and filter, this is the scenario that fails.
 

@@ -28,7 +28,7 @@ DOCKER_RUN = docker run --rm \
 	-e HOME=/tmp \
 	$(IMAGE)
 
-.PHONY: baseline-image capture capture-shell check check-pass-a fixture parity test
+.PHONY: baseline-image capture capture-shell check check-pass-a fixture parity test methodology
 
 baseline-image:
 	docker build -t $(IMAGE) .
@@ -65,5 +65,11 @@ fixture:
 # not installed.
 parity:
 	$(PYTHON) baseline/test_app_parity.py
+
+# Independent analytic oracles for approved Methodology Specification 0.1
+# requirements. This is intentionally NOT part of the historical baseline test
+# target: known specification conflicts remain red until production is corrected.
+methodology:
+	$(PYTHON) -m unittest discover -s methodology_validation -p 'test_*.py' -v
 
 test: fixture parity check-pass-a
