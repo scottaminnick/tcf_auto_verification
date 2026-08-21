@@ -1,10 +1,9 @@
 # Observational minimum-area threshold analysis
 
-> **Methodology 1.0 owner decision:** the 15,000 km² floor no longer filters
-> forecast-scoring Sparse/Medium truth. It remains provisionally only for
-> automated Candidate Miss triage. The historical sensitivity results below
-> characterize why the former scoring use was rejected and why the triage value
-> is not a definition of observational truth.
+> **Superseded historical analysis:** a later Methodology 1.0 owner decision
+> removed the 15,000 km² floor from both forecast scoring and Candidate Miss
+> visibility. The results below remain a characterization of the retired
+> heuristic; they are not current production policy.
 
 ## 1. Executive summary
 
@@ -70,7 +69,8 @@ estimating an optimal operational scale or climatological performance.
 
 ## 3. What the threshold filters
 
-Production applies `GradingParams.min_area_m2 = 15_000_000_000` m² after:
+Production at the time of this historical analysis applied
+`GradingParams.min_area_m2 = 15_000_000_000` m² after:
 
 1. same-pair ≥40 dBZ and ≥FL250 qualification and temporal Boolean union;
 2. one binary-dilation iteration;

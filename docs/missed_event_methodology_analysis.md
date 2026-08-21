@@ -1,9 +1,10 @@
 # Automated missed-event methodology analysis
 
-> **Methodology 1.0 owner decision:** this algorithm now produces **Candidate
-> Misses** only. The 15,000 km² and 20% rules remain provisional triage
-> parameters, and a candidate is excluded from FAA-facing `Missed` text unless a
-> meteorologist explicitly approves it in the review table.
+> **Current Methodology 1.0 RC1 decision:** this algorithm produces **Candidate
+> Misses** only; the 15,000 km² floor is removed, while `<20%` remains a
+> provisional capture parameter. The historical floor sensitivity below is
+> retained as evidence. Candidate FAA inclusion still requires explicit approval,
+> and hidden poorly captured Medium components are non-reportable review flags.
 
 ## 1. Executive summary
 

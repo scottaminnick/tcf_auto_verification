@@ -23,6 +23,7 @@ sys.path.insert(0, str(REPO_ROOT))
 import tcf_pipeline  # noqa: E402
 
 ARTIFACT_METHOD = "legacy independent-max frozen truth"
+HISTORICAL_MIN_AREA_M2 = 15_000_000_000
 
 
 def physical(geometry):
@@ -203,7 +204,7 @@ def run_audit(baseline_dir=REPO_ROOT / "baseline"):
         for truth_class, threshold in (("Sparse", params.sparse_truth_threshold),
                                        ("Medium", params.medium_truth_threshold)):
             rows, current, candidate = component_analysis(
-                coverage >= threshold, lons, lats, domain, params.min_area_m2,
+                coverage >= threshold, lons, lats, domain, HISTORICAL_MIN_AREA_M2,
                 event_dir.name, truth_class)
             component_rows.extend(rows)
             event_truth[truth_class] = (current, candidate)

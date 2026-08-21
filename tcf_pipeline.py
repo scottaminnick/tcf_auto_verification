@@ -55,7 +55,7 @@ class DisplayRaster:
     """Native-resolution tops/reflectivity for drawing only.
 
     Deliberately separate from the verification arrays: those stay decimated to
-    COMPOSITE_STEP because GradingParams (smoothing_size, min_area_m2, the
+    COMPOSITE_STEP because GradingParams (smoothing_size, the
     dilation) is calibrated against that grid spacing. Nothing here is ever fed
     to run_verification.
     """
@@ -191,12 +191,8 @@ class GradingParams:
     dilation_iterations: int = 1
     smoothing_size: int = 20
 
-    # Candidate Miss triage floor, m^2 (15,000 km^2), measured in EPSG:5070.
-    # Forecast scoring truth is not filtered by this parameter.
-    min_area_m2: float = 15_000_000_000
-
     # Clip truth to the verification domain (ARTCC boundaries unioned with
-    # cmac_domain.geojson) before Candidate Miss filtering. On means convection
+    # cmac_domain.geojson) before Candidate Miss review. On means convection
     # outside the scored area cannot be proposed as a candidate. Off is for comparison runs --
     # it is what the baselines captured before the domain existed.
     apply_domain_mask: bool = True
@@ -753,10 +749,20 @@ REVIEW_COLUMNS = {
     'top_kft': 'Float64',
     'boundary': 'boolean',
     'approved_for_report': 'boolean',
+    'reportable': 'boolean',
+    'forecast_capture_fraction': 'Float64',
+    'sparse_area_km2': 'Float64',
+    'medium_core_area_km2': 'Float64',
+    'medium_core_fraction': 'Float64',
+    'contains_medium_core': 'boolean',
+    'medium_area_km2': 'Float64',
+    'medium_capture_fraction': 'Float64',
+    'parent_sparse_component_id': 'Int64',
 }
 
 
-def build_review_table(gdf_graded_fcst, gdf_graded_miss, gdf_artcc, params=GradingParams()):
+def build_review_table(gdf_graded_fcst, gdf_graded_miss, gdf_artcc,
+                       params=GradingParams(), gdf_medium_core_flags=None):
     """Everything build_report needs, as a plain DataFrame -- one row per graded
     polygon and per miss.
 
@@ -793,6 +799,7 @@ def build_review_table(gdf_graded_fcst, gdf_graded_miss, gdf_artcc, params=Gradi
                             else float(row.top)),
                 'boundary': bool(is_boundary(coverage_fraction, params)),
                 'approved_for_report': True,
+                'reportable': True,
             })
 
     if not gdf_graded_miss.empty:
@@ -808,6 +815,27 @@ def build_review_table(gdf_graded_fcst, gdf_graded_miss, gdf_artcc, params=Gradi
                 'top_kft': None,
                 'boundary': False,
                 'approved_for_report': False,
+                'reportable': True,
+                'forecast_capture_fraction': getattr(row, 'forecast_capture_fraction', None),
+                'sparse_area_km2': getattr(row, 'sparse_area_km2', None),
+                'medium_core_area_km2': getattr(row, 'medium_core_area_km2', None),
+                'medium_core_fraction': getattr(row, 'medium_core_fraction', None),
+                'contains_medium_core': getattr(row, 'contains_medium_core', False),
+            })
+
+    if gdf_medium_core_flags is not None and not gdf_medium_core_flags.empty:
+        for _, row in gdf_medium_core_flags.iterrows():
+            rows.append({
+                'idx': int(row.idx),
+                'kind': 'medium_core_review_flag',
+                'category': 'Medium-core Review',
+                'artccs': get_artccs(row.geometry, gdf_artcc),
+                'boundary': False,
+                'approved_for_report': False,
+                'reportable': False,
+                'medium_area_km2': row.medium_area_km2,
+                'medium_capture_fraction': row.medium_capture_fraction,
+                'parent_sparse_component_id': row.parent_sparse_component_id,
             })
 
     table = pd.DataFrame(rows, columns=list(REVIEW_COLUMNS))
@@ -825,6 +853,10 @@ def build_report(review_table, valid_dt, issuance_hour, lead_time):
     doc_report = {"Verified Well:": [], "Verified Close:": [], "Over-forecast:": [], "Missed:": []}
 
     for row in review_table.itertuples(index=False):
+        # Reviewer cues have no promotion path to FAA text. This kind check is
+        # intentionally independent of editable approval/reportable columns.
+        if row.kind == 'medium_core_review_flag':
+            continue
         if not row.approved_for_report:
             continue
         if row.kind == 'candidate_miss':
@@ -855,6 +887,92 @@ def build_report(review_table, valid_dt, issuance_hour, lead_time):
             report_text += f"{item}\n"
         report_text += "\n"
     return report_text
+
+
+def _individual_geometries(gdf):
+    """Return disconnected polygon components as independent geometries."""
+    if gdf is None or gdf.empty or gdf.is_empty.all():
+        return []
+    exploded = gdf.explode(index_parts=False).reset_index(drop=True)
+    return [geom for geom in exploded.geometry if geom is not None and not geom.is_empty]
+
+
+def _build_miss_review_cues(gdf_sparse, gdf_medium, forecast_union,
+                            miss_capture_threshold):
+    """Build physical-area Candidate Misses and reviewer-only Medium cues.
+
+    Every disconnected Sparse and Medium component is evaluated separately.
+    Area is factual reviewer context, never an eligibility threshold. Medium
+    flags are suppressed when their parent Sparse component is already a
+    Candidate Miss, because that candidate carries the embedded-density facts.
+    """
+    sparse_geoms = sorted(
+        _individual_geometries(gdf_sparse), key=lambda geom: geom.centroid.x,
+        reverse=True)
+    medium_geoms = sorted(
+        _individual_geometries(gdf_medium), key=lambda geom: geom.centroid.x,
+        reverse=True)
+    forecast_m = gpd.GeoSeries(
+        [forecast_union], crs="EPSG:4326").to_crs(PHYSICAL_AREA_CRS).iloc[0]
+    sparse_m = (list(gpd.GeoSeries(sparse_geoms, crs="EPSG:4326")
+                     .to_crs(PHYSICAL_AREA_CRS)) if sparse_geoms else [])
+    medium_m = (list(gpd.GeoSeries(medium_geoms, crs="EPSG:4326")
+                     .to_crs(PHYSICAL_AREA_CRS)) if medium_geoms else [])
+    medium_union_m = union_all(medium_m) if medium_m else Polygon()
+
+    sparse_context = []
+    candidates = []
+    for component_id, (geom, geom_m) in enumerate(
+            zip(sparse_geoms, sparse_m), start=1):
+        area_m2 = geom_m.area
+        capture = (geom_m.intersection(forecast_m).area / area_m2
+                   if area_m2 > 0 else 0.0)
+        core_area_m2 = geom_m.intersection(medium_union_m).area
+        is_candidate = capture < miss_capture_threshold
+        context = {
+            "component_id": component_id,
+            "geometry_m": geom_m,
+            "is_candidate": is_candidate,
+        }
+        sparse_context.append(context)
+        if is_candidate:
+            candidates.append({
+                "geometry": geom,
+                "category": "Candidate Miss",
+                "color": "red",
+                "forecast_capture_fraction": capture,
+                "sparse_area_km2": area_m2 / 1_000_000.0,
+                "medium_core_area_km2": core_area_m2 / 1_000_000.0,
+                "medium_core_fraction": (core_area_m2 / area_m2
+                                         if area_m2 > 0 else 0.0),
+                "contains_medium_core": core_area_m2 > 0.0,
+                "sparse_component_id": component_id,
+            })
+
+    flags = []
+    for geom, geom_m in zip(medium_geoms, medium_m):
+        area_m2 = geom_m.area
+        capture = (geom_m.intersection(forecast_m).area / area_m2
+                   if area_m2 > 0 else 0.0)
+        parent = None
+        parent_overlap = 0.0
+        for context in sparse_context:
+            overlap = geom_m.intersection(context["geometry_m"]).area
+            if overlap > parent_overlap:
+                parent, parent_overlap = context, overlap
+        if (capture < miss_capture_threshold
+                and not (parent is not None and parent["is_candidate"])):
+            flags.append({
+                "geometry": geom,
+                "category": "Medium-core Review",
+                "color": "magenta",
+                "medium_area_km2": area_m2 / 1_000_000.0,
+                "medium_capture_fraction": capture,
+                "parent_sparse_component_id": (
+                    parent["component_id"] if parent is not None else None),
+                "reportable": False,
+            })
+    return candidates, flags
 
 
 # --- Pipeline stages --------------------------------------------------------
@@ -1175,9 +1293,8 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
     # baselines captured before the domain mask existed.
     domain = verification_domain() if params.apply_domain_mask else None
 
-    # Forecast scoring uses every processed component. The historical area floor
-    # is retained only for Candidate Miss triage below; it no longer defines
-    # whether qualifying observational truth exists.
+    # Forecast scoring and review cues use every processed component. Physical
+    # area is metadata, not an eligibility floor.
     gdf_sparse = extract_tcf_polygons((coverage_fraction >= params.sparse_truth_threshold).astype(int),
                                       lons, lats, min_area_m2=0,
                                       domain=domain)
@@ -1186,9 +1303,6 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
     gdf_medium_truth = extract_tcf_polygons((coverage_fraction >= params.medium_truth_threshold).astype(int),
                                             lons, lats, min_area_m2=0,
                                             domain=domain)
-    gdf_sparse_candidate_miss = extract_tcf_polygons(
-        (coverage_fraction >= params.sparse_truth_threshold).astype(int),
-        lons, lats, min_area_m2=params.min_area_m2, domain=domain)
     del coverage_fraction, raw_cores, buffered_cores
     gc.collect()
 
@@ -1204,10 +1318,7 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
         [truth_sparse_union], crs="EPSG:4326").to_crs(PHYSICAL_AREA_CRS).iloc[0]
     truth_medium_union_m = gpd.GeoSeries(
         [truth_medium_union], crs="EPSG:4326").to_crs(PHYSICAL_AREA_CRS).iloc[0]
-    fcst_union_m = gpd.GeoSeries(
-        [fcst_union], crs="EPSG:4326").to_crs(PHYSICAL_AREA_CRS).iloc[0]
-
-    graded_forecasts, graded_misses = [], []
+    graded_forecasts = []
 
     # Preserve each source geometry alongside exploded grading components. Area
     # grading remains component-based exactly as before; echo-top sampling uses
@@ -1261,22 +1372,8 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
                                  'coverage': row_cov, 'feat_type': row_feat,
                                  'coverage_fraction': coverage})
 
-    truth_iter = (gdf_sparse_candidate_miss.explode(index_parts=False).reset_index(drop=True)
-                  if not gdf_sparse_candidate_miss.is_empty.all() else gpd.GeoDataFrame(geometry=[]))
-    truth_iter_m = (truth_iter.to_crs(PHYSICAL_AREA_CRS)
-                    if not truth_iter.empty else gpd.GeoDataFrame(geometry=[]))
-    for idx, row in truth_iter.iterrows():
-        poly = row.geometry
-        if poly.is_empty:
-            continue
-        poly_m = truth_iter_m.geometry.iloc[idx]
-        captured = (poly_m.intersection(fcst_union_m).area / poly_m.area
-                    if poly_m.area > 0 else 0)
-        # NOT params.verified_close_cutoff -- see the note on that field. Same
-        # value today, opposite question.
-        if captured < params.miss_capture_threshold:
-            graded_misses.append({'geometry': poly, 'category': 'Candidate Miss',
-                                  'color': 'red', 'idx': idx + 1})
+    graded_misses, medium_core_flags = _build_miss_review_cues(
+        gdf_sparse, gdf_medium_truth, fcst_union, params.miss_capture_threshold)
 
     # ORDER EAST -> WEST: east = larger (least-negative) longitude, so sort centroid.x
     # descending. Renumber after sorting so BOTH the map labels and the report read E->W.
@@ -1286,14 +1383,21 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
     graded_misses.sort(key=lambda r: r['geometry'].centroid.x, reverse=True)
     for i, r in enumerate(graded_misses, start=1):
         r['idx'] = i
+    medium_core_flags.sort(key=lambda r: r['geometry'].centroid.x, reverse=True)
+    for i, r in enumerate(medium_core_flags, start=1):
+        r['idx'] = i
 
     gdf_graded_fcst = gpd.GeoDataFrame(graded_forecasts, crs="EPSG:4326") if graded_forecasts else gpd.GeoDataFrame(geometry=[])
     gdf_graded_miss = gpd.GeoDataFrame(graded_misses, crs="EPSG:4326") if graded_misses else gpd.GeoDataFrame(geometry=[])
+    gdf_medium_core_flags = (gpd.GeoDataFrame(medium_core_flags, crs="EPSG:4326")
+                             if medium_core_flags else gpd.GeoDataFrame(geometry=[]))
 
     # Two stages: everything geometric collapses into the review table, then the
     # report is formatted from that table alone. An editable table drops in
     # between these two lines.
-    review_table = build_review_table(gdf_graded_fcst, gdf_graded_miss, gdf_artcc, params=params)
+    review_table = build_review_table(
+        gdf_graded_fcst, gdf_graded_miss, gdf_artcc, params=params,
+        gdf_medium_core_flags=gdf_medium_core_flags)
     report_out = build_report(review_table, valid_dt, issuance_hour, lead_time)
 
     return {
@@ -1301,9 +1405,11 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
         'top_verif_matrix': top_verif_matrix,
         'gdf_graded_fcst': gdf_graded_fcst,
         'gdf_graded_miss': gdf_graded_miss,
+        'gdf_medium_core_flags': gdf_medium_core_flags,
         'gdf_sparse': gdf_sparse,
         'graded_forecasts': graded_forecasts,
         'graded_misses': graded_misses,
+        'medium_core_review_flags': medium_core_flags,
         'review_table': review_table,
         'report_text': report_out,
         'valid_dt': valid_dt,

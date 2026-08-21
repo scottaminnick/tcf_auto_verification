@@ -58,6 +58,12 @@ text. Historical expected reports remain intentionally unchanged. App parity
 therefore compares the app with a direct current-pipeline replay of frozen inputs,
 not with stale `expected.json` methodology output.
 
+RC1 Candidate Miss evidence now serializes each individual Sparse component's
+EPSG:5070 area, forecast capture, embedded Medium-core area/fraction, and default
+approval state. Distinct individual Medium-core Review Flags serialize their
+area, capture, parent Sparse context, and permanent non-reportable state. No hard
+component-area floor is applied to either review-cue type.
+
 ## Events
 
 | event_id | date | issuance | lead | why it is in the set |

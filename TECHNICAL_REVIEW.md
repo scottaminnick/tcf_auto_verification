@@ -1,5 +1,11 @@
 # Independent technical review of TCF auto verification
 
+> **Current owner-decision note:** this review characterizes the inherited
+> 15,000 km² behavior. Methodology 1.0 RC1 now removes that hard floor from
+> forecast scoring and Candidate Miss visibility, adds EPSG:5070 Sparse/Medium
+> density metadata, and adds non-reportable individual Medium-core review flags.
+> See `docs/candidate_miss_owner_decision.md`.
+
 **Review date:** 2026-08-18  
 **Scope:** static trace of the repository, replay of the frozen baselines, and
 small synthetic/numerical checks. No verification algorithm was changed as part

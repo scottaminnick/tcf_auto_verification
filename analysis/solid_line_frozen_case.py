@@ -27,6 +27,7 @@ sys.path.insert(0, str(REPO_ROOT))
 import tcf_pipeline  # noqa: E402
 
 EVENT_ID = "20260403_21Z_F04"
+HISTORICAL_MIN_AREA_M2 = 15_000_000_000
 BUFFER_WIDTHS_DEG = (0.03, 0.05, 0.10, 0.15, 0.20, 0.30, 0.50, 1.00)
 DISTANCES_NM = (0, 10, 20, 30, 40, 50, 75, 100)
 
@@ -71,10 +72,10 @@ def analyze():
     domain = tcf_pipeline.verification_domain()
     sparse = tcf_pipeline.extract_tcf_polygons(
         (coverage >= params.sparse_truth_threshold).astype(int), lons, lats,
-        min_area_m2=params.min_area_m2, domain=domain)
+        min_area_m2=HISTORICAL_MIN_AREA_M2, domain=domain)
     medium = tcf_pipeline.extract_tcf_polygons(
         (coverage >= params.medium_truth_threshold).astype(int), lons, lats,
-        min_area_m2=params.min_area_m2, domain=domain)
+        min_area_m2=HISTORICAL_MIN_AREA_M2, domain=domain)
     sparse_union = sparse.union_all()
     medium_union = medium.union_all()
     line_m, sparse_m, medium_m = map(physical,

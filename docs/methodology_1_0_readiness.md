@@ -92,9 +92,10 @@ calculation error or an undefined publication boundary.
 * full issued geometry is the domain-boundary denominator;
 * echo top is full-geometry temporal-max P90 with a six-cell minimum;
 * ARTCC labels are geometry-derived and editable; and
-* Candidate Miss triage uses retained Sparse truth, a 15,000 km² floor, `<20%`
-  observed-area capture, and a class-blind union; candidates require explicit
-  meteorologist approval before entering FAA-facing `Missed` text.
+* Candidate Miss review evaluates every disconnected Sparse component with
+  `<20%` observed-area capture and a class-blind forecast union; no hard area
+  floor applies. Hidden poorly captured Medium components are separate
+  non-reportable reviewer flags. Candidates still require explicit approval.
 
 ### Open decisions
 
@@ -157,10 +158,10 @@ The owner resolved the forecast-scoring blocker: **no processed Sparse or Medium
 component is removed from forecast truth solely because it is below 15,000
 km²**. Forecast overlap now uses all post-domain processed components.
 
-For **Candidate Misses**, the owner retained the same floor provisionally as a
-triage parameter. Miss count varies from 43 at no floor, 7 at 15,000, to zero at
-25,000 km², so it is explicitly not evidence that observational truth exists or
-does not exist.
+For **Candidate Misses**, the owner subsequently removed the floor after fresh
+paired validation and meteorologist review. Historical sensitivity remains
+evidence that a hard floor was load-bearing, not a reason to retain one. Area
+and embedded Medium density are now reviewer context.
 
 ### Misses
 
@@ -302,7 +303,8 @@ Recommended order, not executed:
 ## Minimum Methodology 1.0 exit criteria
 
 - [x] Remove the unsupported minimum-area floor from forecast scoring truth.
-- [x] Limit 15,000 km² and 20% to provisional Candidate Miss triage.
+- [x] Remove the unsupported 15,000 km² Candidate Miss gate; retain `<20%`
+  capture provisionally and expose physical area/density as reviewer context.
 - [x] Require explicit meteorologist approval before a candidate enters FAA
       `Missed` text.
 - [ ] Integrate/verify Decision 1A and all approved corrections on one branch.
@@ -353,7 +355,7 @@ needed.
 
 * inherited spatial transformation and 25%/40% truth fields;
 * full-issued denominator over the selected policy domain;
-* post-domain 15,000 km² floor for Candidate Miss triage only;
+* no hard area floor for Candidate Miss or Medium-core reviewer visibility;
 * buffered-area Solid LINE;
 * Candidate Miss capture logic with explicit FAA-report approval;
 * no Decision 1B gate or adequacy thresholds, with provenance review; and

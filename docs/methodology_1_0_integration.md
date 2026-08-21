@@ -32,8 +32,10 @@ The integrated executable path contains all approved corrections:
 - [x] parser semantics are feature-aware (`AREA 2 = Medium`, `AREA 3 = Sparse`,
   `LINE 1 = Solid`) and invalid combinations are diagnostically excluded;
 - [x] forecast-scoring Sparse and Medium truth have no 15,000 km2 floor;
-- [x] the provisional 15,000 km2 and 20% rules are isolated to Candidate Miss
-  triage;
+- [x] Candidate Miss visibility has no hard area floor; Sparse area and embedded
+  Medium-core area/fraction are factual reviewer metadata;
+- [x] individual poorly captured Medium components hidden by adequate Sparse
+  capture become non-reportable Medium-core Review Flags without duplication;
 - [x] Candidate Miss rows default to `approved_for_report = False`; only an
   explicit reviewer edit permits an FAA `Missed` line, and revocation removes it;
 - [x] forecast rows default approved, nullable review-table dtypes round-trip,
@@ -44,8 +46,8 @@ The integrated executable path contains all approved corrections:
 No policy was changed for Decision 1B (no hard pair-time gate), MRMS adequacy
 (provenance but no numerical state thresholds), Solid LINE (0.15-degree buffer,
 Medium/40% truth and area-overlap scoring), the full-issued forecast denominator,
-or post-domain Candidate Miss filtering. Candidate Miss triage remains
-Sparse-only, class-blind, 15,000 km2, and below 20% captured. Echo tops remain
+Candidate Miss review remains Sparse-parented, class-blind, and below 20%
+captured, but its former 15,000 km2 floor is removed by owner decision. Echo tops remain
 full-forecast-geometry, temporal-maximum P90 with a six-cell minimum. These are
 documented provisional behaviors, not newly approved rules.
 
@@ -62,8 +64,9 @@ an unavailable commit.
 
 The integrated test set also covers physical area, raster footprints,
 connectivity/topology/holes, feature-aware parsing, nullable echo tops,
-sub-15,000 km2 scoring truth, Candidate Miss triage isolation, and candidate
-approval/add/revoke behavior. AppTest is application-to-pipeline parity only; it
+sub-15,000 km2 Candidate visibility, disconnected Sparse/Medium evaluation,
+density metadata, Medium-core non-reportability, and candidate approval/revoke
+behavior. AppTest is application-to-pipeline parity only; it
 is not independent scientific validation and intentionally uses a labeled
 legacy fixture seam.
 
@@ -72,8 +75,8 @@ legacy fixture seam.
 The independent-max conjunction appears in production code only inside
 `run_verification_legacy_independent_max`; other occurrences are tests or
 analysis. A bare `coverage == 1` remains only in read-only miss analysis. `Dense`
-appears only in a negative test. `min_area_m2=0` is used for scored truth and the
-configured floor only for Candidate Miss extraction. Every report-generation
+appears only in a negative test. No production area floor filters scored truth,
+Candidate Misses, or Medium flags. Every report-generation
 path calls `build_report`, which filters `approved_for_report` before formatting.
 
 Integrated dataflow is:
@@ -83,8 +86,8 @@ Integrated dataflow is:
    Decision 1A `qualifying_mask`.
 3. `run_verification` constructs scoring truth without an area floor and grades
    forecast fractions/categories.
-4. The same function separately extracts provisional Candidate Misses using the
-   triage floor/capture rule.
+4. The same function explodes Sparse/Medium components, emits Sparse Candidate
+   Misses under the provisional capture rule, and emits distinct hidden-core flags.
 5. `build_review_table` defaults forecasts to approved and candidates to not
    approved.
 6. Streamlit retains the editable table; `build_report` reads the current table

@@ -406,10 +406,34 @@ def render_scorecard(R):
                     x=xs, y=ys, mode='lines', fill='toself', fillcolor='rgba(255,0,0,0.35)',
                     line=dict(color='red', width=2), name='Candidate Miss',
                     legendgroup='Candidate Miss', showlegend=show,
-                    hovertemplate=f"Candidate Miss M{row.idx}<extra></extra>"))
+                    hovertemplate=(f"Candidate Miss M{row.idx}<br>"
+                                   f"Sparse area: {row.sparse_area_km2:,.1f} km²<br>"
+                                   f"Forecast capture: {row.forecast_capture_fraction:.1%}<br>"
+                                   f"Medium core: {row.medium_core_area_km2:,.1f} km² "
+                                   f"({row.medium_core_fraction:.1%})<extra></extra>")))
                 show = False
                 c = row.geometry.centroid
                 label_x.append(c.x); label_y.append(c.y); label_txt.append(f"M{row.idx}")
+
+        medium_flags = R['gdf_medium_core_flags']
+        if not medium_flags.empty:
+            show = True
+            for _, row in medium_flags.iterrows():
+                xs, ys = _geom_to_xy(row.geometry)
+                fig.add_trace(go.Scatter(
+                    x=xs, y=ys, mode='lines', fill='toself',
+                    fillcolor='rgba(200,0,255,0.16)',
+                    line=dict(color='magenta', width=2, dash='dash'),
+                    name='Medium-core Review Flag',
+                    legendgroup='Medium-core Review Flag', showlegend=show,
+                    hovertemplate=(f"Medium-core Review F{row.idx} (review cue only)<br>"
+                                   f"Medium area: {row.medium_area_km2:,.1f} km²<br>"
+                                   f"Forecast capture: {row.medium_capture_fraction:.1%}<br>"
+                                   f"Parent Sparse component: "
+                                   f"{row.parent_sparse_component_id}<extra></extra>")))
+                show = False
+                c = row.geometry.centroid
+                label_x.append(c.x); label_y.append(c.y); label_txt.append(f"F{row.idx}")
 
         if label_txt:
             fig.add_trace(go.Scatter(x=label_x, y=label_y, mode='text', text=label_txt,
@@ -421,7 +445,8 @@ def render_scorecard(R):
     with col2:
         st.subheader("Meteorologist Review")
         st.caption("Candidate Misses enter the FAA draft only after checking "
-                   "approved_for_report.")
+                   "approved_for_report. Medium-core Review rows are factual "
+                   "review cues and can never enter FAA text.")
         edited_table = st.data_editor(
             R['review_table'], hide_index=True, use_container_width=True,
             key="methodology_review_table")
@@ -553,6 +578,7 @@ if st.sidebar.button("Run Verification"):
         'top_verif_matrix': R['top_verif_matrix'],
         'gdf_graded_fcst': R['gdf_graded_fcst'],
         'gdf_graded_miss': R['gdf_graded_miss'],
+        'gdf_medium_core_flags': R['gdf_medium_core_flags'],
         'gdf_sparse': R['gdf_sparse'],
         'review_table': R['review_table'],
         'mrms_provenance': mrms_provenance,

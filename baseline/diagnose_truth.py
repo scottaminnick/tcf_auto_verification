@@ -54,6 +54,7 @@ DEFAULT_EVENT = "20260403_21Z_F04"
 
 AREA_CRS = "EPSG:5070"     # what extract_tcf_polygons measures the area filter in
 KM2 = 1e6                  # m^2 per km^2
+HISTORICAL_MIN_AREA_M2 = 15_000_000_000
 
 # The reflectivity floor and echo-top floor that define a convective core. Not
 # GradingParams fields (deliberately, they are being corrected separately), so
@@ -145,7 +146,7 @@ def census(out, label_name, threshold, coverage_codes, field, arrays, params):
 
         poly_areas = component_polygon_areas_m2(comp, lons, lats)
         filter_km2 = max(poly_areas) / KM2 if poly_areas else 0.0
-        survived = any(a >= params.min_area_m2 for a in poly_areas)
+        survived = any(a >= HISTORICAL_MIN_AREA_M2 for a in poly_areas)
 
         vals = field[comp]
         tops_in = arrays["max_tops"][comp]
@@ -177,7 +178,7 @@ def census(out, label_name, threshold, coverage_codes, field, arrays, params):
     deleted_area = sum(r["filter_km2"] for r in deleted)
     out(f"{'':4} summary: {n} components, {len(kept)} survived, "
         f"{deleted_area:.1f} km2 deleted "
-        f"(floor {params.min_area_m2 / KM2:,.0f} km2)")
+        f"(historical floor {HISTORICAL_MIN_AREA_M2 / KM2:,.0f} km2)")
     return rows
 
 
@@ -205,7 +206,8 @@ def trace(out, results, arrays, field, raw_cores, params, thresholds):
     unions = {}
     for name, thr, _codes in thresholds:
         gdf = tcf_pipeline.extract_tcf_polygons(
-            (field >= thr).astype(int), lons, lats, min_area_m2=params.min_area_m2)
+            (field >= thr).astype(int), lons, lats,
+            min_area_m2=HISTORICAL_MIN_AREA_M2)
         unions[name] = gdf.union_all() if not gdf.is_empty.all() else Polygon()
 
     # Which threshold entry a coverage code selects, read off the same table the
@@ -316,7 +318,7 @@ def main():
         out(f"core definition   >= {CORE_DBZ} dBZ AND >= {CORE_TOP_KFT} kft")
         out(f"dilation          {params.dilation_iterations} iteration(s)")
         out(f"smoothing         uniform_filter size {params.smoothing_size}")
-        out(f"area floor        {params.min_area_m2 / KM2:,.0f} km2")
+        out(f"historical floor {HISTORICAL_MIN_AREA_M2 / KM2:,.0f} km2")
         out(f"grade cutoffs     well >= {params.verified_well_cutoff:.2f}, "
             f"close >= {params.verified_close_cutoff:.2f}")
         out(f"raw core cells    {int(raw_cores.sum()):,d} of {raw_cores.size:,d} "

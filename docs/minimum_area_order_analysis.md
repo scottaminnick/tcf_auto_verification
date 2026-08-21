@@ -1,9 +1,8 @@
 # Minimum-area processing-order analysis
 
-> **Methodology 1.0 owner decision:** minimum-area order now applies only to the
-> provisional 15,000 km² Candidate Miss triage filter. Forecast-scoring truth has
-> no component-area floor. The post-domain order analysis below remains the
-> characterization of the retained triage behavior.
+> **Superseded historical analysis:** no minimum-area filter now applies to
+> forecast scoring, Candidate Misses, or Medium-core flags. The post-domain order
+> analysis below characterizes the retired 15,000 km² heuristic only.
 
 ## 1. Executive summary
 
@@ -69,7 +68,8 @@ not proof that no external operational rationale exists.
 
 ### 3.1 Current definition and consumers
 
-`GradingParams.min_area_m2` is `15_000_000_000` square metres: 15,000 km². The
+At the time of this historical analysis, `GradingParams.min_area_m2` was
+`15_000_000_000` square metres: 15,000 km². The
 same value is passed to `extract_tcf_polygons()` for independently constructed
 Sparse 25% and Medium 40% truth. Solid LINE indirectly depends on the Medium
 filter because its interim buffered-area score uses retained Medium truth. AREA

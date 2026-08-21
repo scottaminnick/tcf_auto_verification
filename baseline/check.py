@@ -214,6 +214,24 @@ def build_actual(results, meta, get_artccs, gdf_artcc):
             "idx": int(r["idx"]),
             "artccs": get_artccs(r["geometry"], gdf_artcc),
             "bounds": _round_bounds(r["geometry"]),
+            "forecast_capture_fraction": _num(r.get("forecast_capture_fraction"), COVERAGE_DP),
+            "sparse_area_km2": _num(r.get("sparse_area_km2"), TOP_DP),
+            "medium_core_area_km2": _num(r.get("medium_core_area_km2"), TOP_DP),
+            "medium_core_fraction": _num(r.get("medium_core_fraction"), COVERAGE_DP),
+            "contains_medium_core": bool(r.get("contains_medium_core", False)),
+            "approved_for_report": False,
+        })
+
+    medium_flags = []
+    for r in _records(results, "medium_core_review_flags", "gdf_medium_core_flags"):
+        medium_flags.append({
+            "idx": int(r["idx"]),
+            "artccs": get_artccs(r["geometry"], gdf_artcc),
+            "bounds": _round_bounds(r["geometry"]),
+            "medium_area_km2": _num(r.get("medium_area_km2"), TOP_DP),
+            "medium_capture_fraction": _num(r.get("medium_capture_fraction"), COVERAGE_DP),
+            "parent_sparse_component_id": r.get("parent_sparse_component_id"),
+            "reportable": False,
         })
 
     categories = {}
@@ -230,9 +248,11 @@ def build_actual(results, meta, get_artccs, gdf_artcc):
         "report_text": results["report_text"],
         "polygons": polygons,
         "misses": misses,
+        "medium_core_review_flags": medium_flags,
         "counts": {
             "polygons": len(polygons),
             "misses": len(misses),
+            "medium_core_review_flags": len(medium_flags),
             "verified_well": categories.get("Verified Well", 0),
             "verified_close": categories.get("Verified Close", 0),
             "overforecasted": categories.get("Overforecasted", 0),
@@ -334,7 +354,16 @@ def diff_expected(expected, actual, strict):
               ("category", "coverage_code", "feat_type", "coverage_fraction",
                "top_kft", "artccs", "idx", "bounds", "boundary"), strict, out)
     diff_list("misses", expected.get("misses", []), actual.get("misses", []),
-              ("idx", "artccs", "bounds"), strict, out)
+              ("idx", "artccs", "bounds", "forecast_capture_fraction",
+               "sparse_area_km2", "medium_core_area_km2",
+               "medium_core_fraction", "contains_medium_core",
+               "approved_for_report"), strict, out)
+    diff_list("medium_core_review_flags",
+              expected.get("medium_core_review_flags", []),
+              actual.get("medium_core_review_flags", []),
+              ("idx", "artccs", "bounds", "medium_area_km2",
+               "medium_capture_fraction", "parent_sparse_component_id",
+               "reportable"), strict, out)
 
     exp_report, act_report = expected.get("report_text", ""), actual.get("report_text", "")
     if exp_report != act_report:

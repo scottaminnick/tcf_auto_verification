@@ -223,7 +223,7 @@ print(f"fixture: {EMPTY} -> {EMPTY_EXPECTED['counts']}")
 print()
 
 assert MAIN_EXPECTED["counts"]["polygons"] == 3, "fixture should grade 3 polygons"
-assert MAIN_EXPECTED["counts"]["misses"] == 1, "fixture should find 1 miss"
+assert MAIN_EXPECTED["counts"]["misses"] == 2, "fixture should find 2 visible candidates"
 assert EMPTY_EXPECTED["counts"]["polygons"] == 0 and EMPTY_EXPECTED["counts"]["misses"] == 0
 
 
@@ -266,7 +266,7 @@ def _():
     assert_in("coverage_fraction", out, "scalar diff")
     assert_in("bounds: minx", out, "bounds diff names the component")
     assert_in("counts.misses", out, "count diff")
-    assert_in("misses[1]: missing", out, "missing entry")
+    assert_in("misses[2]: missing", out, "missing entry")
     assert_in("report_text: differs", out, "report diff")
     assert_in("-Missing:", out, "report unified diff body")
 
@@ -344,7 +344,7 @@ def _():
 
     assert rc == 1, f"an empty expectation against a non-empty run must FAIL, got {rc}:\n{out}"
     assert_in("polygons: count expected 0, got 3", out, "polygon count diff")
-    assert_in("misses: count expected 0, got 1", out, "miss count diff")
+    assert_in("misses: count expected 0, got 2", out, "miss count diff")
     assert_in("unexpected extra entry", out, "each extra entry is listed")
     assert_not_in(f"PASS  {MAIN}", out, "must not pass")
 
@@ -592,7 +592,6 @@ def _():
         "miss_capture_threshold": 1.01,   # > 1.0: every truth blob becomes a miss
         "dilation_iterations": 6,
         "smoothing_size": 40,
-        "min_area_m2": 1e13,
         "apply_domain_mask": False,
     }
     fields = {f.name for f in dataclasses.fields(tcf_pipeline.GradingParams)}
@@ -619,7 +618,6 @@ def _():
         "miss_capture_threshold": 0.20,
         "dilation_iterations": 1,
         "smoothing_size": 20,
-        "min_area_m2": 15_000_000_000,
         "apply_domain_mask": True,
     }
     for field, want in expected.items():
@@ -664,8 +662,8 @@ def _():
 
     assert list(table.columns) == list(tcf_pipeline.REVIEW_COLUMNS), \
         f"unexpected columns: {list(table.columns)}"
-    assert len(table) == 4, f"3 forecasts + 1 miss expected, got {len(table)} rows"
-    assert list(table["kind"]) == ["forecast"] * 3 + ["candidate_miss"], \
+    assert len(table) == 5, f"3 forecasts + 2 candidates expected, got {len(table)} rows"
+    assert list(table["kind"]) == ["forecast"] * 3 + ["candidate_miss"] * 2, \
         f"forecast rows then candidate rows expected, got {list(table['kind'])}"
 
     # Pandas-native nullable dtypes throughout, so the frame survives
@@ -1035,7 +1033,7 @@ def _():
           f"{len(on['graded_misses'])} masked; truth lats {off_lats} -> {on_lats}")
 
 
-@scenario("(5) ORDERING: Candidate Miss geometry is clipped BEFORE its area floor")
+@scenario("(5) HISTORICAL: extract_tcf_polygons clips before an optional area floor")
 def _():
     """If anyone reorders clip and filter, this is the scenario that fails.
 
@@ -1045,6 +1043,7 @@ def _():
     """
     lons, lats = make_wide_grid()
     params = tcf_pipeline.GradingParams()
+    historical_floor_m2 = 15_000_000_000
     domain = tcf_pipeline.verification_domain()
 
     max_tops, max_refl = make_arrays(lons, lats, [STRADDLE_BLOB])
@@ -1063,28 +1062,28 @@ def _():
     clipped_m2 = (float(clipped.to_crs("EPSG:5070").geometry.area.iloc[0])
                   if not clipped.empty else 0.0)
 
-    assert whole_m2 >= params.min_area_m2, \
+    assert whole_m2 >= historical_floor_m2, \
         (f"fixture is not exercising the ordering: the blob must clear the floor "
-         f"whole ({whole_m2 / 1e6:,.0f} km2 vs {params.min_area_m2 / 1e6:,.0f} km2)")
-    assert clipped_m2 < params.min_area_m2, \
+         f"whole ({whole_m2 / 1e6:,.0f} km2 vs {historical_floor_m2 / 1e6:,.0f} km2)")
+    assert clipped_m2 < historical_floor_m2, \
         (f"fixture is not exercising the ordering: the blob must fall BELOW the "
          f"floor once clipped ({clipped_m2 / 1e6:,.0f} km2)")
 
     # Clip-then-filter, which is what the pipeline does: nothing survives.
     survivors = tcf_pipeline.extract_tcf_polygons(
-        mask, lons, lats, min_area_m2=params.min_area_m2, domain=domain)
+        mask, lons, lats, min_area_m2=historical_floor_m2, domain=domain)
     assert survivors.empty or survivors.is_empty.all(), \
         ("the straddling blob survived -- min_area_m2 was applied before the clip, "
          "so it was measured at its full extent")
 
     # Filter-then-clip, the wrong order, spelled out so the difference is visible.
     wrong = tcf_pipeline.extract_tcf_polygons(mask, lons, lats,
-                                              min_area_m2=params.min_area_m2)
+                                              min_area_m2=historical_floor_m2)
     assert not (wrong.empty or wrong.is_empty.all()), \
         "the wrong order should keep this blob; if it does not, the fixture is stale"
     print(f"  straddling blob {whole_m2 / 1e6:,.0f} km2 whole -> "
           f"{clipped_m2 / 1e6:,.0f} km2 clipped (floor "
-          f"{params.min_area_m2 / 1e6:,.0f}): DELETED, correct order")
+          f"{historical_floor_m2 / 1e6:,.0f}): DELETED, correct order")
 
 
 @scenario("(1) scan offsets are symmetric about the valid time and include it")

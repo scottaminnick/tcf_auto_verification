@@ -149,6 +149,24 @@ def build_expected(event, valid_dt, results, gdf_artcc, methodology_version=None
             'idx': int(r['idx']),
             'artccs': get_artccs(r['geometry'], gdf_artcc),
             'bounds': _round_bounds(r['geometry']),
+            'forecast_capture_fraction': round(float(r['forecast_capture_fraction']), COVERAGE_DP),
+            'sparse_area_km2': round(float(r['sparse_area_km2']), TOP_DP),
+            'medium_core_area_km2': round(float(r['medium_core_area_km2']), TOP_DP),
+            'medium_core_fraction': round(float(r['medium_core_fraction']), COVERAGE_DP),
+            'contains_medium_core': bool(r['contains_medium_core']),
+            'approved_for_report': False,
+        })
+
+    medium_core_review_flags = []
+    for r in results['medium_core_review_flags']:
+        medium_core_review_flags.append({
+            'idx': int(r['idx']),
+            'artccs': get_artccs(r['geometry'], gdf_artcc),
+            'bounds': _round_bounds(r['geometry']),
+            'medium_area_km2': round(float(r['medium_area_km2']), TOP_DP),
+            'medium_capture_fraction': round(float(r['medium_capture_fraction']), COVERAGE_DP),
+            'parent_sparse_component_id': r['parent_sparse_component_id'],
+            'reportable': False,
         })
 
     categories = {}
@@ -165,9 +183,11 @@ def build_expected(event, valid_dt, results, gdf_artcc, methodology_version=None
         'report_text': results['report_text'],
         'polygons': polygons,
         'misses': misses,
+        'medium_core_review_flags': medium_core_review_flags,
         'counts': {
             'polygons': len(polygons),
             'misses': len(misses),
+            'medium_core_review_flags': len(medium_core_review_flags),
             'verified_well': categories.get('Verified Well', 0),
             'verified_close': categories.get('Verified Close', 0),
             'overforecasted': categories.get('Overforecasted', 0),

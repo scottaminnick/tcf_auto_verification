@@ -209,27 +209,20 @@ approved. See `docs/domain_denominator_analysis.md`.
 be removed solely because a processed Sparse or Medium component is below
 15,000 km². All processed components participate in forecast overlap scoring.
 
-The existing **15,000 km²** floor remains only a provisional Candidate Miss
-triage parameter, measured in EPSG:5070 after domain clipping. It does not define
-whether qualifying observational truth exists.
-
-**Decision 5a — provisional Candidate Miss processing order:** apply the retained
-triage floor after dilation, smoothing/neighborhood coverage, observational
-thresholding, polygonization, and domain clipping.
+**Approved owner decision:** no hard component-area floor applies to Sparse
+Candidate Miss visibility. Every disconnected post-domain Sparse component is
+evaluated individually. Physical area in EPSG:5070 is reviewer context, not an
+automatic accept/reject criterion.
 
 **Analysis status:** the six-event legacy-replay audit found 87 Sparse and 61
 Medium pre-domain components but no retention, forecast-category, or miss
-differences between post-clip and parent pre-clip filtering. Post-clip filtering
-remains provisional for Candidate Miss triage because it avoids arbitrarily
-small boundary slivers. It no longer filters forecast-scoring truth. Repository
-history supports the triage value only as notebook parity, and the floor measures
-a processed envelope rather than raw convection. See
+differences between post-clip and parent pre-clip filtering. This is now
+historical characterization because no production minimum-area filter remains
+for scoring or Candidate Miss review. See
 `docs/minimum_area_order_analysis.md`.
 
-**Decision 5b — partially resolved:** no hard observational minimum applies to
-forecast scoring. Candidate Miss floor magnitude remains provisional and
-unapproved; the seven-value sweep demonstrates that it is a triage parameter,
-not scientific event existence. See `docs/minimum_area_threshold_analysis.md`.
+**Decision 5b — resolved for current RC:** no hard observational minimum applies
+to forecast scoring, Sparse Candidate Misses, or Medium-core reviewer flags.
 
 ## 17. Missed convection
 
@@ -241,10 +234,10 @@ Truth Capture Fraction = physical_area(T ∩ F) / physical_area(T)
 
 The current missed boundary is approximately 20% captured.
 
-**Decision 6a — provisional Candidate Miss eligibility:** retained Sparse
-components at or above the current 15,000 km² triage floor may be surfaced as
-automated candidates. This does not decide whether observational truth exists
-and does not authorize an FAA-facing Missed classification.
+**Decision 6a — approved Candidate Miss eligibility:** every individual Sparse
+component with strict `<20%` forecast capture is surfaced as a Candidate Miss,
+regardless of area. Each carries Sparse area, embedded Medium-core area/fraction,
+and a contains-Medium indicator measured in EPSG:5070.
 
 **Decision 6b — provisional triage threshold:** `<20%` observed-area capture may
 continue to identify Candidate Misses. Repository history provides no authority
@@ -254,12 +247,18 @@ for treating 20% as an autonomous classification threshold.
 geometry suppresses a miss, only a corresponding coverage class does, or Sparse,
 Medium, and Solid LINE classes interact hierarchically.
 
-**Analysis status:** the six-event legacy replay found seven current Sparse-only
-misses; six had zero forecast capture and one had 7.77%. A capture-threshold and
-minimum-area matrix demonstrates strong parameter coupling, while Medium truth
-has no independent miss role and all forecast classes currently suppress through
-one geometry union. Observed-area capture is a useful candidate-miss signal, but
-no permanent threshold or coverage policy is approved. See
+**Approved Medium-core review cue:** every individual Medium component with
+strict `<20%` forecast capture is surfaced as a non-reportable Medium-core Review
+Flag when its parent Sparse component is not already a Candidate Miss. If the
+parent is already a candidate, its Medium density is metadata and no duplicate
+flag is created. No Medium-area threshold or automatic object consolidation is
+approved.
+
+**Historical analysis status:** the legacy replay found seven floor-filtered
+Sparse-only misses and demonstrated strong area/capture parameter coupling. The
+subsequent paired audit established the hidden Medium-core visibility gap now
+addressed by reviewer flags. All forecast classes still suppress through one
+geometry union; no permanent capture threshold or coverage policy is approved. See
 `docs/missed_event_methodology_analysis.md`.
 
 **Approved publication safeguard:** an automated Candidate Miss is excluded from

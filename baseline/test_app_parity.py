@@ -157,7 +157,8 @@ if actual_report != direct["report_text"]:
 
 # The render functions read these off session_state on every rerun.
 for key in ("lons", "lats", "top_verif_matrix", "gdf_graded_fcst",
-            "gdf_graded_miss", "gdf_sparse", "review_table", "report_text",
+            "gdf_graded_miss", "gdf_medium_core_flags", "gdf_sparse",
+            "review_table", "report_text",
             "valid_dt"):
     if key not in results:
         failures.append(f"session_state['results'] is missing {key!r}, which the render code reads")

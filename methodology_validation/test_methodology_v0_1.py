@@ -27,6 +27,13 @@ def _gdf(geometry):
     return gpd.GeoDataFrame(geometry=[geometry], crs="EPSG:4326")
 
 
+def _projected_rect(x0, y0, width_m, height_m):
+    """Construct an exact EPSG:5070 rectangle and return it in production CRS."""
+    return gpd.GeoSeries(
+        [box(x0, y0, x0 + width_m, y0 + height_m)], crs="EPSG:5070"
+    ).to_crs("EPSG:4326").iloc[0]
+
+
 def _run_with_analytic_truth(forecast_geometry, coverage_code, sparse_truth,
                              medium_truth, *, tops=None, refl=None,
                              lons=None, lats=None, return_result=False,
@@ -50,9 +57,8 @@ def _run_with_analytic_truth(forecast_geometry, coverage_code, sparse_truth,
     if refl is None:
         refl = np.zeros(shape, dtype=float)
 
-    # Scoring Sparse, scoring Medium, then independently filtered Sparse
-    # Candidate Miss triage geometry.
-    truth_results = [_gdf(sparse_truth), _gdf(medium_truth), _gdf(sparse_truth)]
+    # Scoring Sparse and Medium; review cues reuse and explode those fields.
+    truth_results = [_gdf(sparse_truth), _gdf(medium_truth)]
     with patch.object(tcf_pipeline, "extract_tcf_polygons",
                       side_effect=truth_results), \
          patch.object(tcf_pipeline, "verification_domain",
@@ -241,17 +247,16 @@ class Decision1ATests(unittest.TestCase):
             return EMPTY.copy()
 
         params = tcf_pipeline.GradingParams(
-            dilation_iterations=0, smoothing_size=1, min_area_m2=0,
+            dilation_iterations=0, smoothing_size=1,
             apply_domain_mask=False)
         with patch.object(tcf_pipeline, "extract_tcf_polygons", side_effect=capture):
             tcf_pipeline.run_verification(
                 EMPTY, tops, refl, np.array([-100.0, -99.0]),
                 np.array([40.0, 41.0]), datetime(2026, 5, 24, 23),
                 19, 4, EMPTY, params, qualifying_mask=paired)
-        self.assertEqual(len(captured), 3)
+        self.assertEqual(len(captured), 2)
         self.assertFalse(captured[0].any())
         self.assertFalse(captured[1].any())
-        self.assertFalse(captured[2].any())
 
     def test_missing_required_mask_is_a_type_error(self):
         with self.assertRaises(TypeError):
@@ -272,8 +277,8 @@ class Decision1ATests(unittest.TestCase):
 class PhysicalGeometryTests(unittest.TestCase):
     """Established physical-area and topology requirements (Spec §§3, 12, 19)."""
 
-    def test_minimum_area_is_candidate_miss_only(self):
-        """Forecast truth has no area floor; Candidate Miss triage retains it."""
+    def test_candidate_miss_has_no_minimum_area_floor(self):
+        """Neither scored truth nor Candidate Miss visibility has an area floor."""
         minimums = []
 
         def capture(_mask, _lons, _lats, min_area_m2=0, **_kwargs):
@@ -287,10 +292,10 @@ class PhysicalGeometryTests(unittest.TestCase):
                 np.array([0.0, 1.0]), np.array([0.0, 1.0]),
                 datetime(2026, 1, 1), 1, 4, EMPTY, params,
                 qualifying_mask=np.zeros((2, 2), dtype=bool))
-        self.assertEqual(minimums, [0, 0, params.min_area_m2])
+        self.assertEqual(minimums, [0, 0])
 
     def test_sub_15000_component_still_scores_forecast(self):
-        """A small qualifying component is scoring truth, but not a candidate."""
+        """A small qualifying component is scoring truth and remains reviewable."""
         lons = np.array([-100.05, -100.00, -99.95])
         lats = np.array([39.95, 40.00, 40.05])
         qualifying = np.zeros((3, 3), dtype=bool)
@@ -307,7 +312,8 @@ class PhysicalGeometryTests(unittest.TestCase):
             qualifying_mask=qualifying)
         self.assertAlmostEqual(
             result["graded_forecasts"][0]["coverage_fraction"], 1.0, places=6)
-        self.assertEqual(result["graded_misses"], [])
+        self.assertEqual(len(result["graded_misses"]), 1)
+        self.assertLess(result["graded_misses"][0]["sparse_area_km2"], 15_000)
 
     def test_overlap_fraction_uses_physical_area(self):
         """Requirement: AREA numerator/denominator use physical-area projection.
@@ -609,6 +615,110 @@ class PhysicalGeometryTests(unittest.TestCase):
                                   "approved_for_report"].iloc[0])
         self.assertFalse(table.loc[table["kind"] == "candidate_miss",
                                    "approved_for_report"].iloc[0])
+
+
+class CandidateMissReviewCueTests(unittest.TestCase):
+    """Owner-approved component visibility and reviewer-cue invariants."""
+
+    @staticmethod
+    def cues(sparse, medium=Polygon(), forecast=Polygon(), threshold=0.20):
+        return tcf_pipeline._build_miss_review_cues(
+            _gdf(sparse), _gdf(medium), forecast, threshold)
+
+    def test_sub_15000_and_near_threshold_sparse_components_are_retained(self):
+        for area_km2 in (8_900, 14_828):
+            side = np.sqrt(area_km2 * 1_000_000.0)
+            sparse = _projected_rect(0, 0, side, side)
+            candidates, flags = self.cues(sparse)
+            self.assertEqual(len(candidates), 1)
+            self.assertEqual(flags, [])
+            self.assertAlmostEqual(candidates[0]["sparse_area_km2"], area_km2,
+                                   delta=area_km2 * 1e-6)
+
+    def test_disconnected_sparse_components_are_individual_candidates(self):
+        sparse = MultiPolygon([
+            _projected_rect(0, 0, 50_000, 50_000),
+            _projected_rect(200_000, 0, 30_000, 30_000),
+        ])
+        candidates, _ = self.cues(sparse)
+        self.assertEqual(len(candidates), 2)
+        self.assertEqual(len({c["sparse_component_id"] for c in candidates}), 2)
+
+    def test_candidate_embeds_medium_metadata_without_duplicate_flag(self):
+        sparse = _projected_rect(0, 0, 100_000, 100_000)
+        medium = _projected_rect(10_000, 10_000, 40_000, 50_000)
+        candidates, flags = self.cues(sparse, medium)
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(flags, [])
+        candidate = candidates[0]
+        self.assertTrue(candidate["contains_medium_core"])
+        self.assertAlmostEqual(candidate["medium_core_area_km2"], 2_000, delta=1e-3)
+        self.assertAlmostEqual(candidate["medium_core_fraction"], 0.20, places=6)
+
+    def test_hidden_disconnected_medium_components_are_individual_flags(self):
+        sparse = _projected_rect(0, 0, 100_000, 100_000)
+        medium = MultiPolygon([
+            _projected_rect(0, 0, 10_000, 10_000),
+            _projected_rect(30_000, 0, 20_000, 10_000),
+        ])
+        # Rightmost 30% of Sparse is captured, but neither Medium core is.
+        forecast = _projected_rect(70_000, 0, 30_000, 100_000)
+        candidates, flags = self.cues(sparse, medium, forecast)
+        self.assertEqual(candidates, [])
+        self.assertEqual(len(flags), 2)
+        self.assertTrue(all(flag["medium_capture_fraction"] < 0.20 for flag in flags))
+        self.assertTrue(all(flag["parent_sparse_component_id"] == 1 for flag in flags))
+
+    def test_tiny_medium_core_has_no_area_gate(self):
+        sparse = _projected_rect(0, 0, 100_000, 100_000)
+        medium = _projected_rect(0, 0, 100, 100)  # 0.01 km²
+        forecast = _projected_rect(70_000, 0, 30_000, 100_000)
+        _, flags = self.cues(sparse, medium, forecast)
+        self.assertEqual(len(flags), 1)
+        self.assertAlmostEqual(flags[0]["medium_area_km2"], 0.01, places=5)
+
+    def test_capture_threshold_is_strict_and_physical(self):
+        sparse = _projected_rect(0, 0, 100_000, 100_000)
+        forecast = _projected_rect(0, 0, 20_000, 100_000)
+        projected = gpd.GeoSeries(
+            [sparse, forecast], crs="EPSG:4326").to_crs("EPSG:5070")
+        physical_capture = (projected.iloc[0].intersection(projected.iloc[1]).area
+                            / projected.iloc[0].area)
+        exact, _ = self.cues(sparse, forecast=forecast,
+                             threshold=physical_capture)
+        below, _ = self.cues(sparse, forecast=forecast,
+                             threshold=physical_capture + 1e-9)
+        self.assertEqual(exact, [])
+        self.assertEqual(len(below), 1)
+
+    def test_medium_flag_is_never_reportable_even_if_approval_is_edited(self):
+        flag = gpd.GeoDataFrame([{
+            "geometry": box(0, 0, 1, 1), "idx": 1,
+            "medium_area_km2": 10.0, "medium_capture_fraction": 0.0,
+            "parent_sparse_component_id": 1,
+        }], crs="EPSG:4326")
+        table = tcf_pipeline.build_review_table(
+            EMPTY, EMPTY, EMPTY, gdf_medium_core_flags=flag)
+        self.assertEqual(table.loc[0, "kind"], "medium_core_review_flag")
+        self.assertFalse(table.loc[0, "reportable"])
+        table.loc[0, "approved_for_report"] = True
+        table.loc[0, "reportable"] = True
+        report = tcf_pipeline.build_report(
+            table.astype(tcf_pipeline.REVIEW_COLUMNS),
+            datetime(2026, 5, 24, 23), 19, 4)
+        self.assertNotIn("Medium-core", report)
+        self.assertNotIn("Missed (Area", report)
+
+    def test_review_cues_do_not_change_forecast_grading(self):
+        forecast = _projected_rect(0, 0, 50_000, 100_000)
+        sparse = _projected_rect(0, 0, 100_000, 100_000)
+        medium = _projected_rect(60_000, 0, 10_000, 10_000)
+        without_core = _run_with_analytic_truth(
+            forecast, 3, sparse, Polygon())
+        with_core = _run_with_analytic_truth(forecast, 3, sparse, medium)
+        self.assertEqual(without_core["category"], with_core["category"])
+        self.assertAlmostEqual(without_core["coverage_fraction"],
+                               with_core["coverage_fraction"], places=12)
 
 
 class TruthPolygonizationTests(unittest.TestCase):
@@ -1003,7 +1113,8 @@ class TimeAndParserTests(unittest.TestCase):
             "coverage_code": 1, "feat_type": "LINE", "artccs": "ZFW",
             "coverage_fraction": 0.0, "top_kft": 47.6, "boundary": False,
             "approved_for_report": True,
-        }]).astype(tcf_pipeline.REVIEW_COLUMNS)
+        }]).reindex(columns=tcf_pipeline.REVIEW_COLUMNS).astype(
+            tcf_pipeline.REVIEW_COLUMNS)
         report = tcf_pipeline.build_report(
             table, datetime(2026, 4, 4, 1), 21, 4)
         self.assertIn("ZFW - Solid (Line 4)", report)
