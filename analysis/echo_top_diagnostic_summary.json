@@ -1,0 +1,320 @@
+{
+  "feature_count": 48,
+  "historical_semantic_change": {
+    "faa_text_changes": 0,
+    "features_from_zero_to_unavailable": 15,
+    "verification_fraction_or_category_changes": 0
+  },
+  "miss_echo_top_behavior": "not_calculated; production review rows set miss top_kft unavailable",
+  "one_and_six_cell_physical_area_by_latitude": {
+    "30": {
+      "one_cell_km2": 26.73934750047804,
+      "six_cells_km2": 160.43608500286825
+    },
+    "40": {
+      "one_cell_km2": 23.704186970419624,
+      "six_cells_km2": 142.22512182251774
+    },
+    "50": {
+      "one_cell_km2": 19.936627341631787,
+      "six_cells_km2": 119.61976404979072
+    }
+  },
+  "recommendation": "OPTION_C_retain_full_geometry_p90_provisionally_but_resolve_intent_sample_domain_and_minimum",
+  "sample_counts": {
+    "bands": {
+      "0": 11,
+      "11_to_25": 3,
+      "1_to_5": 4,
+      "26_to_50": 3,
+      "6_to_10": 4,
+      "over_50": 23
+    },
+    "maximum": 1307,
+    "median": 41.5,
+    "minimum": 0,
+    "p10": 0.0,
+    "p25": 1.75,
+    "p75": 252.5,
+    "p90": 400.00000000000017,
+    "six_cell_rule_features": 15
+  },
+  "scope": "read_only_legacy_independent_temporal_max_characterization",
+  "small_sample_features": [
+    {
+      "event_id": "20260403_21Z_F04",
+      "feat_type": "AREA",
+      "feature": 6,
+      "observed_p90_if_computed": null,
+      "production_result": null,
+      "valid_cell_count": 0
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "feat_type": "AREA",
+      "feature": 1,
+      "observed_p90_if_computed": null,
+      "production_result": null,
+      "valid_cell_count": 0
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "feat_type": "AREA",
+      "feature": 2,
+      "observed_p90_if_computed": null,
+      "production_result": null,
+      "valid_cell_count": 0
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "feat_type": "AREA",
+      "feature": 3,
+      "observed_p90_if_computed": null,
+      "production_result": null,
+      "valid_cell_count": 0
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "feat_type": "AREA",
+      "feature": 6,
+      "observed_p90_if_computed": null,
+      "production_result": null,
+      "valid_cell_count": 0
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "feat_type": "AREA",
+      "feature": 7,
+      "observed_p90_if_computed": null,
+      "production_result": null,
+      "valid_cell_count": 0
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "feat_type": "AREA",
+      "feature": 1,
+      "observed_p90_if_computed": null,
+      "production_result": null,
+      "valid_cell_count": 0
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "feat_type": "AREA",
+      "feature": 4,
+      "observed_p90_if_computed": null,
+      "production_result": null,
+      "valid_cell_count": 0
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "feat_type": "AREA",
+      "feature": 7,
+      "observed_p90_if_computed": 46.368768310546876,
+      "production_result": null,
+      "valid_cell_count": 5
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "feat_type": "AREA",
+      "feature": 9,
+      "observed_p90_if_computed": null,
+      "production_result": null,
+      "valid_cell_count": 0
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "feat_type": "AREA",
+      "feature": 1,
+      "observed_p90_if_computed": 42.650917053222656,
+      "production_result": null,
+      "valid_cell_count": 3
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "feat_type": "AREA",
+      "feature": 2,
+      "observed_p90_if_computed": null,
+      "production_result": null,
+      "valid_cell_count": 0
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "feat_type": "AREA",
+      "feature": 6,
+      "observed_p90_if_computed": 38.52657508850098,
+      "production_result": null,
+      "valid_cell_count": 2
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "feat_type": "AREA",
+      "feature": 7,
+      "observed_p90_if_computed": 42.650917053222656,
+      "production_result": null,
+      "valid_cell_count": 1
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "feat_type": "AREA",
+      "feature": 9,
+      "observed_p90_if_computed": null,
+      "production_result": null,
+      "valid_cell_count": 0
+    }
+  ],
+  "statistic_differences_kft": {
+    "largest_max_minus_p90_features": [
+      {
+        "event_id": "20260524_19Z_F06",
+        "feat_type": "AREA",
+        "feature": 6,
+        "max_minus_p90": 16.40420150756836,
+        "valid_cell_count": 388
+      },
+      {
+        "event_id": "20260524_19Z_F04",
+        "feat_type": "AREA",
+        "feature": 9,
+        "max_minus_p90": 13.123359680175781,
+        "valid_cell_count": 249
+      },
+      {
+        "event_id": "20260524_19Z_F04",
+        "feat_type": "AREA",
+        "feature": 11,
+        "max_minus_p90": 13.123359680175781,
+        "valid_cell_count": 187
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "feat_type": "AREA",
+        "feature": 6,
+        "max_minus_p90": 11.482940673828125,
+        "valid_cell_count": 136
+      },
+      {
+        "event_id": "20260728_19Z_F04",
+        "feat_type": "AREA",
+        "feature": 10,
+        "max_minus_p90": 10.544620513916016,
+        "valid_cell_count": 1307
+      }
+    ],
+    "maximum_max_minus_p90": 16.40420150756836,
+    "median_max_minus_p90": 3.3566253662109347,
+    "median_p90_minus_median": 6.653539657592773,
+    "median_p95_minus_p90": 1.3467845916748047
+  },
+  "synthetic_cases": {
+    "bimodal": {
+      "current_result": 40.0,
+      "maximum": 40.0,
+      "mean": 32.5,
+      "median": 32.5,
+      "minimum": 25.0,
+      "p75": 40.0,
+      "p90": 40.0,
+      "p95": 40.0,
+      "valid_cell_count": 10
+    },
+    "broad_fl200_to_fl450": {
+      "current_result": 42.5,
+      "maximum": 45.0,
+      "mean": 32.5,
+      "median": 32.5,
+      "minimum": 20.0,
+      "p75": 38.75,
+      "p90": 42.5,
+      "p95": 43.75,
+      "valid_cell_count": 6
+    },
+    "exactly_six": {
+      "current_result": 39.0,
+      "maximum": 45.0,
+      "mean": 31.666666666666668,
+      "median": 30.0,
+      "minimum": 25.0,
+      "p75": 32.5,
+      "p90": 39.0,
+      "p95": 42.0,
+      "valid_cell_count": 6
+    },
+    "five_valid": {
+      "current_result": null,
+      "maximum": 30.0,
+      "mean": 30.0,
+      "median": 30.0,
+      "minimum": 30.0,
+      "p75": 30.0,
+      "p90": 30.0,
+      "p95": 30.0,
+      "valid_cell_count": 5
+    },
+    "hole_high_values_excluded": {
+      "current_result": 30.0,
+      "maximum": 30.0,
+      "mean": 30.0,
+      "median": 30.0,
+      "minimum": 30.0,
+      "p75": 30.0,
+      "p90": 30.0,
+      "p95": 30.0,
+      "valid_cell_count": 6
+    },
+    "large_mostly_high": {
+      "current_result": 40.0,
+      "maximum": 40.0,
+      "mean": 39.25,
+      "median": 40.0,
+      "minimum": 25.0,
+      "p75": 40.0,
+      "p90": 40.0,
+      "p95": 40.0,
+      "valid_cell_count": 100
+    },
+    "large_small_high_core": {
+      "current_result": 25.0,
+      "maximum": 45.0,
+      "mean": 26.0,
+      "median": 25.0,
+      "minimum": 25.0,
+      "p75": 25.0,
+      "p90": 25.0,
+      "p95": 25.999999999999943,
+      "valid_cell_count": 100
+    },
+    "nine_fl250_one_fl500": {
+      "current_result": 27.499999999999993,
+      "maximum": 50.0,
+      "mean": 27.5,
+      "median": 25.0,
+      "minimum": 25.0,
+      "p75": 25.0,
+      "p90": 27.499999999999993,
+      "p95": 38.74999999999997,
+      "valid_cell_count": 10
+    },
+    "one_fl450": {
+      "current_result": null,
+      "maximum": 45.0,
+      "mean": 45.0,
+      "median": 45.0,
+      "minimum": 45.0,
+      "p75": 45.0,
+      "p90": 45.0,
+      "p95": 45.0,
+      "valid_cell_count": 1
+    },
+    "uniform_fl300": {
+      "current_result": 30.0,
+      "maximum": 30.0,
+      "mean": 30.0,
+      "median": 30.0,
+      "minimum": 30.0,
+      "p75": 30.0,
+      "p90": 30.0,
+      "p95": 30.0,
+      "valid_cell_count": 10
+    }
+  }
+}

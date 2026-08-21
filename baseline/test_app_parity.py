@@ -8,8 +8,9 @@ broke only the glue would leave check.py green and the dashboard wrong.
 
 So this drives app.py through streamlit's AppTest with the two network calls
 stubbed out by the frozen baseline inputs, clicks "Run Verification", and
-asserts the report text the app ends up holding equals the event's
-expected.json report_text byte for byte.
+asserts the report text the app ends up holding equals a direct pipeline replay
+of the same frozen inputs. Historical expected.json remains intentionally stale
+across approved methodology changes.
 
 The issuance/lead widgets still default to 19Z / FH 4, but the date input now
 defaults to today in UTC, so this drives that widget to the event's date before
@@ -54,6 +55,7 @@ with open(os.path.join(EVENT_DIR, "tcf_raw.txt"), encoding="utf-8") as f:
     raw_text = f.read()
 with np.load(os.path.join(EVENT_DIR, "arrays.npz")) as npz:
     frozen = (npz["max_tops"], npz["max_refl"], npz["lons"], npz["lats"])
+legacy_qualifying_mask = ((frozen[1] >= 40.0) & (frozen[0] >= 25.0))
 
 # Feed the app the frozen inputs instead of IEM/S3. Only the two network-bound
 # functions are replaced; every line of grading and report logic runs for real.
@@ -84,9 +86,13 @@ def fake_composite(valid_dt, log=None, window_minutes=None, cadence_minutes=None
         # The frozen arrays are the verification grid; for display purposes the
         # app only needs something with the same extent, and this keeps the
         # parity test independent of full-resolution scans it does not have.
-        return frozen + (tcf_pipeline.DisplayRaster(
-            frozen[0], frozen[1], frozen[2], frozen[3]),)
-    return frozen
+        # Explicit legacy-only fixture seam: checked-in arrays predate Decision
+        # 1A and cannot reconstruct a paired mask. This exercises app/report
+        # parity, not approved temporal-method validation.
+        return (frozen[0], frozen[1], legacy_qualifying_mask,
+                frozen[2], frozen[3], tcf_pipeline.DisplayRaster(
+                    frozen[0], frozen[1], frozen[2], frozen[3]), None)
+    return frozen[0], frozen[1], legacy_qualifying_mask, frozen[2], frozen[3]
 
 
 tcf_pipeline.fetch_iem_cow_tcf = fake_fetch
@@ -130,6 +136,10 @@ if "results" not in at.session_state:
     print("FAIL: app.py did not stash results in session_state")
     sys.exit(1)
 results = at.session_state["results"]
+direct = tcf_pipeline.run_verification_legacy_independent_max(
+    tcf_pipeline.parse_iem_cow_text(raw_text), *frozen,
+    dt.datetime.fromisoformat(expected["valid_dt"]), expected["issuance_hour"],
+    expected["lead_time"], tcf_pipeline.load_artccs())
 
 failures = list(bounds_failures)
 
@@ -137,26 +147,28 @@ if not scan_log:
     failures.append("app.py never called build_composite")
 
 actual_report = results["report_text"]
-if actual_report != expected["report_text"]:
-    failures.append("report_text differs from the baseline")
+if actual_report != direct["report_text"]:
+    failures.append("app report_text differs from direct pipeline replay")
     import difflib
-    for line in difflib.unified_diff(expected["report_text"].splitlines(),
+    for line in difflib.unified_diff(direct["report_text"].splitlines(),
                                      actual_report.splitlines(),
                                      fromfile="expected.json", tofile="app.py", lineterm="", n=1):
         failures.append(f"    {line}")
 
 # The render functions read these off session_state on every rerun.
 for key in ("lons", "lats", "top_verif_matrix", "gdf_graded_fcst",
-            "gdf_graded_miss", "gdf_sparse", "report_text", "valid_dt"):
+            "gdf_graded_miss", "gdf_medium_core_flags", "gdf_sparse",
+            "review_table", "report_text",
+            "valid_dt"):
     if key not in results:
         failures.append(f"session_state['results'] is missing {key!r}, which the render code reads")
 
 n_polys = len(results["gdf_graded_fcst"])
 n_misses = len(results["gdf_graded_miss"])
-if n_polys != expected["counts"]["polygons"]:
-    failures.append(f"graded polygon count: expected {expected['counts']['polygons']}, got {n_polys}")
-if n_misses != expected["counts"]["misses"]:
-    failures.append(f"miss count: expected {expected['counts']['misses']}, got {n_misses}")
+if n_polys != len(direct["graded_forecasts"]):
+    failures.append(f"graded polygon count: direct {len(direct['graded_forecasts'])}, got {n_polys}")
+if n_misses != len(direct["graded_misses"]):
+    failures.append(f"candidate count: direct {len(direct['graded_misses'])}, got {n_misses}")
 
 if failures:
     print(f"FAIL  {EVENT_ID}")
@@ -164,6 +176,6 @@ if failures:
         print(f"  {line}")
     sys.exit(1)
 
-print(f"PASS  {EVENT_ID}: app.py's report matches the baseline byte for byte "
-      f"({n_polys} polygons, {n_misses} misses)")
+print(f"PASS  {EVENT_ID}: app.py matches direct legacy-input replay "
+      f"({n_polys} polygons, {n_misses} Candidate Misses)")
 sys.exit(0)

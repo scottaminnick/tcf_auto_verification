@@ -17,8 +17,10 @@ error so that a half-moved pipeline fails loudly.
 Required pipeline symbols (all from the module named by --pipeline):
     compute_valid_dt(date, issuance_hour, lead_time) -> datetime
     parse_iem_cow_text(raw_text) -> GeoDataFrame
-    run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
-                     valid_dt, issuance_hour, lead_time, gdf_artcc) -> dict
+    run_verification_legacy_independent_max(
+        gdf_forecast, max_tops, max_refl, lons, lats,
+        valid_dt, issuance_hour, lead_time, gdf_artcc) -> dict
+    run_verification(..., qualifying_mask=mask) -> dict
     load_artccs() -> GeoDataFrame
     get_artccs(poly, artcc_gdf) -> str
 
@@ -54,6 +56,7 @@ PIPELINE_SYMBOLS = (
     "compute_valid_dt",
     "parse_iem_cow_text",
     "run_verification",
+    "run_verification_legacy_independent_max",
     "load_artccs",
     "get_artccs",
 )
@@ -211,6 +214,24 @@ def build_actual(results, meta, get_artccs, gdf_artcc):
             "idx": int(r["idx"]),
             "artccs": get_artccs(r["geometry"], gdf_artcc),
             "bounds": _round_bounds(r["geometry"]),
+            "forecast_capture_fraction": _num(r.get("forecast_capture_fraction"), COVERAGE_DP),
+            "sparse_area_km2": _num(r.get("sparse_area_km2"), TOP_DP),
+            "medium_core_area_km2": _num(r.get("medium_core_area_km2"), TOP_DP),
+            "medium_core_fraction": _num(r.get("medium_core_fraction"), COVERAGE_DP),
+            "contains_medium_core": bool(r.get("contains_medium_core", False)),
+            "approved_for_report": False,
+        })
+
+    medium_flags = []
+    for r in _records(results, "medium_core_review_flags", "gdf_medium_core_flags"):
+        medium_flags.append({
+            "idx": int(r["idx"]),
+            "artccs": get_artccs(r["geometry"], gdf_artcc),
+            "bounds": _round_bounds(r["geometry"]),
+            "medium_area_km2": _num(r.get("medium_area_km2"), TOP_DP),
+            "medium_capture_fraction": _num(r.get("medium_capture_fraction"), COVERAGE_DP),
+            "parent_sparse_component_id": r.get("parent_sparse_component_id"),
+            "reportable": False,
         })
 
     categories = {}
@@ -227,9 +248,11 @@ def build_actual(results, meta, get_artccs, gdf_artcc):
         "report_text": results["report_text"],
         "polygons": polygons,
         "misses": misses,
+        "medium_core_review_flags": medium_flags,
         "counts": {
             "polygons": len(polygons),
             "misses": len(misses),
+            "medium_core_review_flags": len(medium_flags),
             "verified_well": categories.get("Verified Well", 0),
             "verified_close": categories.get("Verified Close", 0),
             "overforecasted": categories.get("Overforecasted", 0),
@@ -331,7 +354,16 @@ def diff_expected(expected, actual, strict):
               ("category", "coverage_code", "feat_type", "coverage_fraction",
                "top_kft", "artccs", "idx", "bounds", "boundary"), strict, out)
     diff_list("misses", expected.get("misses", []), actual.get("misses", []),
-              ("idx", "artccs", "bounds"), strict, out)
+              ("idx", "artccs", "bounds", "forecast_capture_fraction",
+               "sparse_area_km2", "medium_core_area_km2",
+               "medium_core_fraction", "contains_medium_core",
+               "approved_for_report"), strict, out)
+    diff_list("medium_core_review_flags",
+              expected.get("medium_core_review_flags", []),
+              actual.get("medium_core_review_flags", []),
+              ("idx", "artccs", "bounds", "medium_area_km2",
+               "medium_capture_fraction", "parent_sparse_component_id",
+               "reportable"), strict, out)
 
     exp_report, act_report = expected.get("report_text", ""), actual.get("report_text", "")
     if exp_report != act_report:
@@ -425,6 +457,21 @@ def check_event(event_dir, pipe, gdf_artcc, strict, pass_a=False, replay=True):
         max_refl = npz["max_refl"]
         lons = npz["lons"]
         lats = npz["lats"]
+        qualifying_mask = npz["qualifying_mask"] if "qualifying_mask" in npz else None
+
+    methodology_version = expected.get("methodology_version")
+    if methodology_version and qualifying_mask is None:
+        raise SystemExit(
+            f"ERROR: {event_id} declares methodology_version={methodology_version!r} "
+            "but arrays.npz has no qualifying_mask; versioned Methodology 1.0 "
+            "artifacts may not use legacy independent-max replay."
+        )
+    if methodology_version and not os.path.exists(
+            os.path.join(event_dir, "mrms_provenance.json")):
+        raise SystemExit(
+            f"ERROR: {event_id} declares methodology_version={methodology_version!r} "
+            "but has no mrms_provenance.json source manifest."
+        )
 
     target_date = _datetime.datetime.strptime(expected["date"], "%Y-%m-%d").date()
     issuance_hour = expected["issuance_hour"]
@@ -432,9 +479,17 @@ def check_event(event_dir, pipe, gdf_artcc, strict, pass_a=False, replay=True):
 
     gdf_forecast = pipe.get("parse_iem_cow_text")(raw_text)
     valid_dt = pipe.get("compute_valid_dt")(target_date, issuance_hour, lead_time)
-    results = pipe.get("run_verification")(
-        gdf_forecast, max_tops, max_refl, lons, lats,
-        valid_dt, issuance_hour, lead_time, gdf_artcc)
+    if qualifying_mask is None:
+        print(f"LEGACY {event_id}: maxima-only artifact; using explicitly named "
+              "pre-1.0 independent-max replay")
+        results = pipe.get("run_verification_legacy_independent_max")(
+            gdf_forecast, max_tops, max_refl, lons, lats,
+            valid_dt, issuance_hour, lead_time, gdf_artcc)
+    else:
+        results = pipe.get("run_verification")(
+            gdf_forecast, max_tops, max_refl, lons, lats,
+            valid_dt, issuance_hour, lead_time, gdf_artcc,
+            qualifying_mask=qualifying_mask)
 
     actual = build_actual(results, {
         "event_id": event_id,

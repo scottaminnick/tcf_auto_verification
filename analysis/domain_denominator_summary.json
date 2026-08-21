@@ -1,0 +1,58 @@
+{
+  "artifact_method": "legacy independent-max frozen truth",
+  "feature_count": 48,
+  "fully_inside": 41,
+  "partially_outside": 7,
+  "fully_outside": 0,
+  "minimum_in_domain_fraction": 0.8536652986493618,
+  "median_in_domain_fraction": 1.0,
+  "outside_threshold_counts": {
+    "0.01": 3,
+    "0.05": 2,
+    "0.1": 1,
+    "0.25": 0,
+    "0.5": 0
+  },
+  "category_changes": 0,
+  "by_feature_type": {
+    "AREA": {
+      "count": 47,
+      "fully_inside": 40,
+      "partially_outside": 7,
+      "fully_outside": 0
+    },
+    "LINE": {
+      "count": 1,
+      "fully_inside": 1,
+      "partially_outside": 0,
+      "fully_outside": 0
+    }
+  },
+  "synthetic_cases": [
+    {
+      "case": "inside",
+      "candidate_a": 1.0,
+      "candidate_b": 1.0
+    },
+    {
+      "case": "outside",
+      "candidate_a": 0.0,
+      "candidate_b": null
+    },
+    {
+      "case": "half_inside",
+      "candidate_a": 0.5,
+      "candidate_b": 1.0
+    },
+    {
+      "case": "ninety_percent_inside",
+      "candidate_a": 0.9,
+      "candidate_b": 1.0
+    },
+    {
+      "case": "ten_percent_inside",
+      "candidate_a": 0.1,
+      "candidate_b": 1.0
+    }
+  ]
+}

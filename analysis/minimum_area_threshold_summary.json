@@ -1,0 +1,4948 @@
+{
+  "artifact_method": "legacy independent-max frozen truth",
+  "thresholds_km2": [
+    0,
+    5000,
+    10000,
+    15000,
+    20000,
+    25000,
+    30000
+  ],
+  "component_distributions": {
+    "Sparse": {
+      "count": 74,
+      "minimum": 25.090382668904155,
+      "p10": 852.2479879492,
+      "p25": 2249.210058385995,
+      "median": 7932.778057480669,
+      "p75": 20221.40495315957,
+      "p90": 33816.85426918503,
+      "maximum": 83208.29175778075,
+      "bands": {
+        "lt_5000": 30,
+        "5000_to_10000": 13,
+        "10000_to_15000": 4,
+        "15000_to_20000": 8,
+        "20000_to_25000": 7,
+        "ge_25000": 12
+      }
+    },
+    "Medium": {
+      "count": 53,
+      "minimum": 25.50130455944384,
+      "p10": 282.84209573698,
+      "p25": 1561.5463125875287,
+      "median": 4968.312539830636,
+      "p75": 8454.948729473355,
+      "p90": 14709.216672989918,
+      "maximum": 36227.058702158174,
+      "bands": {
+        "lt_5000": 27,
+        "5000_to_10000": 17,
+        "10000_to_15000": 5,
+        "15000_to_20000": 0,
+        "20000_to_25000": 2,
+        "ge_25000": 2
+      }
+    }
+  },
+  "sweep": {
+    "0": {
+      "truth": {
+        "Sparse": {
+          "retained_count": 74,
+          "removed_count": 0,
+          "retained_area_km2": 1033634.4936505421,
+          "removed_area_km2": 0.0
+        },
+        "Medium": {
+          "retained_count": 53,
+          "removed_count": 0,
+          "retained_area_km2": 349592.36255944404,
+          "removed_area_km2": 0.0
+        }
+      },
+      "forecasts_with_fraction_change": 15,
+      "largest_absolute_fraction_change": 0.27945385794845246,
+      "median_absolute_change_among_affected": 0.06400871179850343,
+      "category_changes": 4,
+      "crossed_20_percent": 3,
+      "crossed_50_percent": 1,
+      "total_misses": 43,
+      "misses_per_event": {
+        "20260324_13Z_F04": 0,
+        "20260403_21Z_F04": 9,
+        "20260524_13Z_F04": 10,
+        "20260524_19Z_F04": 13,
+        "20260524_19Z_F06": 2,
+        "20260728_19Z_F04": 9
+      },
+      "added_misses_relative_15000": 36,
+      "removed_misses_relative_15000": 0,
+      "added_miss_components": [
+        {
+          "event_id": "20260403_21Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 1,
+          "captured_fraction": 0.0,
+          "area_km2": 8946.732255560979,
+          "bounds": [
+            -99.570001,
+            32.12,
+            -98.470001,
+            33.17
+          ]
+        },
+        {
+          "event_id": "20260403_21Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 2,
+          "captured_fraction": 0.0,
+          "area_km2": 1293.0631195683875,
+          "bounds": [
+            -93.370001,
+            33.02,
+            -92.820001,
+            33.27
+          ]
+        },
+        {
+          "event_id": "20260403_21Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 7,
+          "captured_fraction": 0.0,
+          "area_km2": 7722.842939553536,
+          "bounds": [
+            -93.820001,
+            44.27,
+            -92.720001,
+            45.22
+          ]
+        },
+        {
+          "event_id": "20260403_21Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 8,
+          "captured_fraction": 0.0,
+          "area_km2": 9420.31116151638,
+          "bounds": [
+            -84.870001,
+            31.32,
+            -83.770001,
+            32.47
+          ]
+        },
+        {
+          "event_id": "20260403_21Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 9,
+          "captured_fraction": 0.0,
+          "area_km2": 2008.7483016432268,
+          "bounds": [
+            -83.420001,
+            32.12,
+            -82.970001,
+            32.67
+          ]
+        },
+        {
+          "event_id": "20260403_21Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 10,
+          "captured_fraction": 0.0,
+          "area_km2": 455.55971701183194,
+          "bounds": [
+            -85.970001,
+            39.07,
+            -85.720001,
+            39.32
+          ]
+        },
+        {
+          "event_id": "20260403_21Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 11,
+          "captured_fraction": 0.0,
+          "area_km2": 1912.1788870057158,
+          "bounds": [
+            -84.270001,
+            40.12,
+            -83.470001,
+            40.47
+          ]
+        },
+        {
+          "event_id": "20260403_21Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 13,
+          "captured_fraction": 0.0,
+          "area_km2": 6990.51603091397,
+          "bounds": [
+            -85.820001,
+            40.47,
+            -84.720001,
+            41.37
+          ]
+        },
+        {
+          "event_id": "20260524_13Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 5,
+          "captured_fraction": 0.0,
+          "area_km2": 2685.9011887618717,
+          "bounds": [
+            -85.170001,
+            36.87,
+            -84.620001,
+            37.47
+          ]
+        },
+        {
+          "event_id": "20260524_13Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 6,
+          "captured_fraction": 0.0,
+          "area_km2": 2199.4346822761067,
+          "bounds": [
+            -85.620001,
+            37.42,
+            -84.820001,
+            38.02
+          ]
+        },
+        {
+          "event_id": "20260524_13Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 7,
+          "captured_fraction": 0.17918382854156728,
+          "area_km2": 14250.95941663353,
+          "bounds": [
+            -85.320001,
+            42.22,
+            -84.120001,
+            44.02
+          ]
+        },
+        {
+          "event_id": "20260524_13Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 8,
+          "captured_fraction": 0.0,
+          "area_km2": 4484.465794952024,
+          "bounds": [
+            -80.670001,
+            28.52,
+            -80.020001,
+            29.32
+          ]
+        },
+        {
+          "event_id": "20260524_13Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 9,
+          "captured_fraction": 0.0,
+          "area_km2": 8055.860184982434,
+          "bounds": [
+            -83.220001,
+            29.42,
+            -82.220001,
+            30.42
+          ]
+        },
+        {
+          "event_id": "20260524_13Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 13,
+          "captured_fraction": 0.0,
+          "area_km2": 2855.9744579228886,
+          "bounds": [
+            -84.220001,
+            38.22,
+            -83.670001,
+            38.82
+          ]
+        },
+        {
+          "event_id": "20260524_13Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 14,
+          "captured_fraction": 0.0,
+          "area_km2": 1153.681655692983,
+          "bounds": [
+            -82.820001,
+            38.77,
+            -82.420001,
+            39.27
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 1,
+          "captured_fraction": 0.0,
+          "area_km2": 323.6219111509241,
+          "bounds": [
+            -88.620001,
+            28.97,
+            -88.520001,
+            29.27
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 2,
+          "captured_fraction": 0.0,
+          "area_km2": 3475.195704684413,
+          "bounds": [
+            -89.320001,
+            28.87,
+            -88.670001,
+            29.57
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 5,
+          "captured_fraction": 0.0,
+          "area_km2": 1862.7855058134191,
+          "bounds": [
+            -110.870001,
+            31.42,
+            -110.570001,
+            32.22
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 6,
+          "captured_fraction": 0.0,
+          "area_km2": 756.4740499748867,
+          "bounds": [
+            -85.570001,
+            32.27,
+            -85.170001,
+            32.52
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 8,
+          "captured_fraction": 0.0,
+          "area_km2": 5564.939977247465,
+          "bounds": [
+            -98.020001,
+            42.92,
+            -97.120001,
+            43.72
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 10,
+          "captured_fraction": 0.0,
+          "area_km2": 2247.1129614870733,
+          "bounds": [
+            -91.220001,
+            45.97,
+            -90.820001,
+            46.67
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 13,
+          "captured_fraction": 0.0,
+          "area_km2": 3784.8541267364494,
+          "bounds": [
+            -77.320002,
+            33.27,
+            -76.520002,
+            33.87
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 14,
+          "captured_fraction": 0.0,
+          "area_km2": 4979.979809033117,
+          "bounds": [
+            -82.670001,
+            33.37,
+            -81.770001,
+            34.32
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 16,
+          "captured_fraction": 0.0,
+          "area_km2": 1858.027546317114,
+          "bounds": [
+            -77.470002,
+            35.47,
+            -76.970002,
+            35.92
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 17,
+          "captured_fraction": 0.0,
+          "area_km2": 25.090382668904155,
+          "bounds": [
+            -76.720002,
+            35.72,
+            -76.670002,
+            35.77
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 19,
+          "captured_fraction": 0.0,
+          "area_km2": 696.2196288900634,
+          "bounds": [
+            -79.820001,
+            38.97,
+            -79.370001,
+            39.27
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 20,
+          "captured_fraction": 0.0,
+          "area_km2": 1011.2517893865844,
+          "bounds": [
+            -80.720001,
+            40.37,
+            -80.320001,
+            40.77
+          ]
+        },
+        {
+          "event_id": "20260728_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 1,
+          "captured_fraction": 0.0,
+          "area_km2": 2255.501349082758,
+          "bounds": [
+            -108.570001,
+            32.67,
+            -108.070001,
+            33.22
+          ]
+        },
+        {
+          "event_id": "20260728_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 4,
+          "captured_fraction": 0.0,
+          "area_km2": 11017.4929175234,
+          "bounds": [
+            -113.37,
+            36.27,
+            -111.720001,
+            37.37
+          ]
+        },
+        {
+          "event_id": "20260728_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 5,
+          "captured_fraction": 0.005361784527511387,
+          "area_km2": 1473.876976226665,
+          "bounds": [
+            -106.020001,
+            37.07,
+            -105.770001,
+            37.72
+          ]
+        },
+        {
+          "event_id": "20260728_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 6,
+          "captured_fraction": 0.0,
+          "area_km2": 784.1035016188923,
+          "bounds": [
+            -112.170001,
+            37.47,
+            -111.770001,
+            37.72
+          ]
+        },
+        {
+          "event_id": "20260728_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 10,
+          "captured_fraction": 0.0,
+          "area_km2": 775.7491690101159,
+          "bounds": [
+            -105.120001,
+            44.97,
+            -104.298183,
+            45.176744
+          ]
+        },
+        {
+          "event_id": "20260728_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 11,
+          "captured_fraction": 0.0,
+          "area_km2": 8329.246908848103,
+          "bounds": [
+            -105.120001,
+            45.12,
+            -103.720001,
+            46.02
+          ]
+        },
+        {
+          "event_id": "20260728_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 15,
+          "captured_fraction": 0.0,
+          "area_km2": 5525.335163323159,
+          "bounds": [
+            -79.920001,
+            39.22,
+            -79.020001,
+            40.07
+          ]
+        },
+        {
+          "event_id": "20260728_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 17,
+          "captured_fraction": 0.0,
+          "area_km2": 3495.9366352569364,
+          "bounds": [
+            -77.770001,
+            41.22,
+            -76.920002,
+            41.92
+          ]
+        },
+        {
+          "event_id": "20260728_19Z_F04",
+          "threshold_km2": 0,
+          "truth_component": 20,
+          "captured_fraction": 0.0,
+          "area_km2": 88.19521346332795,
+          "bounds": [
+            -71.620002,
+            44.57,
+            -71.520002,
+            44.67
+          ]
+        }
+      ],
+      "removed_miss_components": [],
+      "nested_truth_violations": 1
+    },
+    "5000": {
+      "truth": {
+        "Sparse": {
+          "retained_count": 44,
+          "removed_count": 30,
+          "retained_area_km2": 971029.930207309,
+          "removed_area_km2": 62604.56344323314
+        },
+        "Medium": {
+          "retained_count": 26,
+          "removed_count": 27,
+          "retained_area_km2": 303819.64738796686,
+          "removed_area_km2": 45772.715171477175
+        }
+      },
+      "forecasts_with_fraction_change": 9,
+      "largest_absolute_fraction_change": 0.1666897763604845,
+      "median_absolute_change_among_affected": 0.07967025570325127,
+      "category_changes": 2,
+      "crossed_20_percent": 1,
+      "crossed_50_percent": 1,
+      "total_misses": 18,
+      "misses_per_event": {
+        "20260324_13Z_F04": 0,
+        "20260403_21Z_F04": 5,
+        "20260524_13Z_F04": 5,
+        "20260524_19Z_F04": 2,
+        "20260524_19Z_F06": 2,
+        "20260728_19Z_F04": 4
+      },
+      "added_misses_relative_15000": 11,
+      "removed_misses_relative_15000": 0,
+      "added_miss_components": [
+        {
+          "event_id": "20260403_21Z_F04",
+          "threshold_km2": 5000,
+          "truth_component": 1,
+          "captured_fraction": 0.0,
+          "area_km2": 9420.311161516378,
+          "bounds": [
+            -84.870001,
+            31.32,
+            -83.770001,
+            32.47
+          ]
+        },
+        {
+          "event_id": "20260403_21Z_F04",
+          "threshold_km2": 5000,
+          "truth_component": 2,
+          "captured_fraction": 0.0,
+          "area_km2": 8946.732255560979,
+          "bounds": [
+            -99.570001,
+            32.12,
+            -98.470001,
+            33.17
+          ]
+        },
+        {
+          "event_id": "20260403_21Z_F04",
+          "threshold_km2": 5000,
+          "truth_component": 6,
+          "captured_fraction": 0.0,
+          "area_km2": 6990.516030913968,
+          "bounds": [
+            -85.820001,
+            40.47,
+            -84.720001,
+            41.37
+          ]
+        },
+        {
+          "event_id": "20260403_21Z_F04",
+          "threshold_km2": 5000,
+          "truth_component": 9,
+          "captured_fraction": 0.0,
+          "area_km2": 7722.842939553531,
+          "bounds": [
+            -93.820001,
+            44.27,
+            -92.720001,
+            45.22
+          ]
+        },
+        {
+          "event_id": "20260524_13Z_F04",
+          "threshold_km2": 5000,
+          "truth_component": 2,
+          "captured_fraction": 0.0,
+          "area_km2": 8055.860184982434,
+          "bounds": [
+            -83.220001,
+            29.42,
+            -82.220001,
+            30.42
+          ]
+        },
+        {
+          "event_id": "20260524_13Z_F04",
+          "threshold_km2": 5000,
+          "truth_component": 8,
+          "captured_fraction": 0.17918382854156728,
+          "area_km2": 14250.959416633534,
+          "bounds": [
+            -85.320001,
+            42.22,
+            -84.120001,
+            44.02
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F04",
+          "threshold_km2": 5000,
+          "truth_component": 7,
+          "captured_fraction": 0.0,
+          "area_km2": 5564.939977247468,
+          "bounds": [
+            -98.020001,
+            42.92,
+            -97.120001,
+            43.72
+          ]
+        },
+        {
+          "event_id": "20260728_19Z_F04",
+          "threshold_km2": 5000,
+          "truth_component": 2,
+          "captured_fraction": 0.0,
+          "area_km2": 11017.492917523396,
+          "bounds": [
+            -113.37,
+            36.27,
+            -111.720001,
+            37.37
+          ]
+        },
+        {
+          "event_id": "20260728_19Z_F04",
+          "threshold_km2": 5000,
+          "truth_component": 6,
+          "captured_fraction": 0.0,
+          "area_km2": 775.7491690101162,
+          "bounds": [
+            -105.120001,
+            44.97,
+            -104.298183,
+            45.176744
+          ]
+        },
+        {
+          "event_id": "20260728_19Z_F04",
+          "threshold_km2": 5000,
+          "truth_component": 7,
+          "captured_fraction": 0.0,
+          "area_km2": 8329.2469088481,
+          "bounds": [
+            -105.120001,
+            45.12,
+            -103.720001,
+            46.02
+          ]
+        },
+        {
+          "event_id": "20260728_19Z_F04",
+          "threshold_km2": 5000,
+          "truth_component": 10,
+          "captured_fraction": 0.0,
+          "area_km2": 5525.3351633231605,
+          "bounds": [
+            -79.920001,
+            39.22,
+            -79.020001,
+            40.07
+          ]
+        }
+      ],
+      "removed_miss_components": [],
+      "nested_truth_violations": 0
+    },
+    "10000": {
+      "truth": {
+        "Sparse": {
+          "retained_count": 31,
+          "removed_count": 43,
+          "retained_area_km2": 868651.4502238028,
+          "removed_area_km2": 164983.04342673928
+        },
+        "Medium": {
+          "retained_count": 9,
+          "removed_count": 44,
+          "retained_area_km2": 178298.64808413625,
+          "removed_area_km2": 171293.7144753078
+        }
+      },
+      "forecasts_with_fraction_change": 5,
+      "largest_absolute_fraction_change": 0.1526686534308502,
+      "median_absolute_change_among_affected": 0.045539438564125345,
+      "category_changes": 2,
+      "crossed_20_percent": 1,
+      "crossed_50_percent": 1,
+      "total_misses": 9,
+      "misses_per_event": {
+        "20260324_13Z_F04": 0,
+        "20260403_21Z_F04": 1,
+        "20260524_13Z_F04": 4,
+        "20260524_19Z_F04": 1,
+        "20260524_19Z_F06": 2,
+        "20260728_19Z_F04": 1
+      },
+      "added_misses_relative_15000": 2,
+      "removed_misses_relative_15000": 0,
+      "added_miss_components": [
+        {
+          "event_id": "20260524_13Z_F04",
+          "threshold_km2": 10000,
+          "truth_component": 5,
+          "captured_fraction": 0.17918382854156728,
+          "area_km2": 14250.959416633534,
+          "bounds": [
+            -85.320001,
+            42.22,
+            -84.120001,
+            44.02
+          ]
+        },
+        {
+          "event_id": "20260728_19Z_F04",
+          "threshold_km2": 10000,
+          "truth_component": 3,
+          "captured_fraction": 0.0,
+          "area_km2": 11017.492917523392,
+          "bounds": [
+            -113.37,
+            36.27,
+            -111.720001,
+            37.37
+          ]
+        }
+      ],
+      "removed_miss_components": [],
+      "nested_truth_violations": 0
+    },
+    "15000": {
+      "truth": {
+        "Sparse": {
+          "retained_count": 27,
+          "removed_count": 47,
+          "retained_area_km2": 820358.3144105251,
+          "removed_area_km2": 213276.17924001697
+        },
+        "Medium": {
+          "retained_count": 4,
+          "removed_count": 49,
+          "retained_area_km2": 112526.36486016342,
+          "removed_area_km2": 237065.99769928062
+        }
+      },
+      "forecasts_with_fraction_change": 0,
+      "largest_absolute_fraction_change": 0.0,
+      "median_absolute_change_among_affected": 0.0,
+      "category_changes": 0,
+      "crossed_20_percent": 0,
+      "crossed_50_percent": 0,
+      "total_misses": 7,
+      "misses_per_event": {
+        "20260324_13Z_F04": 0,
+        "20260403_21Z_F04": 1,
+        "20260524_13Z_F04": 3,
+        "20260524_19Z_F04": 1,
+        "20260524_19Z_F06": 2,
+        "20260728_19Z_F04": 0
+      },
+      "added_misses_relative_15000": 0,
+      "removed_misses_relative_15000": 0,
+      "added_miss_components": [],
+      "removed_miss_components": [],
+      "nested_truth_violations": 0
+    },
+    "20000": {
+      "truth": {
+        "Sparse": {
+          "retained_count": 19,
+          "removed_count": 55,
+          "retained_area_km2": 677045.718246256,
+          "removed_area_km2": 356588.7754042861
+        },
+        "Medium": {
+          "retained_count": 4,
+          "removed_count": 49,
+          "retained_area_km2": 112526.36486016342,
+          "removed_area_km2": 237065.99769928062
+        }
+      },
+      "forecasts_with_fraction_change": 4,
+      "largest_absolute_fraction_change": 0.46338490562498713,
+      "median_absolute_change_among_affected": 0.08947728604589324,
+      "category_changes": 2,
+      "crossed_20_percent": 2,
+      "crossed_50_percent": 0,
+      "total_misses": 2,
+      "misses_per_event": {
+        "20260324_13Z_F04": 0,
+        "20260403_21Z_F04": 0,
+        "20260524_13Z_F04": 1,
+        "20260524_19Z_F04": 0,
+        "20260524_19Z_F06": 1,
+        "20260728_19Z_F04": 0
+      },
+      "added_misses_relative_15000": 0,
+      "removed_misses_relative_15000": 5,
+      "added_miss_components": [],
+      "removed_miss_components": [
+        {
+          "event_id": "20260403_21Z_F04",
+          "threshold_km2": 15000,
+          "truth_component": 3,
+          "captured_fraction": 0.0,
+          "area_km2": 15511.360025065092,
+          "bounds": [
+            -83.270001,
+            40.02,
+            -81.070001,
+            40.97
+          ]
+        },
+        {
+          "event_id": "20260524_13Z_F04",
+          "threshold_km2": 15000,
+          "truth_component": 3,
+          "captured_fraction": 0.0,
+          "area_km2": 16381.283709198362,
+          "bounds": [
+            -77.270002,
+            34.67,
+            -75.220002,
+            36.12
+          ]
+        },
+        {
+          "event_id": "20260524_13Z_F04",
+          "threshold_km2": 15000,
+          "truth_component": 4,
+          "captured_fraction": 0.0,
+          "area_km2": 19102.173831273616,
+          "bounds": [
+            -86.320001,
+            34.67,
+            -84.920001,
+            36.67
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F04",
+          "threshold_km2": 15000,
+          "truth_component": 7,
+          "captured_fraction": 0.0,
+          "area_km2": 19159.053334176202,
+          "bounds": [
+            -96.370001,
+            43.72,
+            -93.970001,
+            45.37
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F06",
+          "threshold_km2": 15000,
+          "truth_component": 6,
+          "captured_fraction": 0.0,
+          "area_km2": 18043.625820952147,
+          "bounds": [
+            -94.870001,
+            43.67,
+            -92.870001,
+            45.02
+          ]
+        }
+      ],
+      "nested_truth_violations": 0
+    },
+    "25000": {
+      "truth": {
+        "Sparse": {
+          "retained_count": 12,
+          "removed_count": 62,
+          "retained_area_km2": 516659.45030334976,
+          "removed_area_km2": 516975.04334719235
+        },
+        "Medium": {
+          "retained_count": 2,
+          "removed_count": 51,
+          "retained_area_km2": 66878.57164697564,
+          "removed_area_km2": 282713.7909124684
+        }
+      },
+      "forecasts_with_fraction_change": 10,
+      "largest_absolute_fraction_change": 0.6988120778071458,
+      "median_absolute_change_among_affected": 0.08947728604589324,
+      "category_changes": 5,
+      "crossed_20_percent": 5,
+      "crossed_50_percent": 1,
+      "total_misses": 0,
+      "misses_per_event": {
+        "20260324_13Z_F04": 0,
+        "20260403_21Z_F04": 0,
+        "20260524_13Z_F04": 0,
+        "20260524_19Z_F04": 0,
+        "20260524_19Z_F06": 0,
+        "20260728_19Z_F04": 0
+      },
+      "added_misses_relative_15000": 0,
+      "removed_misses_relative_15000": 7,
+      "added_miss_components": [],
+      "removed_miss_components": [
+        {
+          "event_id": "20260403_21Z_F04",
+          "threshold_km2": 15000,
+          "truth_component": 3,
+          "captured_fraction": 0.0,
+          "area_km2": 15511.360025065092,
+          "bounds": [
+            -83.270001,
+            40.02,
+            -81.070001,
+            40.97
+          ]
+        },
+        {
+          "event_id": "20260524_13Z_F04",
+          "threshold_km2": 15000,
+          "truth_component": 1,
+          "captured_fraction": 0.0776638104919276,
+          "area_km2": 24829.593935626155,
+          "bounds": [
+            -81.120001,
+            31.52,
+            -79.170001,
+            33.62
+          ]
+        },
+        {
+          "event_id": "20260524_13Z_F04",
+          "threshold_km2": 15000,
+          "truth_component": 3,
+          "captured_fraction": 0.0,
+          "area_km2": 16381.283709198362,
+          "bounds": [
+            -77.270002,
+            34.67,
+            -75.220002,
+            36.12
+          ]
+        },
+        {
+          "event_id": "20260524_13Z_F04",
+          "threshold_km2": 15000,
+          "truth_component": 4,
+          "captured_fraction": 0.0,
+          "area_km2": 19102.173831273616,
+          "bounds": [
+            -86.320001,
+            34.67,
+            -84.920001,
+            36.67
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F04",
+          "threshold_km2": 15000,
+          "truth_component": 7,
+          "captured_fraction": 0.0,
+          "area_km2": 19159.053334176202,
+          "bounds": [
+            -96.370001,
+            43.72,
+            -93.970001,
+            45.37
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F06",
+          "threshold_km2": 15000,
+          "truth_component": 1,
+          "captured_fraction": 0.0,
+          "area_km2": 23112.25325171629,
+          "bounds": [
+            -86.070001,
+            29.77,
+            -83.970001,
+            31.37
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F06",
+          "threshold_km2": 15000,
+          "truth_component": 6,
+          "captured_fraction": 0.0,
+          "area_km2": 18043.625820952147,
+          "bounds": [
+            -94.870001,
+            43.67,
+            -92.870001,
+            45.02
+          ]
+        }
+      ],
+      "nested_truth_violations": 0
+    },
+    "30000": {
+      "truth": {
+        "Sparse": {
+          "retained_count": 9,
+          "removed_count": 65,
+          "retained_area_km2": 439877.3007466484,
+          "removed_area_km2": 593757.1929038938
+        },
+        "Medium": {
+          "retained_count": 2,
+          "removed_count": 51,
+          "retained_area_km2": 66878.57164697564,
+          "removed_area_km2": 282713.7909124684
+        }
+      },
+      "forecasts_with_fraction_change": 13,
+      "largest_absolute_fraction_change": 0.7169109255569839,
+      "median_absolute_change_among_affected": 0.16735764176138634,
+      "category_changes": 8,
+      "crossed_20_percent": 8,
+      "crossed_50_percent": 4,
+      "total_misses": 0,
+      "misses_per_event": {
+        "20260324_13Z_F04": 0,
+        "20260403_21Z_F04": 0,
+        "20260524_13Z_F04": 0,
+        "20260524_19Z_F04": 0,
+        "20260524_19Z_F06": 0,
+        "20260728_19Z_F04": 0
+      },
+      "added_misses_relative_15000": 0,
+      "removed_misses_relative_15000": 7,
+      "added_miss_components": [],
+      "removed_miss_components": [
+        {
+          "event_id": "20260403_21Z_F04",
+          "threshold_km2": 15000,
+          "truth_component": 3,
+          "captured_fraction": 0.0,
+          "area_km2": 15511.360025065092,
+          "bounds": [
+            -83.270001,
+            40.02,
+            -81.070001,
+            40.97
+          ]
+        },
+        {
+          "event_id": "20260524_13Z_F04",
+          "threshold_km2": 15000,
+          "truth_component": 1,
+          "captured_fraction": 0.0776638104919276,
+          "area_km2": 24829.593935626155,
+          "bounds": [
+            -81.120001,
+            31.52,
+            -79.170001,
+            33.62
+          ]
+        },
+        {
+          "event_id": "20260524_13Z_F04",
+          "threshold_km2": 15000,
+          "truth_component": 3,
+          "captured_fraction": 0.0,
+          "area_km2": 16381.283709198362,
+          "bounds": [
+            -77.270002,
+            34.67,
+            -75.220002,
+            36.12
+          ]
+        },
+        {
+          "event_id": "20260524_13Z_F04",
+          "threshold_km2": 15000,
+          "truth_component": 4,
+          "captured_fraction": 0.0,
+          "area_km2": 19102.173831273616,
+          "bounds": [
+            -86.320001,
+            34.67,
+            -84.920001,
+            36.67
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F04",
+          "threshold_km2": 15000,
+          "truth_component": 7,
+          "captured_fraction": 0.0,
+          "area_km2": 19159.053334176202,
+          "bounds": [
+            -96.370001,
+            43.72,
+            -93.970001,
+            45.37
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F06",
+          "threshold_km2": 15000,
+          "truth_component": 1,
+          "captured_fraction": 0.0,
+          "area_km2": 23112.25325171629,
+          "bounds": [
+            -86.070001,
+            29.77,
+            -83.970001,
+            31.37
+          ]
+        },
+        {
+          "event_id": "20260524_19Z_F06",
+          "threshold_km2": 15000,
+          "truth_component": 6,
+          "captured_fraction": 0.0,
+          "area_km2": 18043.625820952147,
+          "bounds": [
+            -94.870001,
+            43.67,
+            -92.870001,
+            45.02
+          ]
+        }
+      ],
+      "nested_truth_violations": 0
+    }
+  },
+  "sensitive_forecast_rows": [
+    {
+      "event_id": "20260403_21Z_F04",
+      "source_feature_number": 2,
+      "feat_type": "AREA",
+      "coverage_code": 2,
+      "threshold_km2": 0,
+      "verification_fraction": 0.0887957810440183,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0,
+      "fraction_difference_from_15000": 0.0887957810440183,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260403_21Z_F04",
+      "source_feature_number": 7,
+      "feat_type": "LINE",
+      "coverage_code": 1,
+      "threshold_km2": 0,
+      "verification_fraction": 0.0004357276958247925,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0,
+      "fraction_difference_from_15000": 0.0004357276958247925,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "source_feature_number": 3,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 0,
+      "verification_fraction": 0.13825777999637767,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0585875242931264,
+      "fraction_difference_from_15000": 0.07967025570325127,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "source_feature_number": 5,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 0,
+      "verification_fraction": 0.14512105445762769,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0,
+      "fraction_difference_from_15000": 0.14512105445762769,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "source_feature_number": 6,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 0,
+      "verification_fraction": 0.201703921664139,
+      "category": "Verified Close",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0,
+      "fraction_difference_from_15000": 0.201703921664139,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "source_feature_number": 12,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 0,
+      "verification_fraction": 0.0005671994262850906,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0,
+      "fraction_difference_from_15000": 0.0005671994262850906,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "source_feature_number": 6,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 0,
+      "verification_fraction": 0.5326168655418689,
+      "category": "Verified Well",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.4870774269777436,
+      "fraction_difference_from_15000": 0.045539438564125345,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "source_feature_number": 7,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 0,
+      "verification_fraction": 0.0323024529885103,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0,
+      "fraction_difference_from_15000": 0.0323024529885103,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "source_feature_number": 3,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 0,
+      "verification_fraction": 0.27945385794845246,
+      "category": "Verified Close",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0,
+      "fraction_difference_from_15000": 0.27945385794845246,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "source_feature_number": 4,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 0,
+      "verification_fraction": 0.263283042300356,
+      "category": "Verified Close",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.19927433050185256,
+      "fraction_difference_from_15000": 0.06400871179850343,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "source_feature_number": 5,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 0,
+      "verification_fraction": 0.00019397358479790182,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0,
+      "fraction_difference_from_15000": 0.00019397358479790182,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "source_feature_number": 8,
+      "feat_type": "AREA",
+      "coverage_code": 2,
+      "threshold_km2": 0,
+      "verification_fraction": 0.1666897763604845,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0,
+      "fraction_difference_from_15000": 0.1666897763604845,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "source_feature_number": 10,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 0,
+      "verification_fraction": 0.3728919534122799,
+      "category": "Verified Close",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.3183168524521935,
+      "fraction_difference_from_15000": 0.05457510096008639,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "source_feature_number": 12,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 0,
+      "verification_fraction": 0.38006955500208384,
+      "category": "Verified Close",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.3649333422057369,
+      "fraction_difference_from_15000": 0.015136212796346915,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "source_feature_number": 13,
+      "feat_type": "AREA",
+      "coverage_code": 2,
+      "threshold_km2": 0,
+      "verification_fraction": 0.1526686534308502,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0,
+      "fraction_difference_from_15000": 0.1526686534308502,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "source_feature_number": 3,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 5000,
+      "verification_fraction": 0.13825777999637767,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0585875242931264,
+      "fraction_difference_from_15000": 0.07967025570325127,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "source_feature_number": 5,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 5000,
+      "verification_fraction": 0.14512105445762769,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0,
+      "fraction_difference_from_15000": 0.14512105445762769,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "source_feature_number": 6,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 5000,
+      "verification_fraction": 0.14585476354241886,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0,
+      "fraction_difference_from_15000": 0.14585476354241886,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "source_feature_number": 6,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 5000,
+      "verification_fraction": 0.5326168655418689,
+      "category": "Verified Well",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.4870774269777436,
+      "fraction_difference_from_15000": 0.045539438564125345,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "source_feature_number": 7,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 5000,
+      "verification_fraction": 0.0323024529885103,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0,
+      "fraction_difference_from_15000": 0.0323024529885103,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "source_feature_number": 4,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 5000,
+      "verification_fraction": 0.2568179076275809,
+      "category": "Verified Close",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.19927433050185256,
+      "fraction_difference_from_15000": 0.05754357712572833,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "source_feature_number": 8,
+      "feat_type": "AREA",
+      "coverage_code": 2,
+      "threshold_km2": 5000,
+      "verification_fraction": 0.1666897763604845,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0,
+      "fraction_difference_from_15000": 0.1666897763604845,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "source_feature_number": 10,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 5000,
+      "verification_fraction": 0.37289195341227993,
+      "category": "Verified Close",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.3183168524521935,
+      "fraction_difference_from_15000": 0.05457510096008644,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "source_feature_number": 13,
+      "feat_type": "AREA",
+      "coverage_code": 2,
+      "threshold_km2": 5000,
+      "verification_fraction": 0.1526686534308502,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0,
+      "fraction_difference_from_15000": 0.1526686534308502,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "source_feature_number": 5,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 10000,
+      "verification_fraction": 0.14512105445762769,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0,
+      "fraction_difference_from_15000": 0.14512105445762769,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "source_feature_number": 6,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 10000,
+      "verification_fraction": 0.5326168655418689,
+      "category": "Verified Well",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.4870774269777436,
+      "fraction_difference_from_15000": 0.045539438564125345,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "source_feature_number": 7,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 10000,
+      "verification_fraction": 0.0323024529885103,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0,
+      "fraction_difference_from_15000": 0.0323024529885103,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "source_feature_number": 4,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 10000,
+      "verification_fraction": 0.23521827190956857,
+      "category": "Verified Close",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.19927433050185256,
+      "fraction_difference_from_15000": 0.03594394140771601,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "source_feature_number": 13,
+      "feat_type": "AREA",
+      "coverage_code": 2,
+      "threshold_km2": 10000,
+      "verification_fraction": 0.1526686534308502,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0,
+      "fraction_difference_from_15000": 0.1526686534308502,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260403_21Z_F04",
+      "source_feature_number": 5,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 20000,
+      "verification_fraction": 0.16880012728308177,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.25917103850122736,
+      "fraction_difference_from_15000": -0.09037091121814558,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "source_feature_number": 1,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 20000,
+      "verification_fraction": 0.0,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.46338490562498713,
+      "fraction_difference_from_15000": -0.46338490562498713,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "source_feature_number": 2,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 20000,
+      "verification_fraction": 0.0,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.06282626539999075,
+      "fraction_difference_from_15000": -0.06282626539999075,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "source_feature_number": 10,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 20000,
+      "verification_fraction": 0.3941399005254689,
+      "category": "Verified Close",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.48272356139910977,
+      "fraction_difference_from_15000": -0.08858366087364089,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260403_21Z_F04",
+      "source_feature_number": 5,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 25000,
+      "verification_fraction": 0.16880012728308177,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.25917103850122736,
+      "fraction_difference_from_15000": -0.09037091121814558,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "source_feature_number": 1,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 25000,
+      "verification_fraction": 0.0,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.46338490562498713,
+      "fraction_difference_from_15000": -0.46338490562498713,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "source_feature_number": 2,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 25000,
+      "verification_fraction": 0.0,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.06282626539999075,
+      "fraction_difference_from_15000": -0.06282626539999075,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "source_feature_number": 3,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 25000,
+      "verification_fraction": 0.0,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0585875242931264,
+      "fraction_difference_from_15000": -0.0585875242931264,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "source_feature_number": 4,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 25000,
+      "verification_fraction": 0.0,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.6988120778071458,
+      "fraction_difference_from_15000": -0.6988120778071458,
+      "current_15000_category": "Verified Well",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "source_feature_number": 10,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 25000,
+      "verification_fraction": 0.3941399005254689,
+      "category": "Verified Close",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.48272356139910977,
+      "fraction_difference_from_15000": -0.08858366087364089,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "source_feature_number": 11,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 25000,
+      "verification_fraction": 0.1175363467120411,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.28489398847342745,
+      "fraction_difference_from_15000": -0.16735764176138634,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "source_feature_number": 2,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 25000,
+      "verification_fraction": 0.0,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.45091251693566897,
+      "fraction_difference_from_15000": -0.45091251693566897,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "source_feature_number": 4,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 25000,
+      "verification_fraction": 0.12590360063730166,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.19927433050185256,
+      "fraction_difference_from_15000": -0.0733707298645509,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "source_feature_number": 10,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 25000,
+      "verification_fraction": 0.2316036508446615,
+      "category": "Verified Close",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.3183168524521935,
+      "fraction_difference_from_15000": -0.08671320160753199,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260403_21Z_F04",
+      "source_feature_number": 5,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 30000,
+      "verification_fraction": 0.16880012728308177,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.25917103850122736,
+      "fraction_difference_from_15000": -0.09037091121814558,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "source_feature_number": 1,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 30000,
+      "verification_fraction": 0.0,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.46338490562498713,
+      "fraction_difference_from_15000": -0.46338490562498713,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "source_feature_number": 2,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 30000,
+      "verification_fraction": 0.0,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.06282626539999075,
+      "fraction_difference_from_15000": -0.06282626539999075,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "source_feature_number": 3,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 30000,
+      "verification_fraction": 0.0,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.0585875242931264,
+      "fraction_difference_from_15000": -0.0585875242931264,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "source_feature_number": 4,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 30000,
+      "verification_fraction": 0.0,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.6988120778071458,
+      "fraction_difference_from_15000": -0.6988120778071458,
+      "current_15000_category": "Verified Well",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "source_feature_number": 8,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 30000,
+      "verification_fraction": 0.0,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.5713308601385887,
+      "fraction_difference_from_15000": -0.5713308601385887,
+      "current_15000_category": "Verified Well",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "source_feature_number": 10,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 30000,
+      "verification_fraction": 0.3941399005254689,
+      "category": "Verified Close",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.48272356139910977,
+      "fraction_difference_from_15000": -0.08858366087364089,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "source_feature_number": 11,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 30000,
+      "verification_fraction": 0.1175363467120411,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.28489398847342745,
+      "fraction_difference_from_15000": -0.16735764176138634,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "source_feature_number": 2,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 30000,
+      "verification_fraction": 0.0,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.45091251693566897,
+      "fraction_difference_from_15000": -0.45091251693566897,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "source_feature_number": 3,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 30000,
+      "verification_fraction": 0.0,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.7169109255569839,
+      "fraction_difference_from_15000": -0.7169109255569839,
+      "current_15000_category": "Verified Well",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "source_feature_number": 8,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 30000,
+      "verification_fraction": 0.0,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.672231814818841,
+      "fraction_difference_from_15000": -0.672231814818841,
+      "current_15000_category": "Verified Well",
+      "category_changed_from_15000": true
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "source_feature_number": 4,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 30000,
+      "verification_fraction": 0.12590360063730166,
+      "category": "Overforecasted",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.19927433050185256,
+      "fraction_difference_from_15000": -0.0733707298645509,
+      "current_15000_category": "Overforecasted",
+      "category_changed_from_15000": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "source_feature_number": 10,
+      "feat_type": "AREA",
+      "coverage_code": 3,
+      "threshold_km2": 30000,
+      "verification_fraction": 0.2316036508446615,
+      "category": "Verified Close",
+      "artifact_method": "legacy independent-max frozen truth",
+      "current_15000_fraction": 0.3183168524521935,
+      "fraction_difference_from_15000": -0.08671320160753199,
+      "current_15000_category": "Verified Close",
+      "category_changed_from_15000": false
+    }
+  ],
+  "load_bearing_components_up_to_30000_km2": [
+    {
+      "event_id": "20260403_21Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 3,
+      "area_km2": 8946.732255560984,
+      "domain_status": "inside",
+      "centroid": [
+        -99.04471018676405,
+        32.665203488376534
+      ],
+      "bounds": [
+        -99.57000086942773,
+        32.12000000000455,
+        -98.47000090086144,
+        33.170000000004336
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260403_21Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 4,
+      "area_km2": 16117.226495269877,
+      "domain_status": "inside",
+      "centroid": [
+        -98.53575325007968,
+        35.18708463950239
+      ],
+      "bounds": [
+        -99.47000087228534,
+        34.520000000004075,
+        -97.67000092372231,
+        35.920000000003796
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 5,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.09037091121814561
+        }
+      ],
+      "captured_fraction": 1.0000000000000002,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260403_21Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 6,
+      "area_km2": 1293.0631195683873,
+      "domain_status": "inside",
+      "centroid": [
+        -93.09900105434367,
+        33.140000000004356
+      ],
+      "bounds": [
+        -93.37000104659953,
+        33.02000000000437,
+        -92.82000106231638,
+        33.270000000004316
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260403_21Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 7,
+      "area_km2": 7722.842939553536,
+      "domain_status": "inside",
+      "centroid": [
+        -93.27861928282913,
+        44.74371794872
+      ],
+      "bounds": [
+        -93.82000103374028,
+        44.27000000000213,
+        -92.72000106517399,
+        45.220000000001946
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260403_21Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 10,
+      "area_km2": 455.5597170118319,
+      "domain_status": "inside",
+      "centroid": [
+        -85.85552757712333,
+        39.19500000000314
+      ],
+      "bounds": [
+        -85.97000125806264,
+        39.07000000000316,
+        -85.72000126520666,
+        39.32000000000312
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260403_21Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 11,
+      "area_km2": 6990.516030913971,
+      "domain_status": "inside",
+      "centroid": [
+        -85.25670696406459,
+        40.94148829431716
+      ],
+      "bounds": [
+        -85.82000126234905,
+        40.470000000002884,
+        -84.72000129378276,
+        41.370000000002705
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260403_21Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 12,
+      "area_km2": 9420.31116151638,
+      "domain_status": "inside",
+      "centroid": [
+        -84.37146369928571,
+        31.81784122563123
+      ],
+      "bounds": [
+        -84.87000128949634,
+        31.320000000004462,
+        -83.77000132093005,
+        32.470000000004475
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260403_21Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 13,
+      "area_km2": 2008.748301643226,
+      "domain_status": "inside",
+      "centroid": [
+        -83.19694938925367,
+        32.374220779225276
+      ],
+      "bounds": [
+        -83.42000133093168,
+        32.12000000000455,
+        -82.97000134379093,
+        32.670000000004435
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260403_21Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 14,
+      "area_km2": 15511.360025065094,
+      "domain_status": "inside",
+      "centroid": [
+        -82.15296798322352,
+        40.46632018209696
+      ],
+      "bounds": [
+        -83.2700013352181,
+        40.02000000000298,
+        -81.07000139808551,
+        40.970000000002784
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260403_21Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 15,
+      "area_km2": 1912.1788870057158,
+      "domain_status": "inside",
+      "centroid": [
+        -83.80179144347842,
+        40.30302469136095
+      ],
+      "bounds": [
+        -84.270001306642,
+        40.12000000000296,
+        -83.47000132950288,
+        40.470000000002884
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260403_21Z_F04",
+      "truth_class": "Medium",
+      "component_id": 2,
+      "area_km2": 4968.312539830636,
+      "domain_status": "inside",
+      "centroid": [
+        -98.34322425473802,
+        35.3249492385826
+      ],
+      "bounds": [
+        -98.8200008908598,
+        34.920000000003995,
+        -97.8700009180071,
+        35.720000000003836
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 2,
+          "feat_type": "AREA",
+          "coverage_code": 2,
+          "isolated_fraction_contribution": 0.06936519069494927
+        }
+      ],
+      "captured_fraction": 0.9999999999999997,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260403_21Z_F04",
+      "truth_class": "Medium",
+      "component_id": 3,
+      "area_km2": 4329.188023646845,
+      "domain_status": "inside",
+      "centroid": [
+        -95.65969024670582,
+        37.73680790960795
+      ],
+      "bounds": [
+        -95.97000097230168,
+        37.22000000000354,
+        -95.37000098944733,
+        38.22000000000334
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 2,
+          "feat_type": "AREA",
+          "coverage_code": 2,
+          "isolated_fraction_contribution": 0.01943059034906903
+        },
+        {
+          "source_feature_number": 7,
+          "feat_type": "LINE",
+          "coverage_code": 1,
+          "isolated_fraction_contribution": 0.0004357276958247925
+        }
+      ],
+      "captured_fraction": 0.9999999999999998,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 2,
+      "area_km2": 4504.961734434065,
+      "domain_status": "crossing",
+      "centroid": [
+        -94.54129222191982,
+        27.874120879124806
+      ],
+      "bounds": [
+        -95.12000099659136,
+        27.37000000000385,
+        -93.92000103088267,
+        28.42000000000401
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 6,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.05584915812172016
+        }
+      ],
+      "captured_fraction": 0.6716462788109041,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 3,
+      "area_km2": 9676.608676973648,
+      "domain_status": "crossing",
+      "centroid": [
+        -91.80428086973512,
+        28.695138504159193
+      ],
+      "bounds": [
+        -92.6200010680316,
+        28.220000000003978,
+        -90.97000111518216,
+        29.220000000004134
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 6,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.14585476354241886
+        }
+      ],
+      "captured_fraction": 0.816605926479639,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 4,
+      "area_km2": 19697.69880307245,
+      "domain_status": "inside",
+      "centroid": [
+        -86.85636785559842,
+        33.08915243101618
+      ],
+      "bounds": [
+        -87.67000120948327,
+        32.22000000000453,
+        -85.82000126234905,
+        33.920000000004194
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 1,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.46338490562498713
+        },
+        {
+          "source_feature_number": 2,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.06282626539999075
+        }
+      ],
+      "captured_fraction": 0.4031180067684496,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 5,
+      "area_km2": 19102.17383127363,
+      "domain_status": "inside",
+      "centroid": [
+        -85.59690916346096,
+        35.59723684210912
+      ],
+      "bounds": [
+        -86.320001248061,
+        34.67000000000404,
+        -84.92000128806754,
+        36.67000000000364
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 6,
+      "area_km2": 2685.9011887618717,
+      "domain_status": "inside",
+      "centroid": [
+        -84.89270771086585,
+        37.17298165137969
+      ],
+      "bounds": [
+        -85.17000128092351,
+        36.8700000000036,
+        -84.62000129664037,
+        37.47000000000348
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 7,
+      "area_km2": 2199.434682276108,
+      "domain_status": "inside",
+      "centroid": [
+        -85.27222350022464,
+        37.79444444444788
+      ],
+      "bounds": [
+        -85.62000126806427,
+        37.4200000000035,
+        -84.82000129092515,
+        38.02000000000338
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 8,
+      "area_km2": 14250.959416633534,
+      "domain_status": "inside",
+      "centroid": [
+        -84.76262034018391,
+        43.06531746031985
+      ],
+      "bounds": [
+        -85.3200012766371,
+        42.22000000000254,
+        -84.12000131092842,
+        44.020000000002184
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 5,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.14512105445762769
+        }
+      ],
+      "captured_fraction": 0.1791838285415672,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 9,
+      "area_km2": 8055.860184982432,
+      "domain_status": "inside",
+      "centroid": [
+        -82.72672892549355,
+        29.905797342196937
+      ],
+      "bounds": [
+        -83.2200013366469,
+        29.420000000004165,
+        -82.220001365223,
+        30.420000000004322
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 10,
+      "area_km2": 2855.974457922889,
+      "domain_status": "inside",
+      "centroid": [
+        -83.94542504473067,
+        38.51237288135921
+      ],
+      "bounds": [
+        -84.2200013080708,
+        38.22000000000334,
+        -83.67000132378766,
+        38.82000000000322
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 11,
+      "area_km2": 1153.6816556929832,
+      "domain_status": "inside",
+      "centroid": [
+        -82.64083468653057,
+        39.02208333333651
+      ],
+      "bounds": [
+        -82.82000134807734,
+        38.77000000000322,
+        -82.42000135950778,
+        39.27000000000312
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 12,
+      "area_km2": 4484.465794952022,
+      "domain_status": "inside",
+      "centroid": [
+        -80.35313394869128,
+        28.940783132534214
+      ],
+      "bounds": [
+        -80.67000140951595,
+        28.520000000004025,
+        -80.02000142809041,
+        29.32000000000415
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 13,
+      "area_km2": 24829.59393562616,
+      "domain_status": "inside",
+      "centroid": [
+        -80.19641503561466,
+        32.687879581156224
+      ],
+      "bounds": [
+        -81.1200013966567,
+        31.520000000004494,
+        -79.17000145238009,
+        33.620000000004254
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 3,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.0585875242931264
+        }
+      ],
+      "captured_fraction": 0.07766381049192758,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 14,
+      "area_km2": 7312.043416004934,
+      "domain_status": "inside",
+      "centroid": [
+        -76.53815942232471,
+        33.876403508776136
+      ],
+      "bounds": [
+        -77.0200015138187,
+        33.32000000000431,
+        -76.07000154096599,
+        34.420000000004094
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 3,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.07967025570325126
+        }
+      ],
+      "captured_fraction": 0.3586250444670836,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 15,
+      "area_km2": 16381.28370919836,
+      "domain_status": "inside",
+      "centroid": [
+        -76.24977076659809,
+        35.37792307692696
+      ],
+      "bounds": [
+        -77.27000150667467,
+        34.67000000000404,
+        -75.22000156525567,
+        36.120000000003756
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 2,
+      "area_km2": 1862.785505813419,
+      "domain_status": "inside",
+      "centroid": [
+        -110.69993012884258,
+        31.854154929581977
+      ],
+      "bounds": [
+        -110.87000054651784,
+        31.420000000004478,
+        -110.57000055509067,
+        32.22000000000453
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 5,
+      "area_km2": 26.72745745470676,
+      "domain_status": "inside",
+      "centroid": [
+        -99.34500087585735,
+        30.04500000000427
+      ],
+      "bounds": [
+        -99.37000087514295,
+        30.02000000000426,
+        -99.32000087657175,
+        30.07000000000427
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 12,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.0005671994262850906
+        }
+      ],
+      "captured_fraction": 0.9999999999999999,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 6,
+      "area_km2": 23696.41584020182,
+      "domain_status": "inside",
+      "centroid": [
+        -97.57505587149039,
+        32.5439560439605
+      ],
+      "bounds": [
+        -98.52000089943263,
+        31.82000000000454,
+        -96.52000095658482,
+        33.42000000000429
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 4,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.6988120778071458
+        }
+      ],
+      "captured_fraction": 0.7888144801705365,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 7,
+      "area_km2": 5564.939977247465,
+      "domain_status": "inside",
+      "centroid": [
+        -97.56908999543184,
+        43.31787449392942
+      ],
+      "bounds": [
+        -98.02000091372068,
+        42.9200000000024,
+        -97.12000093943917,
+        43.720000000002244
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 8,
+      "area_km2": 3475.195704684412,
+      "domain_status": "inside",
+      "centroid": [
+        -88.95856706413393,
+        29.235697674422738
+      ],
+      "bounds": [
+        -89.32000116233272,
+        28.870000000004083,
+        -88.67000118090718,
+        29.570000000004192
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 9,
+      "area_km2": 19159.053334176206,
+      "domain_status": "inside",
+      "centroid": [
+        -95.13065767831449,
+        44.552142857144894
+      ],
+      "bounds": [
+        -96.37000096087124,
+        43.720000000002244,
+        -93.97000102945387,
+        45.37000000000191
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 10,
+      "area_km2": 2247.1129614870742,
+      "domain_status": "inside",
+      "centroid": [
+        -91.01690587574657,
+        46.323095238096954
+      ],
+      "bounds": [
+        -91.22000110803813,
+        45.97000000000179,
+        -90.82000111946857,
+        46.67000000000165
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 11,
+      "area_km2": 323.62191115092406,
+      "domain_status": "inside",
+      "centroid": [
+        -88.57000118376479,
+        29.120000000004122
+      ],
+      "bounds": [
+        -88.62000118233598,
+        28.9700000000041,
+        -88.52000118519359,
+        29.270000000004146
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 12,
+      "area_km2": 19300.17414526146,
+      "domain_status": "inside",
+      "centroid": [
+        -85.19816932419567,
+        30.57867768595476
+      ],
+      "bounds": [
+        -85.97000125806264,
+        29.770000000004224,
+        -84.37000130378439,
+        31.420000000004478
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 10,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.08858366087364088
+        }
+      ],
+      "captured_fraction": 0.22426288360076313,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 13,
+      "area_km2": 756.4740499748866,
+      "domain_status": "inside",
+      "centroid": [
+        -85.38120817143978,
+        32.40706896552173
+      ],
+      "bounds": [
+        -85.57000126949308,
+        32.270000000004515,
+        -85.17000128092351,
+        32.52000000000447
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 14,
+      "area_km2": 25472.213489321395,
+      "domain_status": "inside",
+      "centroid": [
+        -84.43204018536149,
+        34.73722333001398
+      ],
+      "bounds": [
+        -85.2700012780659,
+        33.720000000004234,
+        -83.52000132807407,
+        36.07000000000376
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 8,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.5713308601385887
+        }
+      ],
+      "captured_fraction": 0.598715842024733,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 17,
+      "area_km2": 20395.973669855277,
+      "domain_status": "inside",
+      "centroid": [
+        -82.53395638270642,
+        29.059550264554353
+      ],
+      "bounds": [
+        -83.12000133950451,
+        27.7200000000039,
+        -81.92000137379583,
+        30.520000000004337
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 11,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.16735764176138637
+        }
+      ],
+      "captured_fraction": 0.4574124821797558,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 18,
+      "area_km2": 4979.979809033116,
+      "domain_status": "inside",
+      "centroid": [
+        -82.30299105357311,
+        33.8207731958805
+      ],
+      "bounds": [
+        -82.67000135236376,
+        33.370000000004296,
+        -81.77000137808224,
+        34.320000000004114
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 19,
+      "area_km2": 3784.854126736451,
+      "domain_status": "inside",
+      "centroid": [
+        -76.93241648230793,
+        33.60554421769134
+      ],
+      "bounds": [
+        -77.32000150524587,
+        33.270000000004316,
+        -76.52000152810675,
+        33.8700000000042
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 20,
+      "area_km2": 1858.0275463171138,
+      "domain_status": "inside",
+      "centroid": [
+        -77.23959610213812,
+        35.67608108108492
+      ],
+      "bounds": [
+        -77.47000150095946,
+        35.47000000000388,
+        -76.9700015152475,
+        35.920000000003796
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 21,
+      "area_km2": 25.090382668904155,
+      "domain_status": "inside",
+      "centroid": [
+        -76.69500152310593,
+        35.745000000003834
+      ],
+      "bounds": [
+        -76.72000152239153,
+        35.720000000003836,
+        -76.67000152382033,
+        35.77000000000382
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 22,
+      "area_km2": 696.2196288900634,
+      "domain_status": "inside",
+      "centroid": [
+        -79.56051868259993,
+        39.08637931034798
+      ],
+      "bounds": [
+        -79.82000143380563,
+        38.97000000000318,
+        -79.37000144666487,
+        39.27000000000312
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 23,
+      "area_km2": 1011.2517893865844,
+      "domain_status": "inside",
+      "centroid": [
+        -80.50430373983232,
+        40.540348837212164
+      ],
+      "bounds": [
+        -80.72000140808714,
+        40.370000000002904,
+        -80.32000141951758,
+        40.770000000002824
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "truth_class": "Sparse",
+      "component_id": 2,
+      "area_km2": 25147.16922582919,
+      "domain_status": "inside",
+      "centroid": [
+        -98.04494904578769,
+        32.383848547722245
+      ],
+      "bounds": [
+        -98.97000088657339,
+        31.570000000004505,
+        -96.87000094658319,
+        33.270000000004316
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 3,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.7169109255569839
+        }
+      ],
+      "captured_fraction": 0.5032901682205622,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "truth_class": "Sparse",
+      "component_id": 4,
+      "area_km2": 22592.00533722741,
+      "domain_status": "inside",
+      "centroid": [
+        -96.63366894538433,
+        43.51582504970408
+      ],
+      "bounds": [
+        -97.8200009194359,
+        42.4200000000025,
+        -95.32000099087614,
+        44.47000000000209
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 2,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.45091251693566897
+        }
+      ],
+      "captured_fraction": 0.2710367838667767,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "truth_class": "Sparse",
+      "component_id": 5,
+      "area_km2": 18043.62582095215,
+      "domain_status": "inside",
+      "centroid": [
+        -93.86794581764623,
+        44.37628834356038
+      ],
+      "bounds": [
+        -94.87000100373538,
+        43.67000000000225,
+        -92.87000106088757,
+        45.020000000001986
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "truth_class": "Sparse",
+      "component_id": 6,
+      "area_km2": 23112.2532517163,
+      "domain_status": "inside",
+      "centroid": [
+        -85.05442657158255,
+        30.651609195406675
+      ],
+      "bounds": [
+        -86.07000125520503,
+        29.770000000004224,
+        -83.97000131521483,
+        31.370000000004474
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "truth_class": "Sparse",
+      "component_id": 8,
+      "area_km2": 11326.847264930979,
+      "domain_status": "inside",
+      "centroid": [
+        -82.54238852940716,
+        29.365902612830762
+      ],
+      "bounds": [
+        -83.12000133950451,
+        28.770000000004067,
+        -81.97000137236702,
+        29.970000000004255
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 6,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.04553943856412528
+        },
+        {
+          "source_feature_number": 7,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.0323024529885103
+        }
+      ],
+      "captured_fraction": 0.2975838618964007,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "truth_class": "Sparse",
+      "component_id": 9,
+      "area_km2": 26162.766841550732,
+      "domain_status": "inside",
+      "centroid": [
+        -80.82048977730847,
+        38.10397674418939
+      ],
+      "bounds": [
+        -81.72000137951105,
+        36.77000000000362,
+        -79.97000142951921,
+        39.3700000000031
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 8,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.672231814818841
+        }
+      ],
+      "captured_fraction": 0.6879141039030587,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 1,
+      "area_km2": 11017.492917523392,
+      "domain_status": "inside",
+      "centroid": [
+        -112.59207914899297,
+        36.803202247194605
+      ],
+      "bounds": [
+        -113.3700004750776,
+        36.27000000000372,
+        -111.72000052222816,
+        37.3700000000035
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 2,
+      "area_km2": 3864.379168598807,
+      "domain_status": "inside",
+      "centroid": [
+        -113.3878998828501,
+        42.391449704144506
+      ],
+      "bounds": [
+        -113.77000046364716,
+        42.02000000000258,
+        -112.97000048650804,
+        42.72000000000244
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 3,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.2794538579484524
+        }
+      ],
+      "captured_fraction": 0.9999999999999999,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 6,
+      "area_km2": 2255.5013490827578,
+      "domain_status": "inside",
+      "centroid": [
+        -108.32890866510935,
+        32.95189655172853
+      ],
+      "bounds": [
+        -108.57000061224286,
+        32.670000000004435,
+        -108.07000062653091,
+        33.22000000000433
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 8,
+      "area_km2": 784.1035016188922,
+      "domain_status": "inside",
+      "centroid": [
+        -111.97312551499482,
+        37.59187500000346
+      ],
+      "bounds": [
+        -112.17000050936892,
+        37.47000000000348,
+        -111.77000052079936,
+        37.72000000000344
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 10,
+      "area_km2": 2104.0565820800007,
+      "domain_status": "inside",
+      "centroid": [
+        -105.18488166135731,
+        35.88785714286095
+      ],
+      "bounds": [
+        -105.47000070082876,
+        35.620000000003856,
+        -104.92000071654562,
+        36.120000000003756
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 4,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.006465134672775125
+        }
+      ],
+      "captured_fraction": 0.9999999999999999,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 11,
+      "area_km2": 1473.8769762266652,
+      "domain_status": "inside",
+      "centroid": [
+        -105.89750068861255,
+        37.410000000003514
+      ],
+      "bounds": [
+        -106.02000068511191,
+        37.07000000000356,
+        -105.77000069225593,
+        37.72000000000344
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 5,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.00019397358479790182
+        }
+      ],
+      "captured_fraction": 0.005361784527511386,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 12,
+      "area_km2": 24902.59463417679,
+      "domain_status": "inside",
+      "centroid": [
+        -104.58856797747875,
+        38.30732943470118
+      ],
+      "bounds": [
+        -105.72000069368474,
+        37.17000000000354,
+        -103.37000076083856,
+        39.32000000000312
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 4,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.07337072986455091
+        }
+      ],
+      "captured_fraction": 0.9588663519077572,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 13,
+      "area_km2": 11697.836214189765,
+      "domain_status": "inside",
+      "centroid": [
+        -103.38437323006347,
+        40.06757085020539
+      ],
+      "bounds": [
+        -103.9700007436929,
+        39.4200000000031,
+        -102.77000077798422,
+        40.770000000002824
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 4,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.03594394140771604
+        }
+      ],
+      "captured_fraction": 1.0000000000000009,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 14,
+      "area_km2": 9104.996077858214,
+      "domain_status": "crossing",
+      "centroid": [
+        -104.41178644535415,
+        45.513571428573314
+      ],
+      "bounds": [
+        -105.1200007108304,
+        44.97000000000199,
+        -103.72000075083693,
+        46.02000000000179
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 16,
+      "area_km2": 3937.203604039075,
+      "domain_status": "inside",
+      "centroid": [
+        -79.58076093431308,
+        36.313354430383455
+      ],
+      "bounds": [
+        -79.97000142951921,
+        35.97000000000378,
+        -79.22000145095129,
+        36.62000000000366
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 12,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.015136212796346868
+        }
+      ],
+      "captured_fraction": 0.34210762302660574,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 17,
+      "area_km2": 5525.335163323159,
+      "domain_status": "inside",
+      "centroid": [
+        -79.50189799461995,
+        39.679698275865086
+      ],
+      "bounds": [
+        -79.92000143094802,
+        39.22000000000314,
+        -79.0200014566665,
+        40.07000000000296
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 18,
+      "area_km2": 7029.529623627503,
+      "domain_status": "inside",
+      "centroid": [
+        -102.63245952778922,
+        41.45226072607532
+      ],
+      "bounds": [
+        -103.17000076655378,
+        41.02000000000278,
+        -102.12000079655868,
+        41.9200000000026
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 4,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.02159963571801229
+        }
+      ],
+      "captured_fraction": 1.0000000000000002,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 20,
+      "area_km2": 3495.9366352569364,
+      "domain_status": "inside",
+      "centroid": [
+        -77.41023329074689,
+        41.58970198675764
+      ],
+      "bounds": [
+        -77.77000149238663,
+        41.22000000000274,
+        -76.92000151667631,
+        41.9200000000026
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 21,
+      "area_km2": 9219.068545964948,
+      "domain_status": "inside",
+      "centroid": [
+        -72.76409030538673,
+        42.82504926108614
+      ],
+      "bounds": [
+        -73.62000161097743,
+        42.32000000000252,
+        -71.8700016609856,
+        43.27000000000233
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 10,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.023601616977678833
+        }
+      ],
+      "captured_fraction": 0.6157867130233217,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 22,
+      "area_km2": 20857.43127410247,
+      "domain_status": "inside",
+      "centroid": [
+        -73.11608970827884,
+        45.76551813471691
+      ],
+      "bounds": [
+        -73.9200016024046,
+        44.67000000000205,
+        -71.8200016624144,
+        46.72000000000165
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 10,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.08671320160753204
+        }
+      ],
+      "captured_fraction": 1.0,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 23,
+      "area_km2": 88.19521346332795,
+      "domain_status": "inside",
+      "centroid": [
+        -71.57000166955842,
+        44.62000000000206
+      ],
+      "bounds": [
+        -71.62000166812962,
+        44.57000000000207,
+        -71.52000167098723,
+        44.67000000000205
+      ],
+      "affected_forecasts": [],
+      "captured_fraction": 0.0,
+      "would_be_miss_if_retained": true
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Sparse",
+      "component_id": 24,
+      "area_km2": 7809.695929978907,
+      "domain_status": "crossing",
+      "centroid": [
+        -71.53106361757378,
+        47.61092920354127
+      ],
+      "bounds": [
+        -72.32000164812635,
+        46.92000000000161,
+        -70.7700016924193,
+        48.32000000000133
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 10,
+          "feat_type": "AREA",
+          "coverage_code": 3,
+          "isolated_fraction_contribution": 0.030973483982407558
+        }
+      ],
+      "captured_fraction": 0.9539630063258653,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Medium",
+      "component_id": 10,
+      "area_km2": 10858.884914987611,
+      "domain_status": "inside",
+      "centroid": [
+        -83.2583115207373,
+        35.588055555559414
+      ],
+      "bounds": [
+        -84.07000131235722,
+        35.120000000003955,
+        -82.47000135807897,
+        36.07000000000376
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 13,
+          "feat_type": "AREA",
+          "coverage_code": 2,
+          "isolated_fraction_contribution": 0.1526686534308502
+        }
+      ],
+      "captured_fraction": 0.9999999999999997,
+      "would_be_miss_if_retained": false
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Medium",
+      "component_id": 11,
+      "area_km2": 5658.800964751302,
+      "domain_status": "inside",
+      "centroid": [
+        -103.37491707868969,
+        40.080146443517606
+      ],
+      "bounds": [
+        -103.77000074940813,
+        39.62000000000306,
+        -102.92000077369781,
+        40.52000000000288
+      ],
+      "affected_forecasts": [
+        {
+          "source_feature_number": 8,
+          "feat_type": "AREA",
+          "coverage_code": 2,
+          "isolated_fraction_contribution": 0.1666897763604845
+        }
+      ],
+      "captured_fraction": 0.9999999999999998,
+      "would_be_miss_if_retained": false
+    }
+  ],
+  "misses": {
+    "0": [
+      {
+        "event_id": "20260403_21Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 1,
+        "captured_fraction": 0.0,
+        "area_km2": 8946.732255560979,
+        "bounds": [
+          -99.570001,
+          32.12,
+          -98.470001,
+          33.17
+        ]
+      },
+      {
+        "event_id": "20260403_21Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 2,
+        "captured_fraction": 0.0,
+        "area_km2": 1293.0631195683875,
+        "bounds": [
+          -93.370001,
+          33.02,
+          -92.820001,
+          33.27
+        ]
+      },
+      {
+        "event_id": "20260403_21Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 7,
+        "captured_fraction": 0.0,
+        "area_km2": 7722.842939553536,
+        "bounds": [
+          -93.820001,
+          44.27,
+          -92.720001,
+          45.22
+        ]
+      },
+      {
+        "event_id": "20260403_21Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 8,
+        "captured_fraction": 0.0,
+        "area_km2": 9420.31116151638,
+        "bounds": [
+          -84.870001,
+          31.32,
+          -83.770001,
+          32.47
+        ]
+      },
+      {
+        "event_id": "20260403_21Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 9,
+        "captured_fraction": 0.0,
+        "area_km2": 2008.7483016432268,
+        "bounds": [
+          -83.420001,
+          32.12,
+          -82.970001,
+          32.67
+        ]
+      },
+      {
+        "event_id": "20260403_21Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 10,
+        "captured_fraction": 0.0,
+        "area_km2": 455.55971701183194,
+        "bounds": [
+          -85.970001,
+          39.07,
+          -85.720001,
+          39.32
+        ]
+      },
+      {
+        "event_id": "20260403_21Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 11,
+        "captured_fraction": 0.0,
+        "area_km2": 1912.1788870057158,
+        "bounds": [
+          -84.270001,
+          40.12,
+          -83.470001,
+          40.47
+        ]
+      },
+      {
+        "event_id": "20260403_21Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 12,
+        "captured_fraction": 0.0,
+        "area_km2": 15511.360025065089,
+        "bounds": [
+          -83.270001,
+          40.02,
+          -81.070001,
+          40.97
+        ]
+      },
+      {
+        "event_id": "20260403_21Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 13,
+        "captured_fraction": 0.0,
+        "area_km2": 6990.51603091397,
+        "bounds": [
+          -85.820001,
+          40.47,
+          -84.720001,
+          41.37
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 4,
+        "captured_fraction": 0.0,
+        "area_km2": 19102.173831273623,
+        "bounds": [
+          -86.320001,
+          34.67,
+          -84.920001,
+          36.67
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 5,
+        "captured_fraction": 0.0,
+        "area_km2": 2685.9011887618717,
+        "bounds": [
+          -85.170001,
+          36.87,
+          -84.620001,
+          37.47
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 6,
+        "captured_fraction": 0.0,
+        "area_km2": 2199.4346822761067,
+        "bounds": [
+          -85.620001,
+          37.42,
+          -84.820001,
+          38.02
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 7,
+        "captured_fraction": 0.17918382854156728,
+        "area_km2": 14250.95941663353,
+        "bounds": [
+          -85.320001,
+          42.22,
+          -84.120001,
+          44.02
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 8,
+        "captured_fraction": 0.0,
+        "area_km2": 4484.465794952024,
+        "bounds": [
+          -80.670001,
+          28.52,
+          -80.020001,
+          29.32
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 9,
+        "captured_fraction": 0.0,
+        "area_km2": 8055.860184982434,
+        "bounds": [
+          -83.220001,
+          29.42,
+          -82.220001,
+          30.42
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 10,
+        "captured_fraction": 0.07766381049192762,
+        "area_km2": 24829.593935626148,
+        "bounds": [
+          -81.120001,
+          31.52,
+          -79.170001,
+          33.62
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 12,
+        "captured_fraction": 0.0,
+        "area_km2": 16381.283709198358,
+        "bounds": [
+          -77.270002,
+          34.67,
+          -75.220002,
+          36.12
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 13,
+        "captured_fraction": 0.0,
+        "area_km2": 2855.9744579228886,
+        "bounds": [
+          -84.220001,
+          38.22,
+          -83.670001,
+          38.82
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 14,
+        "captured_fraction": 0.0,
+        "area_km2": 1153.681655692983,
+        "bounds": [
+          -82.820001,
+          38.77,
+          -82.420001,
+          39.27
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 1,
+        "captured_fraction": 0.0,
+        "area_km2": 323.6219111509241,
+        "bounds": [
+          -88.620001,
+          28.97,
+          -88.520001,
+          29.27
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 2,
+        "captured_fraction": 0.0,
+        "area_km2": 3475.195704684413,
+        "bounds": [
+          -89.320001,
+          28.87,
+          -88.670001,
+          29.57
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 5,
+        "captured_fraction": 0.0,
+        "area_km2": 1862.7855058134191,
+        "bounds": [
+          -110.870001,
+          31.42,
+          -110.570001,
+          32.22
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 6,
+        "captured_fraction": 0.0,
+        "area_km2": 756.4740499748867,
+        "bounds": [
+          -85.570001,
+          32.27,
+          -85.170001,
+          32.52
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 8,
+        "captured_fraction": 0.0,
+        "area_km2": 5564.939977247465,
+        "bounds": [
+          -98.020001,
+          42.92,
+          -97.120001,
+          43.72
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 9,
+        "captured_fraction": 0.0,
+        "area_km2": 19159.053334176195,
+        "bounds": [
+          -96.370001,
+          43.72,
+          -93.970001,
+          45.37
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 10,
+        "captured_fraction": 0.0,
+        "area_km2": 2247.1129614870733,
+        "bounds": [
+          -91.220001,
+          45.97,
+          -90.820001,
+          46.67
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 13,
+        "captured_fraction": 0.0,
+        "area_km2": 3784.8541267364494,
+        "bounds": [
+          -77.320002,
+          33.27,
+          -76.520002,
+          33.87
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 14,
+        "captured_fraction": 0.0,
+        "area_km2": 4979.979809033117,
+        "bounds": [
+          -82.670001,
+          33.37,
+          -81.770001,
+          34.32
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 16,
+        "captured_fraction": 0.0,
+        "area_km2": 1858.027546317114,
+        "bounds": [
+          -77.470002,
+          35.47,
+          -76.970002,
+          35.92
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 17,
+        "captured_fraction": 0.0,
+        "area_km2": 25.090382668904155,
+        "bounds": [
+          -76.720002,
+          35.72,
+          -76.670002,
+          35.77
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 19,
+        "captured_fraction": 0.0,
+        "area_km2": 696.2196288900634,
+        "bounds": [
+          -79.820001,
+          38.97,
+          -79.370001,
+          39.27
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 20,
+        "captured_fraction": 0.0,
+        "area_km2": 1011.2517893865844,
+        "bounds": [
+          -80.720001,
+          40.37,
+          -80.320001,
+          40.77
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F06",
+        "threshold_km2": 0,
+        "truth_component": 2,
+        "captured_fraction": 0.0,
+        "area_km2": 23112.25325171629,
+        "bounds": [
+          -86.070001,
+          29.77,
+          -83.970001,
+          31.37
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F06",
+        "threshold_km2": 0,
+        "truth_component": 7,
+        "captured_fraction": 0.0,
+        "area_km2": 18043.625820952147,
+        "bounds": [
+          -94.870001,
+          43.67,
+          -92.870001,
+          45.02
+        ]
+      },
+      {
+        "event_id": "20260728_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 1,
+        "captured_fraction": 0.0,
+        "area_km2": 2255.501349082758,
+        "bounds": [
+          -108.570001,
+          32.67,
+          -108.070001,
+          33.22
+        ]
+      },
+      {
+        "event_id": "20260728_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 4,
+        "captured_fraction": 0.0,
+        "area_km2": 11017.4929175234,
+        "bounds": [
+          -113.37,
+          36.27,
+          -111.720001,
+          37.37
+        ]
+      },
+      {
+        "event_id": "20260728_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 5,
+        "captured_fraction": 0.005361784527511387,
+        "area_km2": 1473.876976226665,
+        "bounds": [
+          -106.020001,
+          37.07,
+          -105.770001,
+          37.72
+        ]
+      },
+      {
+        "event_id": "20260728_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 6,
+        "captured_fraction": 0.0,
+        "area_km2": 784.1035016188923,
+        "bounds": [
+          -112.170001,
+          37.47,
+          -111.770001,
+          37.72
+        ]
+      },
+      {
+        "event_id": "20260728_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 10,
+        "captured_fraction": 0.0,
+        "area_km2": 775.7491690101159,
+        "bounds": [
+          -105.120001,
+          44.97,
+          -104.298183,
+          45.176744
+        ]
+      },
+      {
+        "event_id": "20260728_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 11,
+        "captured_fraction": 0.0,
+        "area_km2": 8329.246908848103,
+        "bounds": [
+          -105.120001,
+          45.12,
+          -103.720001,
+          46.02
+        ]
+      },
+      {
+        "event_id": "20260728_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 15,
+        "captured_fraction": 0.0,
+        "area_km2": 5525.335163323159,
+        "bounds": [
+          -79.920001,
+          39.22,
+          -79.020001,
+          40.07
+        ]
+      },
+      {
+        "event_id": "20260728_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 17,
+        "captured_fraction": 0.0,
+        "area_km2": 3495.9366352569364,
+        "bounds": [
+          -77.770001,
+          41.22,
+          -76.920002,
+          41.92
+        ]
+      },
+      {
+        "event_id": "20260728_19Z_F04",
+        "threshold_km2": 0,
+        "truth_component": 20,
+        "captured_fraction": 0.0,
+        "area_km2": 88.19521346332795,
+        "bounds": [
+          -71.620002,
+          44.57,
+          -71.520002,
+          44.67
+        ]
+      }
+    ],
+    "5000": [
+      {
+        "event_id": "20260403_21Z_F04",
+        "threshold_km2": 5000,
+        "truth_component": 1,
+        "captured_fraction": 0.0,
+        "area_km2": 9420.311161516378,
+        "bounds": [
+          -84.870001,
+          31.32,
+          -83.770001,
+          32.47
+        ]
+      },
+      {
+        "event_id": "20260403_21Z_F04",
+        "threshold_km2": 5000,
+        "truth_component": 2,
+        "captured_fraction": 0.0,
+        "area_km2": 8946.732255560979,
+        "bounds": [
+          -99.570001,
+          32.12,
+          -98.470001,
+          33.17
+        ]
+      },
+      {
+        "event_id": "20260403_21Z_F04",
+        "threshold_km2": 5000,
+        "truth_component": 5,
+        "captured_fraction": 0.0,
+        "area_km2": 15511.36002506509,
+        "bounds": [
+          -83.270001,
+          40.02,
+          -81.070001,
+          40.97
+        ]
+      },
+      {
+        "event_id": "20260403_21Z_F04",
+        "threshold_km2": 5000,
+        "truth_component": 6,
+        "captured_fraction": 0.0,
+        "area_km2": 6990.516030913968,
+        "bounds": [
+          -85.820001,
+          40.47,
+          -84.720001,
+          41.37
+        ]
+      },
+      {
+        "event_id": "20260403_21Z_F04",
+        "threshold_km2": 5000,
+        "truth_component": 9,
+        "captured_fraction": 0.0,
+        "area_km2": 7722.842939553531,
+        "bounds": [
+          -93.820001,
+          44.27,
+          -92.720001,
+          45.22
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 5000,
+        "truth_component": 2,
+        "captured_fraction": 0.0,
+        "area_km2": 8055.860184982434,
+        "bounds": [
+          -83.220001,
+          29.42,
+          -82.220001,
+          30.42
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 5000,
+        "truth_component": 3,
+        "captured_fraction": 0.07766381049192761,
+        "area_km2": 24829.59393562615,
+        "bounds": [
+          -81.120001,
+          31.52,
+          -79.170001,
+          33.62
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 5000,
+        "truth_component": 6,
+        "captured_fraction": 0.0,
+        "area_km2": 16381.283709198353,
+        "bounds": [
+          -77.270002,
+          34.67,
+          -75.220002,
+          36.12
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 5000,
+        "truth_component": 7,
+        "captured_fraction": 0.0,
+        "area_km2": 19102.173831273627,
+        "bounds": [
+          -86.320001,
+          34.67,
+          -84.920001,
+          36.67
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 5000,
+        "truth_component": 8,
+        "captured_fraction": 0.17918382854156728,
+        "area_km2": 14250.959416633534,
+        "bounds": [
+          -85.320001,
+          42.22,
+          -84.120001,
+          44.02
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F04",
+        "threshold_km2": 5000,
+        "truth_component": 7,
+        "captured_fraction": 0.0,
+        "area_km2": 5564.939977247468,
+        "bounds": [
+          -98.020001,
+          42.92,
+          -97.120001,
+          43.72
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F04",
+        "threshold_km2": 5000,
+        "truth_component": 8,
+        "captured_fraction": 0.0,
+        "area_km2": 19159.053334176202,
+        "bounds": [
+          -96.370001,
+          43.72,
+          -93.970001,
+          45.37
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F06",
+        "threshold_km2": 5000,
+        "truth_component": 2,
+        "captured_fraction": 0.0,
+        "area_km2": 23112.25325171629,
+        "bounds": [
+          -86.070001,
+          29.77,
+          -83.970001,
+          31.37
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F06",
+        "threshold_km2": 5000,
+        "truth_component": 7,
+        "captured_fraction": 0.0,
+        "area_km2": 18043.625820952147,
+        "bounds": [
+          -94.870001,
+          43.67,
+          -92.870001,
+          45.02
+        ]
+      },
+      {
+        "event_id": "20260728_19Z_F04",
+        "threshold_km2": 5000,
+        "truth_component": 2,
+        "captured_fraction": 0.0,
+        "area_km2": 11017.492917523396,
+        "bounds": [
+          -113.37,
+          36.27,
+          -111.720001,
+          37.37
+        ]
+      },
+      {
+        "event_id": "20260728_19Z_F04",
+        "threshold_km2": 5000,
+        "truth_component": 6,
+        "captured_fraction": 0.0,
+        "area_km2": 775.7491690101162,
+        "bounds": [
+          -105.120001,
+          44.97,
+          -104.298183,
+          45.176744
+        ]
+      },
+      {
+        "event_id": "20260728_19Z_F04",
+        "threshold_km2": 5000,
+        "truth_component": 7,
+        "captured_fraction": 0.0,
+        "area_km2": 8329.2469088481,
+        "bounds": [
+          -105.120001,
+          45.12,
+          -103.720001,
+          46.02
+        ]
+      },
+      {
+        "event_id": "20260728_19Z_F04",
+        "threshold_km2": 5000,
+        "truth_component": 10,
+        "captured_fraction": 0.0,
+        "area_km2": 5525.3351633231605,
+        "bounds": [
+          -79.920001,
+          39.22,
+          -79.020001,
+          40.07
+        ]
+      }
+    ],
+    "10000": [
+      {
+        "event_id": "20260403_21Z_F04",
+        "threshold_km2": 10000,
+        "truth_component": 3,
+        "captured_fraction": 0.0,
+        "area_km2": 15511.360025065092,
+        "bounds": [
+          -83.270001,
+          40.02,
+          -81.070001,
+          40.97
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 10000,
+        "truth_component": 1,
+        "captured_fraction": 0.0776638104919276,
+        "area_km2": 24829.593935626155,
+        "bounds": [
+          -81.120001,
+          31.52,
+          -79.170001,
+          33.62
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 10000,
+        "truth_component": 3,
+        "captured_fraction": 0.0,
+        "area_km2": 16381.283709198362,
+        "bounds": [
+          -77.270002,
+          34.67,
+          -75.220002,
+          36.12
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 10000,
+        "truth_component": 4,
+        "captured_fraction": 0.0,
+        "area_km2": 19102.173831273627,
+        "bounds": [
+          -86.320001,
+          34.67,
+          -84.920001,
+          36.67
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 10000,
+        "truth_component": 5,
+        "captured_fraction": 0.17918382854156728,
+        "area_km2": 14250.959416633534,
+        "bounds": [
+          -85.320001,
+          42.22,
+          -84.120001,
+          44.02
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F04",
+        "threshold_km2": 10000,
+        "truth_component": 7,
+        "captured_fraction": 0.0,
+        "area_km2": 19159.053334176202,
+        "bounds": [
+          -96.370001,
+          43.72,
+          -93.970001,
+          45.37
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F06",
+        "threshold_km2": 10000,
+        "truth_component": 2,
+        "captured_fraction": 0.0,
+        "area_km2": 23112.25325171629,
+        "bounds": [
+          -86.070001,
+          29.77,
+          -83.970001,
+          31.37
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F06",
+        "threshold_km2": 10000,
+        "truth_component": 7,
+        "captured_fraction": 0.0,
+        "area_km2": 18043.625820952147,
+        "bounds": [
+          -94.870001,
+          43.67,
+          -92.870001,
+          45.02
+        ]
+      },
+      {
+        "event_id": "20260728_19Z_F04",
+        "threshold_km2": 10000,
+        "truth_component": 3,
+        "captured_fraction": 0.0,
+        "area_km2": 11017.492917523392,
+        "bounds": [
+          -113.37,
+          36.27,
+          -111.720001,
+          37.37
+        ]
+      }
+    ],
+    "15000": [
+      {
+        "event_id": "20260403_21Z_F04",
+        "threshold_km2": 15000,
+        "truth_component": 3,
+        "captured_fraction": 0.0,
+        "area_km2": 15511.360025065092,
+        "bounds": [
+          -83.270001,
+          40.02,
+          -81.070001,
+          40.97
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 15000,
+        "truth_component": 1,
+        "captured_fraction": 0.0776638104919276,
+        "area_km2": 24829.593935626155,
+        "bounds": [
+          -81.120001,
+          31.52,
+          -79.170001,
+          33.62
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 15000,
+        "truth_component": 3,
+        "captured_fraction": 0.0,
+        "area_km2": 16381.283709198362,
+        "bounds": [
+          -77.270002,
+          34.67,
+          -75.220002,
+          36.12
+        ]
+      },
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 15000,
+        "truth_component": 4,
+        "captured_fraction": 0.0,
+        "area_km2": 19102.173831273616,
+        "bounds": [
+          -86.320001,
+          34.67,
+          -84.920001,
+          36.67
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F04",
+        "threshold_km2": 15000,
+        "truth_component": 7,
+        "captured_fraction": 0.0,
+        "area_km2": 19159.053334176202,
+        "bounds": [
+          -96.370001,
+          43.72,
+          -93.970001,
+          45.37
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F06",
+        "threshold_km2": 15000,
+        "truth_component": 1,
+        "captured_fraction": 0.0,
+        "area_km2": 23112.25325171629,
+        "bounds": [
+          -86.070001,
+          29.77,
+          -83.970001,
+          31.37
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F06",
+        "threshold_km2": 15000,
+        "truth_component": 6,
+        "captured_fraction": 0.0,
+        "area_km2": 18043.625820952147,
+        "bounds": [
+          -94.870001,
+          43.67,
+          -92.870001,
+          45.02
+        ]
+      }
+    ],
+    "20000": [
+      {
+        "event_id": "20260524_13Z_F04",
+        "threshold_km2": 20000,
+        "truth_component": 1,
+        "captured_fraction": 0.07766381049192758,
+        "area_km2": 24829.59393562616,
+        "bounds": [
+          -81.120001,
+          31.52,
+          -79.170001,
+          33.62
+        ]
+      },
+      {
+        "event_id": "20260524_19Z_F06",
+        "threshold_km2": 20000,
+        "truth_component": 1,
+        "captured_fraction": 0.0,
+        "area_km2": 23112.25325171629,
+        "bounds": [
+          -86.070001,
+          29.77,
+          -83.970001,
+          31.37
+        ]
+      }
+    ],
+    "25000": [],
+    "30000": []
+  },
+  "stage_areas": [
+    {
+      "event_id": "20260324_13Z_F04",
+      "truth_class": "Sparse",
+      "raw_core_area_km2": 1415.2135937300768,
+      "dilated_core_area_km2": 3469.1243810962537,
+      "processed_prefilter_indomain_area_km2": 0,
+      "processed_component_count": 0,
+      "artifact_method": "legacy independent-max frozen truth"
+    },
+    {
+      "event_id": "20260324_13Z_F04",
+      "truth_class": "Medium",
+      "raw_core_area_km2": 1415.2135937300768,
+      "dilated_core_area_km2": 3469.1243810962537,
+      "processed_prefilter_indomain_area_km2": 0,
+      "processed_component_count": 0,
+      "artifact_method": "legacy independent-max frozen truth"
+    },
+    {
+      "event_id": "20260403_21Z_F04",
+      "truth_class": "Sparse",
+      "raw_core_area_km2": 88457.97114313158,
+      "dilated_core_area_km2": 176481.33194701953,
+      "processed_prefilter_indomain_area_km2": 232264.95631687858,
+      "processed_component_count": 15,
+      "artifact_method": "legacy independent-max frozen truth"
+    },
+    {
+      "event_id": "20260403_21Z_F04",
+      "truth_class": "Medium",
+      "raw_core_area_km2": 88457.97114313158,
+      "dilated_core_area_km2": 176481.33194701953,
+      "processed_prefilter_indomain_area_km2": 79567.64379507184,
+      "processed_component_count": 13,
+      "artifact_method": "legacy independent-max frozen truth"
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "truth_class": "Sparse",
+      "raw_core_area_km2": 59226.80056259742,
+      "dilated_core_area_km2": 145798.55030988553,
+      "processed_prefilter_indomain_area_km2": 137190.6414878051,
+      "processed_component_count": 15,
+      "artifact_method": "legacy independent-max frozen truth"
+    },
+    {
+      "event_id": "20260524_13Z_F04",
+      "truth_class": "Medium",
+      "raw_core_area_km2": 59226.80056259742,
+      "dilated_core_area_km2": 145798.55030988553,
+      "processed_prefilter_indomain_area_km2": 33395.431301472905,
+      "processed_component_count": 9,
+      "artifact_method": "legacy independent-max frozen truth"
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "truth_class": "Sparse",
+      "raw_core_area_km2": 100028.59062448624,
+      "dilated_core_area_km2": 226309.99892833972,
+      "processed_prefilter_indomain_area_km2": 207062.15562119905,
+      "processed_component_count": 23,
+      "artifact_method": "legacy independent-max frozen truth"
+    },
+    {
+      "event_id": "20260524_19Z_F04",
+      "truth_class": "Medium",
+      "raw_core_area_km2": 100028.59062448624,
+      "dilated_core_area_km2": 226309.99892833972,
+      "processed_prefilter_indomain_area_km2": 74373.4562401475,
+      "processed_component_count": 11,
+      "artifact_method": "legacy independent-max frozen truth"
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "truth_class": "Sparse",
+      "raw_core_area_km2": 86781.80306607428,
+      "dilated_core_area_km2": 195306.40690733536,
+      "processed_prefilter_indomain_area_km2": 178041.38252507302,
+      "processed_component_count": 9,
+      "artifact_method": "legacy independent-max frozen truth"
+    },
+    {
+      "event_id": "20260524_19Z_F06",
+      "truth_class": "Medium",
+      "raw_core_area_km2": 86781.80306607428,
+      "dilated_core_area_km2": 195306.40690733536,
+      "processed_prefilter_indomain_area_km2": 80838.4951364494,
+      "processed_component_count": 11,
+      "artifact_method": "legacy independent-max frozen truth"
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Sparse",
+      "raw_core_area_km2": 128102.84238390988,
+      "dilated_core_area_km2": 277513.33012923005,
+      "processed_prefilter_indomain_area_km2": 279075.3576995864,
+      "processed_component_count": 25,
+      "artifact_method": "legacy independent-max frozen truth"
+    },
+    {
+      "event_id": "20260728_19Z_F04",
+      "truth_class": "Medium",
+      "raw_core_area_km2": 128102.84238390988,
+      "dilated_core_area_km2": 277513.33012923005,
+      "processed_prefilter_indomain_area_km2": 81417.3360863024,
+      "processed_component_count": 17,
+      "artifact_method": "legacy independent-max frozen truth"
+    }
+  ],
+  "synthetic_experiments": [
+    {
+      "morphology": "compact_circle",
+      "parameter": 2,
+      "raw_area_km2": 325.0,
+      "dilated_area_km2": 625.0,
+      "sparse_component_areas_km2": [],
+      "medium_component_areas_km2": []
+    },
+    {
+      "morphology": "compact_circle",
+      "parameter": 4,
+      "raw_area_km2": 1225.0,
+      "dilated_area_km2": 1825.0,
+      "sparse_component_areas_km2": [],
+      "medium_component_areas_km2": []
+    },
+    {
+      "morphology": "compact_circle",
+      "parameter": 6,
+      "raw_area_km2": 2825.0,
+      "dilated_area_km2": 3725.0,
+      "sparse_component_areas_km2": [
+        5800.0
+      ],
+      "medium_component_areas_km2": []
+    },
+    {
+      "morphology": "compact_circle",
+      "parameter": 8,
+      "raw_area_km2": 4925.0,
+      "dilated_area_km2": 6125.0,
+      "sparse_component_areas_km2": [
+        9950.0
+      ],
+      "medium_component_areas_km2": [
+        4700.0
+      ]
+    },
+    {
+      "morphology": "compact_circle",
+      "parameter": 10,
+      "raw_area_km2": 7925.0,
+      "dilated_area_km2": 9425.0,
+      "sparse_component_areas_km2": [
+        15400.0
+      ],
+      "medium_component_areas_km2": [
+        8900.0
+      ]
+    },
+    {
+      "morphology": "compact_circle",
+      "parameter": 12,
+      "raw_area_km2": 11025.0,
+      "dilated_area_km2": 12725.0,
+      "sparse_component_areas_km2": [
+        19900.0
+      ],
+      "medium_component_areas_km2": [
+        12700.0
+      ]
+    },
+    {
+      "morphology": "compact_circle",
+      "parameter": 15,
+      "raw_area_km2": 17725.0,
+      "dilated_area_km2": 19925.0,
+      "sparse_component_areas_km2": [
+        29800.0
+      ],
+      "medium_component_areas_km2": [
+        21100.0
+      ]
+    },
+    {
+      "morphology": "compact_circle",
+      "parameter": 20,
+      "raw_area_km2": 31425.0,
+      "dilated_area_km2": 34325.0,
+      "sparse_component_areas_km2": [
+        47950.0
+      ],
+      "medium_component_areas_km2": [
+        37050.0
+      ]
+    },
+    {
+      "morphology": "compact_reference",
+      "parameter": null,
+      "raw_area_km2": 7925.0,
+      "dilated_area_km2": 9425.0,
+      "sparse_component_areas_km2": [
+        15400.0
+      ],
+      "medium_component_areas_km2": [
+        8900.0
+      ]
+    },
+    {
+      "morphology": "long_narrow_line",
+      "parameter": null,
+      "raw_area_km2": 7875.0,
+      "dilated_area_km2": 13275.0,
+      "sparse_component_areas_km2": [
+        34400.0
+      ],
+      "medium_component_areas_km2": []
+    },
+    {
+      "morphology": "thin_elongated",
+      "parameter": null,
+      "raw_area_km2": 175.0,
+      "dilated_area_km2": 550.0,
+      "sparse_component_areas_km2": [],
+      "medium_component_areas_km2": []
+    },
+    {
+      "morphology": "two_distant_clusters",
+      "parameter": null,
+      "raw_area_km2": 4050.0,
+      "dilated_area_km2": 5650.0,
+      "sparse_component_areas_km2": [
+        3500.0,
+        3500.0
+      ],
+      "medium_component_areas_km2": []
+    },
+    {
+      "morphology": "large_with_hole",
+      "parameter": null,
+      "raw_area_km2": 26600.0,
+      "dilated_area_km2": 30600.0,
+      "sparse_component_areas_km2": [
+        47950.0
+      ],
+      "medium_component_areas_km2": [
+        37050.0
+      ]
+    },
+    {
+      "morphology": "broken_cluster_spacing_cells",
+      "parameter": 8,
+      "raw_area_km2": 5625.0,
+      "dilated_area_km2": 7225.0,
+      "sparse_component_areas_km2": [
+        12400.0
+      ],
+      "medium_component_areas_km2": [
+        5900.0
+      ]
+    },
+    {
+      "morphology": "broken_cluster_spacing_cells",
+      "parameter": 12,
+      "raw_area_km2": 6075.0,
+      "dilated_area_km2": 8425.0,
+      "sparse_component_areas_km2": [
+        15300.0
+      ],
+      "medium_component_areas_km2": [
+        6900.0
+      ]
+    },
+    {
+      "morphology": "broken_cluster_spacing_cells",
+      "parameter": 16,
+      "raw_area_km2": 6075.0,
+      "dilated_area_km2": 8475.0,
+      "sparse_component_areas_km2": [
+        16100.0
+      ],
+      "medium_component_areas_km2": []
+    },
+    {
+      "morphology": "broken_cluster_spacing_cells",
+      "parameter": 20,
+      "raw_area_km2": 6075.0,
+      "dilated_area_km2": 8475.0,
+      "sparse_component_areas_km2": [
+        15500.0
+      ],
+      "medium_component_areas_km2": []
+    },
+    {
+      "morphology": "broken_cluster_spacing_cells",
+      "parameter": 24,
+      "raw_area_km2": 6075.0,
+      "dilated_area_km2": 8475.0,
+      "sparse_component_areas_km2": [
+        3500.0,
+        3500.0,
+        3500.0
+      ],
+      "medium_component_areas_km2": []
+    },
+    {
+      "morphology": "hard_cutoff",
+      "processed_area_km2": 14999,
+      "retained_at_15000": false
+    },
+    {
+      "morphology": "hard_cutoff",
+      "processed_area_km2": 15001,
+      "retained_at_15000": true
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+event_id,source_feature_number,feat_type,coverage_code,current_fraction,candidate_fraction,fraction_difference,current_category,candidate_category,category_changed,artifact_method
+20260324_13Z_F04,1,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260403_21Z_F04,1,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260403_21Z_F04,2,AREA,2,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260403_21Z_F04,3,AREA,3,0.40834089193700784,0.40834089193700784,0.0,Verified Close,Verified Close,False,legacy independent-max frozen truth
+20260403_21Z_F04,4,AREA,3,0.7206270320271837,0.7206270320271837,0.0,Verified Well,Verified Well,False,legacy independent-max frozen truth
+20260403_21Z_F04,5,AREA,3,0.25917103850122736,0.25917103850122736,0.0,Verified Close,Verified Close,False,legacy independent-max frozen truth
+20260403_21Z_F04,6,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260403_21Z_F04,7,LINE,1,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260524_13Z_F04,1,AREA,3,0.46338490562498713,0.46338490562498713,0.0,Verified Close,Verified Close,False,legacy independent-max frozen truth
+20260524_13Z_F04,2,AREA,3,0.06282626539999075,0.06282626539999075,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260524_13Z_F04,3,AREA,3,0.0585875242931264,0.0585875242931264,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260524_13Z_F04,4,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260524_13Z_F04,5,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260524_13Z_F04,6,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260524_19Z_F04,1,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260524_19Z_F04,2,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260524_19Z_F04,3,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260524_19Z_F04,4,AREA,3,0.6988120778071458,0.6988120778071458,0.0,Verified Well,Verified Well,False,legacy independent-max frozen truth
+20260524_19Z_F04,5,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260524_19Z_F04,6,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260524_19Z_F04,7,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260524_19Z_F04,8,AREA,3,0.5713308601385887,0.5713308601385887,0.0,Verified Well,Verified Well,False,legacy independent-max frozen truth
+20260524_19Z_F04,9,AREA,3,0.5799726150500096,0.5799726150500096,0.0,Verified Well,Verified Well,False,legacy independent-max frozen truth
+20260524_19Z_F04,10,AREA,3,0.48272356139910977,0.48272356139910977,0.0,Verified Close,Verified Close,False,legacy independent-max frozen truth
+20260524_19Z_F04,11,AREA,3,0.28489398847342745,0.28489398847342745,0.0,Verified Close,Verified Close,False,legacy independent-max frozen truth
+20260524_19Z_F04,12,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260524_19Z_F06,1,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260524_19Z_F06,2,AREA,3,0.45091251693566897,0.45091251693566897,0.0,Verified Close,Verified Close,False,legacy independent-max frozen truth
+20260524_19Z_F06,3,AREA,3,0.7169109255569839,0.7169109255569839,0.0,Verified Well,Verified Well,False,legacy independent-max frozen truth
+20260524_19Z_F06,4,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260524_19Z_F06,5,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260524_19Z_F06,6,AREA,3,0.4870774269777436,0.4870774269777436,0.0,Verified Close,Verified Close,False,legacy independent-max frozen truth
+20260524_19Z_F06,7,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260524_19Z_F06,8,AREA,3,0.672231814818841,0.672231814818841,0.0,Verified Well,Verified Well,False,legacy independent-max frozen truth
+20260524_19Z_F06,9,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260728_19Z_F04,1,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260728_19Z_F04,2,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260728_19Z_F04,3,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260728_19Z_F04,4,AREA,3,0.19927433050185256,0.19927433050185256,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260728_19Z_F04,5,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260728_19Z_F04,6,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260728_19Z_F04,7,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260728_19Z_F04,8,AREA,2,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260728_19Z_F04,9,AREA,3,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth
+20260728_19Z_F04,10,AREA,3,0.3183168524521935,0.3183168524521935,0.0,Verified Close,Verified Close,False,legacy independent-max frozen truth
+20260728_19Z_F04,11,AREA,2,0.5274023349958138,0.5274023349958138,0.0,Verified Well,Verified Well,False,legacy independent-max frozen truth
+20260728_19Z_F04,12,AREA,3,0.3649333422057369,0.3649333422057369,0.0,Verified Close,Verified Close,False,legacy independent-max frozen truth
+20260728_19Z_F04,13,AREA,2,0.0,0.0,0.0,Overforecasted,Overforecasted,False,legacy independent-max frozen truth

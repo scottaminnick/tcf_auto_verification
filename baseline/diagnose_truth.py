@@ -54,6 +54,7 @@ DEFAULT_EVENT = "20260403_21Z_F04"
 
 AREA_CRS = "EPSG:5070"     # what extract_tcf_polygons measures the area filter in
 KM2 = 1e6                  # m^2 per km^2
+HISTORICAL_MIN_AREA_M2 = 15_000_000_000
 
 # The reflectivity floor and echo-top floor that define a convective core. Not
 # GradingParams fields (deliberately, they are being corrected separately), so
@@ -145,7 +146,7 @@ def census(out, label_name, threshold, coverage_codes, field, arrays, params):
 
         poly_areas = component_polygon_areas_m2(comp, lons, lats)
         filter_km2 = max(poly_areas) / KM2 if poly_areas else 0.0
-        survived = any(a >= params.min_area_m2 for a in poly_areas)
+        survived = any(a >= HISTORICAL_MIN_AREA_M2 for a in poly_areas)
 
         vals = field[comp]
         tops_in = arrays["max_tops"][comp]
@@ -177,7 +178,7 @@ def census(out, label_name, threshold, coverage_codes, field, arrays, params):
     deleted_area = sum(r["filter_km2"] for r in deleted)
     out(f"{'':4} summary: {n} components, {len(kept)} survived, "
         f"{deleted_area:.1f} km2 deleted "
-        f"(floor {params.min_area_m2 / KM2:,.0f} km2)")
+        f"(historical floor {HISTORICAL_MIN_AREA_M2 / KM2:,.0f} km2)")
     return rows
 
 
@@ -205,7 +206,8 @@ def trace(out, results, arrays, field, raw_cores, params, thresholds):
     unions = {}
     for name, thr, _codes in thresholds:
         gdf = tcf_pipeline.extract_tcf_polygons(
-            (field >= thr).astype(int), lons, lats, min_area_m2=params.min_area_m2)
+            (field >= thr).astype(int), lons, lats,
+            min_area_m2=HISTORICAL_MIN_AREA_M2)
         unions[name] = gdf.union_all() if not gdf.is_empty.all() else Polygon()
 
     # Which threshold entry a coverage code selects, read off the same table the
@@ -234,7 +236,7 @@ def trace(out, results, arrays, field, raw_cores, params, thresholds):
         if inside is None or not inside.any():
             out()
             out(f"  {label_txt}  (coverage code {code} = "
-                f"{tcf_pipeline._coverage_label(code)})")
+                f"{tcf_pipeline._coverage_label('LINE' if code == 1 else 'AREA', code)})")
             out("    no grid cells fall inside this polygon")
             continue
 
@@ -244,7 +246,8 @@ def trace(out, results, arrays, field, raw_cores, params, thresholds):
 
         out()
         out(f"  {label_txt}  (coverage code {code} = "
-            f"{tcf_pipeline._coverage_label(code)} -> {own} truth @ {own_thr:.2f})")
+            f"{tcf_pipeline._coverage_label('LINE' if code == 1 else 'AREA', code)} "
+            f"-> {own} truth @ {own_thr:.2f})")
         out(f"    area                {a_km2:12,.1f} km2")
         out(f"    mean width 4A/P     {width_km:12.1f} km   (perimeter {perim_km:,.1f} km)")
         out(f"    cells inside        {int(inside.sum()):12,d}")
@@ -293,7 +296,7 @@ def main():
         gdf_forecast = tcf_pipeline.parse_iem_cow_text(raw_text)
         valid_dt = tcf_pipeline.compute_valid_dt(
             event["date"], event["issuance_hour"], event["lead_time"])
-        results = tcf_pipeline.run_verification(
+        results = tcf_pipeline.run_verification_legacy_independent_max(
             gdf_forecast, arrays["max_tops"], arrays["max_refl"],
             arrays["lons"], arrays["lats"],
             valid_dt, event["issuance_hour"], event["lead_time"], gdf_artcc,
@@ -315,7 +318,7 @@ def main():
         out(f"core definition   >= {CORE_DBZ} dBZ AND >= {CORE_TOP_KFT} kft")
         out(f"dilation          {params.dilation_iterations} iteration(s)")
         out(f"smoothing         uniform_filter size {params.smoothing_size}")
-        out(f"area floor        {params.min_area_m2 / KM2:,.0f} km2")
+        out(f"historical floor {HISTORICAL_MIN_AREA_M2 / KM2:,.0f} km2")
         out(f"grade cutoffs     well >= {params.verified_well_cutoff:.2f}, "
             f"close >= {params.verified_close_cutoff:.2f}")
         out(f"raw core cells    {int(raw_cores.sum()):,d} of {raw_cores.size:,d} "
@@ -323,11 +326,11 @@ def main():
         out(f"forecast features {len(results['graded_forecasts'])} graded, "
             f"{len(results['graded_misses'])} misses")
 
-        # Sparse uses its own threshold; Medium and Dense both select
-        # medium_truth_threshold in run_verification, so they are ONE field, not
-        # two. Printing it twice would imply a third field exists.
+        # Sparse AREA uses its own threshold; Medium AREA and Solid LINE both
+        # select medium_truth_threshold in run_verification, so they are ONE
+        # field, not two. Printing it twice would imply a third field exists.
         thresholds = [("sparse", params.sparse_truth_threshold, [3]),
-                      ("medium/dense", params.medium_truth_threshold, [2, 1])]
+                      ("medium/solid-line", params.medium_truth_threshold, [2, 1])]
 
         out()
         out(f"{'=' * 100}")
@@ -335,14 +338,15 @@ def main():
             "before the area filter)")
         out(f"{'=' * 100}")
         if params.medium_truth_threshold == params.sparse_truth_threshold:
-            out("  NOTE: sparse and medium/dense thresholds are equal, so all three "
+            out("  NOTE: sparse, medium, and solid-line thresholds are equal, so all "
+                "three "
                 "coverage codes share one field.")
         else:
-            out("  NOTE: Medium (code 2) and Dense (code 1) both select "
+            out("  NOTE: Medium AREA (code 2) and Solid LINE (code 1) both select "
                 f"medium_truth_threshold = {params.medium_truth_threshold:.2f} in "
                 "run_verification,")
             out("        so there are TWO distinct truth fields here, not three. "
-                "Dense has no separate threshold.")
+                "Solid LINE has no separate threshold under the interim method.")
         out("  'area km2' is the summed physical cell area; 'filter km2' is the "
             "largest contour-polygon")
         out("  area in EPSG:5070, which is the number min_area_m2 actually tests.")
