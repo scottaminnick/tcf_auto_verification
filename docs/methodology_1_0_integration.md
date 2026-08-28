@@ -43,11 +43,18 @@ The integrated executable path contains all approved corrections:
 
 ## Provisional behavior preserved
 
-No policy was changed for Decision 1B (no hard pair-time gate), MRMS adequacy
-(provenance but no numerical state thresholds), Solid LINE (0.15-degree buffer,
-Medium/40% truth and area-overlap scoring), the full-issued forecast denominator,
-Candidate Miss review remains Sparse-parented, class-blind, and below 20%
-captured, but its former 15,000 km2 floor is removed by owner decision. Echo tops remain
+The owner explicitly accepts the existing 20%/50% grading cutoffs, 25%/40%
+Sparse/Medium fields, dilation/smoothing, and ARTCC+CMAC domain as provisional
+1.0 production parameters. MRMS adequacy requires at least one usable pair and
+visible provenance, with zero pairs a hard failure and no additional numerical
+thresholds. Solid LINE retains its interim 0.15° buffer, Medium truth,
+EPSG:5070 area overlap, and existing grading cutoffs. These decisions remove the
+three topics as 1.0 blockers without claiming scientific optimization.
+
+No policy was changed for Decision 1B (no hard pair-time gate) or the full-issued
+forecast denominator. Candidate Miss review remains Sparse-parented, class-blind,
+and below 20% captured, but its former 15,000 km2 floor is removed by owner
+decision. Echo tops remain
 full-forecast-geometry, temporal-maximum P90 with a six-cell minimum. These are
 documented provisional behaviors, not newly approved rules.
 

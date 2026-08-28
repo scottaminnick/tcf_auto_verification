@@ -117,25 +117,17 @@ is unchanged.
 
 ## 9. MRMS data adequacy
 
-Substantial missing observations shall never be hidden. Incomplete data need not
-always prevent calculation because a reviewer is required; instead expose:
+**Approved provisional behavior for Methodology 1.0:** at least one usable
+paired MRMS analysis is required. Zero usable pairs is a hard failure. For every
+successful calculation, requested/resolved source times, offsets, pair
+separation, availability, grid compatibility, exclusions, and use are exposed as
+factual provenance for mandatory meteorologist review.
 
-* **Normal:** adequate observations for the intended method.
-* **Review Required:** a calculation exists, but missing/mismatched observations
-  or another concern could materially affect it.
-* **Insufficient Data:** observations cannot support a meaningful automated
-  recommendation; manual verification is required.
-
-**Open Decision 2 — analysis status:** the read-only observation-adequacy
-analysis identifies a multi-metric, three-state reviewer framework as the
-preferred policy structure, but approves neither state rules nor numerical
-thresholds. Usable-slot count alone is insufficient: unique source-pair count,
-temporal gaps, valid-time proximity, pre/post-valid balance, grid exclusions,
-and missingness pattern carry nonredundant information. The committed frozen
-maxima do not contain per-slot arrays or actual-source provenance, so historical
-leave-out sensitivity and event-level adequacy metrics cannot be reconstructed.
-Thresholds require a broader scan-level provenance/paired-mask sample,
-controlled degradation experiments, and operational expert evidence.
+No additional numerical adequacy threshold or Normal / Review Required /
+Insufficient Data classification is approved for 1.0. Such rules require new
+evidence and may be added only through a later methodology decision. This
+provenance-first minimum is reproducible and operationally reviewable, but is
+explicitly provisional rather than asserted to be an optimized adequacy policy.
 
 This decision remains separate from **Open Decision 1B**. Product-pair
 separation should remain recorded as provenance, but this analysis establishes
@@ -150,15 +142,23 @@ documented and reproducible. Dilation, smoothing, neighborhood averaging,
 contouring, simplification, and area filtering shall be deliberate methodology,
 not accidental raster side effects.
 
+**Approved provisional core parameters for Methodology 1.0:** retain the current
+25% Sparse and 40% Medium thresholds, one dilation iteration, size-20 smoothing,
+20%/50% grade cutoffs, and ARTCC-plus-CMAC verification domain. These values are
+fixed for reproducibility in 1.0 but are not claimed to be scientifically
+optimized and remain eligible for later evidence-based revision.
+
 ## 11. Spatial coverage fields
 
 Current behavior uses approximately 25% or greater observed coverage for Sparse
 AREA forecasts and approximately 40% or greater for Medium AREA forecasts.
 
-**Open Decision 3:** determine the long-term verification method for Solid LINE
-forecasts, including whether the interim 40% observational field and buffered
-area-overlap metric should be replaced by a 75% or linear metric. Coverage-code
-semantics themselves are resolved and are not part of this open decision.
+**Approved provisional behavior for Methodology 1.0:** Solid LINE retains its
+current interim method: 0.15° geographic buffering, comparison against the 40%
+Medium truth field, EPSG:5070 physical-area overlap, and the existing 20%/50%
+grade cutoffs. No length, distance, or corridor-occupancy replacement is adopted.
+The long-term LINE method remains eligible for later evidence-based refinement,
+but it is not a 1.0 blocker.
 
 ## 12. AREA verification metric
 
@@ -389,16 +389,11 @@ decision and a clear reviewer flag, generally choose the flag.
 
 1. What maximum actual reflectivity/echo-top timestamp separation, if any, is
    acceptable within a nominal observation pair (Decision 1B)?
-2. What missing-data levels define Normal, Review Required, and Insufficient Data?
-3. What is the approved long-term verification method and truth field for Solid
-   LINE forecasts?
-4. Is a domain-crossing forecast denominator whole or in-domain only?
-5. Should a hard observational minimum exist; if so, what magnitude and processed
-   object should it use, and at what stage should it be applied?
-6. Which observed events are miss-eligible, what capture prevents a miss, and how
+2. Is a domain-crossing forecast denominator whole or in-domain only?
+3. Which observed events are miss-eligible, what capture prevents a miss, and how
    do Sparse, Medium, and Solid LINE forecast classes interact?
-7. What echo-top statistic is used internally and/or reported?
-8. Which automated fields belong in the editable FAA Google Doc rather than
+4. What echo-top statistic is used internally and/or reported?
+5. Which automated fields belong in the editable FAA Google Doc rather than
     remaining diagnostic-only?
 
 Resolve and document these independently rather than answering them implicitly
@@ -417,10 +412,11 @@ matrix `analysis/methodology_1_0_decision_matrix.csv`.
    final application/report parity review.
 3. Capture new paired baselines only after the integrated policy is frozen.
 
-The current minimum-area order, full-issued denominator, no Decision 1B gate,
-absence of numerical adequacy thresholds, interim Solid LINE method, Candidate
-Miss triage parameters, and broader echo-top choices remain provisional. The
-owner's decisions do not promote them to permanent approved policies.
+The current core parameters, provenance-first adequacy minimum, and interim
+Solid LINE method are owner-approved provisional behavior for 1.0—not permanent
+or scientifically optimized policy. The full-issued denominator, no Decision 1B
+gate, Candidate Miss capture parameters, and broader echo-top choices remain
+separate provisional/open items.
 
 ### Integration prerequisites
 

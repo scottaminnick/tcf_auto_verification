@@ -5,6 +5,13 @@
 > forecast scoring and Candidate Miss visibility, adds EPSG:5070 Sparse/Medium
 > density metadata, and adds non-reportable individual Medium-core review flags.
 > See `docs/candidate_miss_owner_decision.md`.
+>
+> **Subsequent 1.0 owner decisions:** the existing 20%/50% grading cutoffs,
+> 25%/40% truth fields, dilation/smoothing, ARTCC+CMAC domain, one-usable-pair
+> adequacy minimum with provenance review, and interim Solid LINE method are
+> explicitly accepted as provisional production behavior. Historical “open” or
+> “conditional blocker” language below is retained as analysis context and is
+> superseded for Methodology 1.0 readiness.
 
 **Review date:** 2026-08-18  
 **Scope:** static trace of the repository, replay of the frozen baselines, and
@@ -174,11 +181,11 @@ those masks across the window. Numerical maxima remain available only for
 display and diagnostics. Decision 1B (permitted product timestamp separation)
 remains open.
 
-### C2. Scan adequacy policy remains unresolved; factual provenance is implemented
+### C2. Scan adequacy policy is provisionally resolved; factual provenance is implemented
 
-**Type: Specification discrepancy plus Outstanding Decision 2.** Version 0.1
-requires requested/available/used timestamps and visible quality status, while
-leaving the exact Normal/Review Required/Insufficient Data cutoffs open.
+**Current status:** the owner requires at least one usable pair, treats zero as a
+hard failure, and requires visible paired-source provenance for meteorologist
+review. No additional numerical adequacy thresholds are approved for 1.0.
 
 One successful tops/reflectivity pair can still produce a result. Product
 keys are selected independently within +/-5 minutes, so a nominal pair can
@@ -447,7 +454,7 @@ validate codes and exact coordinate counts, and surface rejected records.
 | 7 Default coverage mismatch | **Exists; Minor symptom, Moderate robustness** | Grading defaults to 3 while the review table defaults to 25; both label Sparse accidentally, but 25 would select 40% truth if it entered grading. Reject missing/unknown coverage rather than default silently. |
 | 8 Asymmetric miss test | **Exists; Critical/Methodological** | Sparse truth is compared with every forecast. This can suppress misses inconsistently. Obtain and test the intended policy (C6). |
 | 9 Dead index assignment | **Exists; Minor** | Initial indices are overwritten after sorting. No scientific effect, but source identity should replace ephemeral indices. |
-| 10 Silent scan drops | **Visibility fixed; adequacy policy open** | Per-product resolution/download status, actual times, offsets, use, and exclusions are returned and displayed. A one-pair result remains possible until Decision 2 defines quality thresholds. |
+| 10 Silent scan drops | **Visibility fixed; provisional 1.0 policy approved** | Per-product resolution/download status, actual times, offsets, use, and exclusions are displayed; at least one usable pair is required and zero hard-fails. No further numerical threshold is approved without evidence. |
 | 11 Grid-shape assumption | **Fixed for exact compatibility** | Product-pair and cross-scan shapes/coordinates are checked before compositing; mismatches are recorded and excluded. No resampling policy is implied. |
 | 12 Small-core tops become zero | **Exists; Moderate** | Fewer than six samples becomes an omitted top rather than missing/low confidence. Return nullable top plus sample count and sampled area. |
 | 13 Fragile regex splitting | **Exists; Moderate** | Numeric material can be absorbed and malformed records disappear under broad exception handling. Replace with validated record parsing and diagnostics. |
@@ -662,9 +669,9 @@ physical areas are exact.
 2. **Add Priority 0 synthetic tests before changing algorithms.** They provide
    independent mathematical oracles and make intentional classification changes
    reviewable rather than merely turning characterization baselines red.
-3. **Preserve pair-first qualification and composite provenance, then implement
-   the approved quality policy.** Decision 1A is implemented; Decision 1B and
-   Normal/Review Required/Insufficient behavior remain unresolved.
+3. **Preserve pair-first qualification and composite provenance.** Decision 1A
+   and the provisional one-pair adequacy minimum are implemented. Decision 1B
+   remains separate; numerical adequacy states require future evidence.
 4. **Move the scoring domain and all physical geometry operations to an
    equal-area CRS.** Clip forecasts and truth consistently, buffer LINEs in
    meters, and calculate all overlap/minimum areas in the same space. This
@@ -673,11 +680,10 @@ physical areas are exact.
    holes and cell-edge geometry, handle raster boundaries explicitly, and keep
    simplification display-only. This stabilizes minimum-area, overlap, and miss
    classifications.
-6. **Make smoothing/dilation physical and resolution-independent.** Define a
-   projected kernel/structuring element and explicit edge handling. Otherwise a
-   grid-resolution or latitude change silently changes the meteorological test.
-7. **Implement the approved miss and Solid LINE policies.** Do this after the common
-   geometry foundation so hit/miss asymmetries are deliberate and testable.
+6. **Study physical, resolution-independent smoothing/dilation after 1.0.** The
+   owner provisionally retains current parameters; replacement requires evidence.
+7. **Preserve the approved Candidate Miss workflow and interim Solid LINE
+   policy.** Alternative LINE distance/occupancy methods remain future research.
 8. **Rebuild echo-top sampling with topology-aware masks and quality metadata.**
    Return nullable top, valid sample count/area, percentile method, and temporal
    provenance. This prevents omitted or inflated tops from appearing

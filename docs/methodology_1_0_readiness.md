@@ -11,18 +11,18 @@ physical geometry/area, and unavailable-value corrections are implemented and
 tested. Most remaining research questions can remain explicitly provisional in
 a mandatory human-review system.
 
-The methodology owner resolved the two scientific/workflow blockers identified
-by this review: forecast-scoring truth is no longer area-filtered, and automated
-miss geometry is explicitly non-authoritative Candidate Miss triage requiring
-meteorologist approval before FAA inclusion. The remaining blockers are release
-mechanics: integrated validation, explicit version assignment, fresh paired
-historical verification, and new baseline capture.
+The methodology owner resolved the scientific/workflow blockers identified by
+this review: forecast truth and Candidate Misses have no hard area floor;
+automated candidates require approval; the inherited core parameters, minimum
+MRMS adequacy rule, and interim Solid LINE method are explicitly accepted as
+provisional for 1.0. Remaining blockers are release mechanics: final validation,
+version freeze, and new baseline capture.
 
 All other identified Option C methodologies remain explicitly provisional and
 unchanged for 1.0. This does not convert them into permanent approved policy.
 
 The authoritative planning artifact is
-`analysis/methodology_1_0_decision_matrix.csv`, with 27 separately classified
+`analysis/methodology_1_0_decision_matrix.csv`, with 28 separately classified
 decisions/subdecisions.
 
 ## Status and blocker vocabulary
@@ -69,18 +69,16 @@ calculation error or an undefined publication boundary.
   published results are distinct. Operational enforcement remains a release
   blocker rather than a new scientific decision.
 
-### Working hypotheses
+### Working hypotheses and post-1.0 research
 
 * **Decision 1B:** common authoritative MRMS cycle identity is preferred; current
   no-gate behavior remains interim because filename semantics are unresolved.
-* **MRMS adequacy:** multi-metric Normal/Review Required/Insufficient Data is the
-  preferred structure; no thresholds are approved.
-* **Solid LINE:** line-length occupancy with physical-distance tolerance is the
-  preferred research direction; current buffered area remains interim.
+* **MRMS adequacy research:** numerical quality states may be studied later;
+  1.0 requires one usable pair plus visible provenance and adds no thresholds.
+* **Solid LINE research:** physical-distance or occupancy alternatives may be
+  studied later; the current buffered-area method is accepted provisionally.
 * **Domain denominator:** in-domain denominator is conceptually favored, while
   current full-issued denominator remains unchanged.
-* **Minimum-area order:** post-domain filtering is favored; threshold existence
-  and magnitude are a separate question.
 
 ### Provisional production behavior
 
@@ -97,14 +95,15 @@ calculation error or an undefined publication boundary.
   floor applies. Hidden poorly captured Medium components are separate
   non-reportable reviewer flags. Candidates still require explicit approval.
 
-### Open decisions
+### Open decisions after the owner decisions
 
 The matrix separates minimum-area use for forecast scoring from use for miss
 triage; miss eligibility, capture, and class interaction; echo statistic, source
-region, sample count, and report role; Decision 1B; observation adequacy;
-grading cutoffs; domain authority; spatial transformation; methodology version;
-and final publication governance. Option C/D findings remain open—they are not
-silently promoted here.
+region, sample count, and report role; Decision 1B;
+methodology version; and final publication governance. The 20%/50% cutoffs,
+25%/40% fields, dilation/smoothing, ARTCC+CMAC domain, one-pair adequacy minimum,
+and interim Solid LINE method are no longer blockers: they are explicitly
+provisional production behavior, not claims of scientific optimization.
 
 ## Evidence strength
 
@@ -171,15 +170,13 @@ remain provisional. Automated results are now labeled Candidate Miss, default to
 `approved_for_report=False`, and are omitted from the FAA `Missed` section until
 a meteorologist explicitly checks approval in the review table.
 
-### MRMS adequacy
+### MRMS adequacy — owner decision complete for 1.0
 
-Zero usable pairs already raises, and detailed provenance is visible; that makes
-absence of numerical adequacy thresholds acceptable provisionally. However, one
-usable pair currently produces ordinary categories. Before 1.0 the owner must
-decide whether mandatory provenance review alone is sufficient or whether a
-non-numeric pathological **Insufficient Data** safeguard is required. Archive
-evidence is needed before quantitative state thresholds, but quantitative rules
-need not block 1.0.
+At least one usable pair is required; zero usable pairs raises, and detailed
+paired-source provenance is visible for meteorologist review. The owner accepts
+that minimum provisionally for 1.0. No unsupported numerical quality states or
+additional safeguard thresholds are introduced. Further adequacy research is
+post-1.0 refinement rather than a release blocker.
 
 ### Decision 1B
 
@@ -189,21 +186,20 @@ current no-gate behavior is acceptable provisionally for 1.0 if documented and
 reviewed; cycle semantics and outlier sampling can follow. A discovered large
 separation would reopen blocker classification because it could undermine 1A.
 
-### Solid LINE
+### Solid LINE — owner decision complete for 1.0
 
-One historical LINE cannot calibrate a replacement distance. Current buffered
-area is conceptually misaligned but reproducible, identifiable as LINE, rare in
-the sample, and human-reviewed. It is a conditional blocker: the owner may
-explicitly accept it as interim 1.0 behavior, or withhold authoritative LINE
-classification until a distance/occupancy policy exists. More analysis without a
-policy target is not the shortest path.
+The owner explicitly accepts the current 0.15° geographic buffer, Medium truth,
+EPSG:5070 physical-area overlap, and 20%/50% grading cutoffs as interim reviewed
+1.0 behavior. The limited evidence does not establish optimization, but it also
+does not justify an evidence-free replacement. Solid LINE is no longer a 1.0
+blocker; future physical-distance or occupancy work is refinement.
 
 ### Domain and minimum-area order
 
 Seven forecasts were partially outside the selected domain; the minimum
 in-domain fraction was about 85.37%, and no frozen category changed. The full
-denominator is acceptable provisional behavior. Authority for the domain itself
-needs explicit owner adoption because it governs all eligibility.
+denominator is acceptable provisional behavior. The owner has explicitly adopted
+ARTCC+CMAC as the provisional 1.0 domain while retaining its authority limitation.
 
 Post-domain minimum-area filtering had no frozen retention, category, or miss
 difference and avoids arbitrary boundary slivers. It can remain the documented
@@ -287,7 +283,7 @@ cherry-picking; blindly applying both risks duplicate/conflicting changes.
 
 Recommended order, not executed:
 
-1. obtain owner decisions for true and conditional blockers;
+1. obtain owner decisions for any remaining true or conditional blockers;
 2. select a candidate base and fetch `63494ed` plus coverage/parser and
    `89865cf` source branches;
 3. integrate Decision 1A first, or document equivalence if already present;
@@ -321,21 +317,15 @@ Recommended order, not executed:
 
 ## Shortest path and owner questions
 
-The owner has answered the minimum-truth and Candidate Miss governance
-questions. Remaining actions for the integration owner are:
+The owner has answered the minimum-truth, Candidate Miss, provisional core
+parameter, MRMS adequacy, and Solid LINE questions. The remaining listed owner
+question is:
 
-1. **Core provisional parameters:** “Will Methodology 1.0 explicitly retain the
-   inherited 20/50 grading cutoffs, selected ARTCC+CMAC domain, and
-   dilation/smoothing parameters provisionally?”
-2. **Adequacy safeguard:** “Is mandatory provenance review sufficient for 1.0,
-   or must a pathological Insufficient Data safeguard precede categories?”
-3. **Solid LINE:** “May 0.15° buffered-area/Medium-truth scoring remain an
-   explicitly interim reviewed method, or should LINE be withheld?”
-4. **Echo publication:** “May full-geometry temporal-max P90 remain a reviewed
+1. **Echo publication:** “May full-geometry temporal-max P90 remain a reviewed
    FAA descriptor, or should it be reviewer-only until its methodology is
    approved?”
 
-After those judgments, only targeted implementation/workflow changes, integrated
+After that judgment, only targeted implementation/workflow changes, integrated
 testing, a fresh paired experiment, version assignment, and baseline capture are
 needed.
 
