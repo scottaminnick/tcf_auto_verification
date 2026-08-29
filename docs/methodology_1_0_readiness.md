@@ -208,10 +208,10 @@ working order once the magnitude/use decision is made.
 ### Echo-top diagnostic
 
 P90, full-geometry temporal maxima, and six cells are inherited, but the value
-does not affect grading. The corrected null semantics and editable review stage
-make it acceptable provisional reviewer context. Positive P90 currently enters
-FAA text, so the owner must approve it as a reviewed descriptor or constrain it
-to reviewer-only use. Its meaning must not be “pair-qualified storm top.”
+does not affect grading. The owner approves it only as provisional reviewer
+context: it remains visible in the table/hover, preserves `None`, and is excluded
+from FAA text. It is not a maximum storm top, pair-qualified top, or operational
+TCF forecast-top method. Echo publication is no longer a 1.0 blocker.
 
 ## Reviewer-only versus FAA-facing fields
 
@@ -220,7 +220,7 @@ to reviewer-only use. Its meaning must not be “pair-qualified storm top.”
 | category | table/map, editable | section heading | high; unsupported grading/truth parameters directly affect it |
 | overlap fraction | table and boundary context | not printed | moderate; it drives category |
 | Missed | map/table | `Missed` line | high unless explicitly human-approved candidate |
-| echo-top P90 | table/hover, editable | positive value printed | moderate; diagnostic heuristic needs approved descriptive meaning |
+| echo-top P90 | table/hover, editable | absent | reviewer-only provisional context; no publication claim |
 | ARTCC | table, editable | printed | low/moderate; geometry-derived wording is reviewable |
 | MRMS provenance/separations | provenance panel | absent | reviewer context; essential safety evidence |
 | exclusion reasons | provenance/parser diagnostics | absent | reviewer context; prevents silent failure |
@@ -318,14 +318,9 @@ Recommended order, not executed:
 ## Shortest path and owner questions
 
 The owner has answered the minimum-truth, Candidate Miss, provisional core
-parameter, MRMS adequacy, and Solid LINE questions. The remaining listed owner
-question is:
+parameter, MRMS adequacy, Solid LINE, and echo-publication questions.
 
-1. **Echo publication:** “May full-geometry temporal-max P90 remain a reviewed
-   FAA descriptor, or should it be reviewer-only until its methodology is
-   approved?”
-
-After that judgment, only targeted implementation/workflow changes, integrated
+Only targeted implementation/workflow changes, integrated
 testing, a fresh paired experiment, version assignment, and baseline capture are
 needed.
 

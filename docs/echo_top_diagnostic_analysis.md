@@ -7,7 +7,8 @@ C — retain full-geometry temporal-maximum P90 provisionally as a reviewer
 upper-end descriptor, but do not approve it as a permanent FAA-facing method
 until intent and sample domain are documented.** A subsequent approved semantic
 correction now returns unavailable for fewer than six cells. The P90 statistic,
-six-cell count, geometry, and report structure remain unchanged.
+six-cell count, and geometry remain unchanged. A subsequent owner decision makes
+the diagnostic reviewer-only and removes it from FAA-facing text.
 
 ## Current diagnostic
 
@@ -52,16 +53,16 @@ samples.
 ### Presentation
 
 The raw floating statistic is carried into the editable review table. Map hover
-shows one decimal kft or `Unavailable`. FAA text includes `[Top: x.x kft]` only
-when the value is positive; zero and unavailable both
-omit the annotation. Miss rows contain no echo-top diagnostic (`top_kft=None`)
-and their hover/report text has no top. Frozen expected JSON rounds the raw value
-to two decimals, but production FAA text uses one decimal.
+shows one decimal kft or `Unavailable`. Automatically generated FAA text never
+includes the diagnostic, regardless of whether it is positive, zero, or `None`.
+Miss rows contain no echo-top diagnostic (`top_kft=None`). Frozen expected JSON
+retains historical values but is intentionally not regenerated here.
 
 The one-decimal presentation is coarser than the internal percentile, but it can
 still imply more certainty than a temporal maximum, sample-size-dependent
 percentile, and unresolved observation adequacy support. It should be read as a
-descriptive diagnostic, not exact feature altitude.
+descriptive reviewer diagnostic, not exact feature altitude, a maximum storm
+top, or operational TCF forecast-top methodology.
 
 ## Origins and authority
 

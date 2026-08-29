@@ -12,6 +12,11 @@
 > explicitly accepted as provisional production behavior. Historical “open” or
 > “conditional blocker” language below is retained as analysis context and is
 > superseded for Methodology 1.0 readiness.
+>
+> **Echo-top publication decision:** the existing temporal-max P90/six-cell
+> diagnostic remains reviewer-only context and does not affect grading.
+> Automatically generated FAA text now excludes it for every numeric/null state.
+> It is not a maximum storm top or operational TCF forecast-top methodology.
 
 **Review date:** 2026-08-18  
 **Scope:** static trace of the repository, replay of the frozen baselines, and

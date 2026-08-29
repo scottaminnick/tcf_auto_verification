@@ -39,7 +39,7 @@ The integrated executable path contains all approved corrections:
 - [x] Candidate Miss rows default to `approved_for_report = False`; only an
   explicit reviewer edit permits an FAA `Missed` line, and revocation removes it;
 - [x] forecast rows default approved, nullable review-table dtypes round-trip,
-  and unavailable/nonpositive echo tops produce no report annotation.
+  and echo-top diagnostics remain reviewer-only with no FAA report annotation.
 
 ## Provisional behavior preserved
 
@@ -54,9 +54,10 @@ three topics as 1.0 blockers without claiming scientific optimization.
 No policy was changed for Decision 1B (no hard pair-time gate) or the full-issued
 forecast denominator. Candidate Miss review remains Sparse-parented, class-blind,
 and below 20% captured, but its former 15,000 km2 floor is removed by owner
-decision. Echo tops remain
-full-forecast-geometry, temporal-maximum P90 with a six-cell minimum. These are
-documented provisional behaviors, not newly approved rules.
+decision. Echo tops remain full-forecast-geometry temporal-maximum P90 with a
+six-cell minimum, but the owner now restricts them to reviewer context and
+excludes them from FAA text. The statistic remains provisional, not an approved
+operational forecast-top method.
 
 ## Decision 1A equivalence and test-set audit
 

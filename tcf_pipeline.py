@@ -774,9 +774,8 @@ def build_review_table(gdf_graded_fcst, gdf_graded_miss, gdf_artcc,
     No geometry and no numpy scalars in the output -- it has to survive a round
     trip through st.data_editor.
 
-    top_kft carries the RAW top, not the value expected.json rounds to 2 dp. The
-    report formats it with :.1f, and rounding twice can land on a different last
-    digit.
+    top_kft carries the raw reviewer-only diagnostic. It remains available to
+    the UI but build_report deliberately excludes it from FAA-facing text.
     """
     rows = []
 
@@ -864,11 +863,9 @@ def build_report(review_table, valid_dt, issuance_hour, lead_time):
                 f"{row.artccs} - Missed (Area M{row.idx})")
             continue
 
-        top_str = (f" [Top: {row.top_kft:.1f} kft]"
-                   if pd.notna(row.top_kft) and row.top_kft > 0 else "")
         cov_label = _coverage_label(row.feat_type, row.coverage_code)
         feat_label = "Line" if row.feat_type == 'LINE' else "Area"
-        line_text = f"{row.artccs} - {cov_label} ({feat_label} {row.idx}){top_str}"
+        line_text = f"{row.artccs} - {cov_label} ({feat_label} {row.idx})"
         if row.category == "Verified Well":
             doc_report["Verified Well:"].append(line_text)
         elif row.category == "Verified Close":

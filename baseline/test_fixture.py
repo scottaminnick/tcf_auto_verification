@@ -736,9 +736,9 @@ def _():
     print(f"  edited {label}: Verified Well -> Over-forecast, report followed")
 
 
-@scenario("(5) editing artccs and top_kft in the table also reaches the report")
+@scenario("(5) echo top stays editable reviewer context but never reaches FAA text")
 def _():
-    """Category is not a special case -- every column the report reads is live."""
+    """Reportable edits remain live while top_kft is intentionally reviewer-only."""
     results, valid_dt = _fixture_review_table()
     table = results["review_table"]
 
@@ -752,19 +752,9 @@ def _():
 
     after = tcf_pipeline.build_report(edited, valid_dt, 19, 4)
     assert "ZZZ/ZYY - " in after, f"edited ARTCC did not reach the report:\n{after}"
-    assert "[Top: 47.0 kft]" in after, f"edited top did not reach the report:\n{after}"
+    assert edited.at[row, "top_kft"] == 47.0, "review table should retain echo-top context"
+    assert "[Top:" not in after, f"reviewer-only top leaked into FAA text:\n{after}"
     assert "ZQQ - Missed" in after, f"edited miss ARTCC did not reach the report:\n{after}"
-
-    # A zero top drops the bracket entirely, as it always has. Check the line for
-    # THIS polygon, not whichever line happens to sort first.
-    idx, feat = int(table.at[row, "idx"]), table.at[row, "feat_type"]
-    label = f"({'Line' if feat == 'LINE' else 'Area'} {idx})"
-    zeroed = table.copy()
-    zeroed.at[row, "top_kft"] = 0.0
-    lines = [ln for sec in _report_sections(tcf_pipeline.build_report(zeroed, valid_dt, 19, 4)).values()
-             for ln in sec if label in ln]
-    assert len(lines) == 1, f"expected exactly one line for {label}, got {lines}"
-    assert "[Top:" not in lines[0], f"a zero top should print no bracket: {lines[0]!r}"
 
 
 # --- composite fetch (parallel downloads, fixed fold order) ------------------

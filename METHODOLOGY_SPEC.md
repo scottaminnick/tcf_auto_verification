@@ -281,18 +281,19 @@ Echo tops are diagnostic information for the reviewer. Processing shall use
 physically corresponding locations, handle missing values, respect holes, avoid
 turning unavailable data into zero, and identify the statistic used.
 
-**Open Decision 8:** select maximum, 90th percentile, 75th percentile, or another
-operationally meaningful statistic, and decide whether it belongs in the FAA
-text or only the review interface.
+**Approved publication decision for Methodology 1.0:** echo-top information is
+reviewer-only. Retain the current full-forecast-geometry temporal-maximum P90 and
+six-cell minimum as provisional meteorologist context, but never include it in
+automatically generated FAA-facing report text. It does not affect grading and
+is neither a maximum storm top nor the operational TCF forecast-top methodology.
+Any future FAA observed-top component requires a separate methodology decision.
 
-**Decision 8 analysis status:** retain the current full-forecast-geometry,
-temporal-maximum P90 provisionally as a reviewer upper-end descriptor; neither
-P90 nor FAA-text use is approved permanently. Repository history supplies no
+Repository history supplies no
 scientific or operational rationale for P90 or the six-cell minimum, and the
 six-event legacy audit shows material statistic and sample-size sensitivity.
 Keep the remaining decisions separate:
 
-* **statistic:** P90 versus maximum/P95/another summary remains open;
+* **statistic:** P90 remains provisional reviewer context and may be refined;
 * **sample geometry/domain:** full forecast versus pair-qualified or verified
   observation region remains open;
 * **minimum sample size:** six qualifying cells remains implemented but
@@ -302,8 +303,8 @@ Keep the remaining decisions separate:
   does not approve six as the permanent minimum.
 
 The diagnostic continues to use independent numerical temporal maxima and must
-not be described as the top specifically associated with Decision 1A
-pair-qualified convection.
+not be described as a maximum top, an operational forecast-top statistic, or the
+top specifically associated with Decision 1A pair-qualified convection.
 
 ## 20. Geographic attribution
 
@@ -392,8 +393,7 @@ decision and a clear reviewer flag, generally choose the flag.
 2. Is a domain-crossing forecast denominator whole or in-domain only?
 3. Which observed events are miss-eligible, what capture prevents a miss, and how
    do Sparse, Medium, and Solid LINE forecast classes interact?
-4. What echo-top statistic is used internally and/or reported?
-5. Which automated fields belong in the editable FAA Google Doc rather than
+4. Which automated fields belong in the editable FAA Google Doc rather than
     remaining diagnostic-only?
 
 Resolve and document these independently rather than answering them implicitly

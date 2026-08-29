@@ -563,18 +563,24 @@ class PhysicalGeometryTests(unittest.TestCase):
             {"geometry": box(2, 0, 3, 1), "category": "Overforecasted",
              "color": "orange", "idx": 2, "top": 0.0, "coverage": 3,
              "feat_type": "AREA", "coverage_fraction": 0.0},
+            {"geometry": box(4, 0, 5, 1), "category": "Verified Close",
+             "color": "yellow", "idx": 3, "top": 47.6, "coverage": 3,
+             "feat_type": "AREA", "coverage_fraction": 0.25},
         ]
         graded = gpd.GeoDataFrame(records, crs="EPSG:4326")
         table = tcf_pipeline.build_review_table(graded, EMPTY, EMPTY)
         self.assertEqual(str(table["top_kft"].dtype), "Float64")
         self.assertTrue(pd.isna(table.loc[0, "top_kft"]))
         self.assertEqual(table.loc[1, "top_kft"], 0.0)
+        self.assertEqual(table.loc[2, "top_kft"], 47.6)
         round_trip = table.copy().astype(tcf_pipeline.REVIEW_COLUMNS)
         self.assertTrue(pd.isna(round_trip.loc[0, "top_kft"]))
         self.assertEqual(round_trip.loc[1, "top_kft"], 0.0)
+        self.assertEqual(round_trip.loc[2, "top_kft"], 47.6)
         report = tcf_pipeline.build_report(
             round_trip, datetime(2026, 5, 24, 23), 19, 4)
         self.assertNotIn("[Top:", report)
+        self.assertIn("Sparse (Area 3)", report)
 
     def test_candidate_miss_requires_explicit_report_approval(self):
         """Automated candidates cannot become FAA-facing Missed by default."""
@@ -1118,6 +1124,7 @@ class TimeAndParserTests(unittest.TestCase):
         report = tcf_pipeline.build_report(
             table, datetime(2026, 4, 4, 1), 21, 4)
         self.assertIn("ZFW - Solid (Line 4)", report)
+        self.assertNotIn("[Top:", report)
         self.assertNotIn("Dense", report)
 
 
