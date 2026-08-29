@@ -465,20 +465,38 @@ def render_scorecard(R):
         st.download_button("Pass A", R['report_text'], file_name="pass_a_report.txt")
 
 def render_reanalysis(R):
-    """View 2: the objective 'truth' -- what the TCF should have been (sparse reanalysis)."""
+    """Reviewer view of each stage of the objective truth transformation."""
     st.subheader("Objective TCF Reanalysis (Ground Truth)")
-    st.caption(f"{composite_label()} composite; truth is the "
-               f"{tcf_pipeline.GradingParams().sparse_truth_threshold:.0%} coverage contour. "
-               f"Cyan dashed = objective sparse areas.")
+    st.caption(
+        "The radar background is DIAGNOSTIC TEMPORAL MAXIMA, not pair-first "
+        "verification truth. The Decision 1A same-pair qualifying seed enters "
+        "the objective transformation; Sparse and Medium contours are the "
+        "processed 25% and 40% coverage fields.")
 
     fig = _new_map_fig(R, f"Objective TCF Reanalysis (Truth) | VT: {R['valid_dt'].strftime('%H:00Z')}")
 
-    gs = R['gdf_sparse']
-    if not gs.is_empty.all():
-        xs, ys = _gdf_to_xy(gs)
-        fig.add_trace(go.Scatter(x=xs, y=ys, mode='lines', name='Sparse Reanalysis (25%+)',
-                                 line=dict(color='cyan', width=3, dash='dash'),
-                                 hovertemplate="Objective truth area<extra></extra>"))
+    layers = (
+        ('gdf_pair_first_seed', 'Decision 1A Pair-first Seed', '#FFFFFF', 'dot', 1),
+        ('gdf_dilated_seed', 'Post-dilation Seed', '#FF00FF', 'dashdot', 2),
+        ('gdf_sparse', 'Sparse Processed Truth (25%+)', '#00FFFF', 'dash', 3),
+        ('gdf_medium_truth', 'Medium Processed Truth (40%+)', '#FFD700', 'solid', 3),
+    )
+    for key, label, color, dash, width in layers:
+        geometry = R[key]
+        if not geometry.empty and not geometry.is_empty.all():
+            xs, ys = _gdf_to_xy(geometry)
+            fig.add_trace(go.Scatter(
+                x=xs, y=ys, mode='lines', name=label,
+                line=dict(color=color, width=width, dash=dash),
+                hovertemplate=f"{label}<extra></extra>"))
+
+    forecasts = R['gdf_graded_fcst']
+    if not forecasts.empty and not forecasts.is_empty.all():
+        xs, ys = _gdf_to_xy(forecasts)
+        fig.add_trace(go.Scatter(
+            x=xs, y=ys, mode='lines', name='Issued TCF Forecasts',
+            line=dict(color='#808080', width=1, dash='solid'),
+            hovertemplate="Issued forecast geometry<extra></extra>"))
 
     st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
 
@@ -580,6 +598,9 @@ if st.sidebar.button("Run Verification"):
         'gdf_graded_miss': R['gdf_graded_miss'],
         'gdf_medium_core_flags': R['gdf_medium_core_flags'],
         'gdf_sparse': R['gdf_sparse'],
+        'gdf_medium_truth': R['gdf_medium_truth'],
+        'gdf_pair_first_seed': R['gdf_pair_first_seed'],
+        'gdf_dilated_seed': R['gdf_dilated_seed'],
         'review_table': R['review_table'],
         'mrms_provenance': mrms_provenance,
         'report_text': R['report_text'],

@@ -150,6 +150,19 @@ optimized and remain eligible for later evidence-based revision.
 
 ## 11. Spatial coverage fields
 
+The reviewer interface exposes the full implemented transformation without
+altering it: the Decision 1A pair-first Boolean seed, the post-dilation seed,
+the processed 25% Sparse field, and the processed 40% Medium field. Numeric
+temporal-max radar imagery is labeled diagnostic and is not verification truth.
+The seed and dilation geometries are display-only; the displayed Medium geometry
+is the complete field already used for Medium AREA and interim Solid LINE
+scoring, not the subset represented by Medium-core Review Flags.
+
+A paired-artifact sensitivity audit may compare zero/one dilation iterations
+and smoothing sizes 5/10/15/20. Such runs must use stored `qualifying_mask`
+arrays, must reject maxima-only legacy artifacts, and do not approve a parameter
+change. Production remains one dilation iteration and size-20 smoothing.
+
 Current behavior uses approximately 25% or greater observed coverage for Sparse
 AREA forecasts and approximately 40% or greater for Medium AREA forecasts.
 

@@ -1283,7 +1283,12 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
     top_verif_matrix[valid_convection & (max_tops >= 40)] = 4
 
     raw_cores = qualifying_mask
-    buffered_cores = binary_dilation(raw_cores, iterations=params.dilation_iterations)
+    # scipy treats ``iterations=0`` as "repeat until stable", whereas the
+    # diagnostic parameter study uses zero to mean no dilation.  The production
+    # default remains one iteration.
+    buffered_cores = (raw_cores.copy() if params.dilation_iterations == 0 else
+                      binary_dilation(raw_cores,
+                                      iterations=params.dilation_iterations))
     coverage_fraction = uniform_filter(buffered_cores.astype(float), size=params.smoothing_size)
 
     # The scored area. None disables clipping entirely, which is what the
@@ -1300,6 +1305,12 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
     gdf_medium_truth = extract_tcf_polygons((coverage_fraction >= params.medium_truth_threshold).astype(int),
                                             lons, lats, min_area_m2=0,
                                             domain=domain)
+    # Reviewer-only transformation stages.  These geometries are derived from
+    # the exact masks already used above and never feed back into scoring.
+    gdf_pair_first_seed = extract_tcf_polygons(
+        raw_cores.astype(int), lons, lats, min_area_m2=0, domain=domain)
+    gdf_dilated_seed = extract_tcf_polygons(
+        buffered_cores.astype(int), lons, lats, min_area_m2=0, domain=domain)
     del coverage_fraction, raw_cores, buffered_cores
     gc.collect()
 
@@ -1404,6 +1415,9 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
         'gdf_graded_miss': gdf_graded_miss,
         'gdf_medium_core_flags': gdf_medium_core_flags,
         'gdf_sparse': gdf_sparse,
+        'gdf_medium_truth': gdf_medium_truth,
+        'gdf_pair_first_seed': gdf_pair_first_seed,
+        'gdf_dilated_seed': gdf_dilated_seed,
         'graded_forecasts': graded_forecasts,
         'graded_misses': graded_misses,
         'medium_core_review_flags': medium_core_flags,

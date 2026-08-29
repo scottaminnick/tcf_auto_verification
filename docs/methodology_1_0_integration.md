@@ -1,5 +1,23 @@
 # Methodology 1.0 integration candidate
 
+## Truth-transformation instrumentation before freeze
+
+Meteorologist review identified a need to inspect the inherited objective
+coverage transformation before Methodology 1.0 is frozen. The integration
+candidate therefore exposes four reviewer-only layers: the stored Decision 1A
+pair-first seed, the configured post-dilation seed, complete processed Sparse
+(25%+) truth, and complete processed Medium (40%+) truth. These geometries are
+observational instrumentation; the seed/dilation display layers never feed back
+into scoring, and Medium display geometry is the same object already used for
+Medium AREA and interim Solid LINE scoring.
+
+`analysis/truth_spatial_transform_sensitivity.py` evaluates dilation 0/1 and
+smoothing 5/10/15/20 only against fresh paired validation directories. It
+rejects maxima-only legacy artifacts and writes event, forecast, Candidate Miss,
+and individual Medium-component CSVs plus a concise Markdown comparison. This
+experiment supplies evidence; it does not select a new default. Production
+remains dilation 1, smoothing 20, Sparse 25%, and Medium 40%.
+
 ## Status and identity
 
 **READY FOR FRESH PAIRED VALIDATION.** The candidate branch is

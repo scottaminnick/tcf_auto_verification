@@ -58,7 +58,8 @@ def _run_with_analytic_truth(forecast_geometry, coverage_code, sparse_truth,
         refl = np.zeros(shape, dtype=float)
 
     # Scoring Sparse and Medium; review cues reuse and explode those fields.
-    truth_results = [_gdf(sparse_truth), _gdf(medium_truth)]
+    # Scoring truth followed by the two reviewer-only seed layers.
+    truth_results = [_gdf(sparse_truth), _gdf(medium_truth), EMPTY, EMPTY]
     with patch.object(tcf_pipeline, "extract_tcf_polygons",
                       side_effect=truth_results), \
          patch.object(tcf_pipeline, "verification_domain",
@@ -254,9 +255,43 @@ class Decision1ATests(unittest.TestCase):
                 EMPTY, tops, refl, np.array([-100.0, -99.0]),
                 np.array([40.0, 41.0]), datetime(2026, 5, 24, 23),
                 19, 4, EMPTY, params, qualifying_mask=paired)
-        self.assertEqual(len(captured), 2)
+        self.assertEqual(len(captured), 4)
         self.assertFalse(captured[0].any())
         self.assertFalse(captured[1].any())
+        self.assertFalse(captured[2].any())
+        self.assertFalse(captured[3].any())
+
+    def test_reviewer_layers_use_supplied_pair_mask_and_preserve_scores(self):
+        """Display layers expose the scored transform without influencing it."""
+        lons = np.array([-101.0, -100.0, -99.0])
+        lats = np.array([39.0, 40.0, 41.0])
+        paired = np.zeros((3, 3), dtype=bool)
+        paired[1, 1] = True
+        # Maxima create a false temporal conjunction away from the paired seed.
+        refl = np.zeros((3, 3)); tops = np.zeros((3, 3))
+        refl[0, 0] = 50.0; tops[0, 0] = 40.0
+        forecast = gpd.GeoDataFrame([{
+            "geometry": box(-100.5, 39.5, -99.5, 40.5),
+            "coverage": 2, "feat_type": "AREA",
+        }], crs="EPSG:4326")
+        params = tcf_pipeline.GradingParams(
+            dilation_iterations=0, smoothing_size=1, apply_domain_mask=False)
+        result = tcf_pipeline.run_verification(
+            forecast, tops, refl, lons, lats, datetime(2026, 1, 1),
+            1, 4, EMPTY, params=params, qualifying_mask=paired)
+        expected = tcf_pipeline.extract_tcf_polygons(paired, lons, lats)
+        self.assertTrue(result["gdf_pair_first_seed"].union_all().equals(
+            expected.union_all()))
+        self.assertTrue(result["gdf_dilated_seed"].union_all().equals(
+            expected.union_all()))
+        # Complete Medium display truth is the same geometry used to score the
+        # Medium feature, which is fully covered here.
+        self.assertTrue(result["gdf_medium_truth"].union_all().equals(
+            expected.union_all()))
+        self.assertEqual(result["graded_forecasts"][0]["category"],
+                         "Verified Well")
+        self.assertAlmostEqual(
+            result["graded_forecasts"][0]["coverage_fraction"], 1.0)
 
     def test_missing_required_mask_is_a_type_error(self):
         with self.assertRaises(TypeError):
@@ -292,7 +327,7 @@ class PhysicalGeometryTests(unittest.TestCase):
                 np.array([0.0, 1.0]), np.array([0.0, 1.0]),
                 datetime(2026, 1, 1), 1, 4, EMPTY, params,
                 qualifying_mask=np.zeros((2, 2), dtype=bool))
-        self.assertEqual(minimums, [0, 0])
+        self.assertEqual(minimums, [0, 0, 0, 0])
 
     def test_sub_15000_component_still_scores_forecast(self):
         """A small qualifying component is scoring truth and remains reviewable."""
@@ -312,8 +347,9 @@ class PhysicalGeometryTests(unittest.TestCase):
             qualifying_mask=qualifying)
         self.assertAlmostEqual(
             result["graded_forecasts"][0]["coverage_fraction"], 1.0, places=6)
-        self.assertEqual(len(result["graded_misses"]), 1)
-        self.assertLess(result["graded_misses"][0]["sparse_area_km2"], 15_000)
+        # The forecast fully captures this small component, so it is scoring
+        # truth but correctly not a Candidate Miss.
+        self.assertEqual(len(result["graded_misses"]), 0)
 
     def test_overlap_fraction_uses_physical_area(self):
         """Requirement: AREA numerator/denominator use physical-area projection.
