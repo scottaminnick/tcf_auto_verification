@@ -51,3 +51,10 @@ inspection of the central Plains, Iowa, Illinois, Indiana, and Ohio. Generated
 binary plots are intentionally not committed. The application itself provides
 interactive pair-first seed, post-dilation seed, Sparse, Medium, and forecast
 layers over the diagnostic temporal-max background.
+
+Projected physical calculations use a narrow topology safeguard. Canonical
+EPSG:4326 truth is retained exactly; only invalid polygonal geometry produced by
+projection to EPSG:5070 is repaired before area/intersection operations. Valid
+projected geometry bypasses repair unchanged. This prevents rare GEOS topology
+failures in fragmented sensitivity fields without changing the meteorological
+transformation being evaluated.

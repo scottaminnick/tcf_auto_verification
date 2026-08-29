@@ -18,6 +18,18 @@ and individual Medium-component CSVs plus a concise Markdown comparison. This
 experiment supplies evidence; it does not select a new default. Production
 remains dilation 1, smoothing 20, Sparse 25%, and Medium 40%.
 
+### Projected-topology safeguard
+
+Canonical truth remains valid EPSG:4326 geometry and is not repaired or
+otherwise mutated. In a highly fragmented July 28 sensitivity field, projection
+to EPSG:5070 introduced a self-intersection that caused GEOS to reject a
+physical-area intersection. Projected Sparse and Medium truth is now checked
+immediately after transformation: valid geometry is used unchanged, while an
+invalid projected polygon is passed through `make_valid` and reduced to valid
+polygonal content solely for EPSG:5070 area/intersection calculations. This is a
+numerical geometry safeguard, not an objective-truth or meteorological
+methodology transformation.
+
 ## Status and identity
 
 **READY FOR FRESH PAIRED VALIDATION.** The candidate branch is

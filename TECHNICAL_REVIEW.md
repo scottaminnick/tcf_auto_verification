@@ -1,5 +1,12 @@
 # Independent technical review of TCF auto verification
 
+> **RC1 projected-topology safeguard:** canonical EPSG:4326 truth remains
+> unchanged. EPSG:5070 projection can rarely introduce self-intersection into
+> highly fragmented valid truth, so invalid projected Sparse/Medium polygonal
+> geometry is repaired with `make_valid` solely before physical-area and
+> intersection calculations. Valid projected geometry bypasses repair. This is
+> numerical robustness, not a meteorological transformation.
+
 > **Current owner-decision note:** this review characterizes the inherited
 > 15,000 km² behavior. Methodology 1.0 RC1 now removes that hard floor from
 > forecast scoring and Candidate Miss visibility, adds EPSG:5070 Sparse/Medium

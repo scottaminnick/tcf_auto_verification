@@ -12,7 +12,8 @@ from unittest.mock import patch
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-from shapely.geometry import LineString, MultiPolygon, Polygon, box
+from shapely.geometry import (GeometryCollection, LineString, MultiPolygon,
+                              Point, Polygon, box)
 
 import tcf_pipeline
 
@@ -311,6 +312,40 @@ class Decision1ATests(unittest.TestCase):
 
 class PhysicalGeometryTests(unittest.TestCase):
     """Established physical-area and topology requirements (Spec §§3, 12, 19)."""
+
+    def test_valid_projected_polygonal_geometry_is_untouched(self):
+        polygon = box(0, 0, 1000, 1000)
+        multipart = MultiPolygon([polygon, box(2000, 0, 3000, 1000)])
+        self.assertIs(tcf_pipeline.validate_projected_polygonal(polygon), polygon)
+        self.assertIs(tcf_pipeline.validate_projected_polygonal(multipart), multipart)
+
+    def test_invalid_projected_polygon_is_repaired(self):
+        # Deterministic projected-coordinate bow tie reproduces the topology
+        # class raised by projection-induced self-intersections.
+        invalid = Polygon([(0, 0), (2000, 2000), (0, 2000), (2000, 0), (0, 0)])
+        self.assertFalse(invalid.is_valid)
+        repaired = tcf_pipeline.validate_projected_polygonal(invalid)
+        self.assertTrue(repaired.is_valid)
+        self.assertIsInstance(repaired, (Polygon, MultiPolygon))
+        self.assertGreater(repaired.area, 0)
+
+    def test_make_valid_collection_keeps_only_polygonal_content(self):
+        invalid = Polygon([(0, 0), (2, 2), (0, 2), (2, 0), (0, 0)])
+        expected = box(0, 0, 1, 1)
+        mixed = GeometryCollection([
+            expected, LineString([(5, 5), (6, 6)]), Point(9, 9)])
+        with patch.object(tcf_pipeline, "make_valid", return_value=mixed):
+            repaired = tcf_pipeline.validate_projected_polygonal(invalid)
+        self.assertTrue(repaired.equals(expected))
+        self.assertIsInstance(repaired, Polygon)
+
+    def test_projected_repair_without_polygonal_content_fails_clearly(self):
+        invalid = Polygon([(0, 0), (2, 2), (0, 2), (2, 0), (0, 0)])
+        with patch.object(
+                tcf_pipeline, "make_valid",
+                return_value=GeometryCollection([LineString([(0, 0), (1, 1)])])):
+            with self.assertRaisesRegex(ValueError, "polygonal content"):
+                tcf_pipeline.validate_projected_polygonal(invalid)
 
     def test_candidate_miss_has_no_minimum_area_floor(self):
         """Neither scored truth nor Candidate Miss visibility has an area floor."""

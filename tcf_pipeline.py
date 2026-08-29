@@ -40,8 +40,9 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 from scipy.ndimage import binary_dilation, uniform_filter
-from shapely import contains_xy, union_all
-from shapely.geometry import LineString, MultiPolygon, Polygon, box
+from shapely import contains_xy, make_valid, union_all
+from shapely.geometry import (GeometryCollection, LineString, MultiPolygon,
+                              Polygon, box)
 
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 ARTCC_PATH = os.path.join(REPO_ROOT, "artcc1.geojson")
@@ -693,6 +694,42 @@ def _geometry_point_mask(geometry, lon_grid, lat_grid):
     return contains_xy(geometry, lon_grid, lat_grid)
 
 
+def validate_projected_polygonal(geometry):
+    """Return valid polygonal geometry for projected physical calculations.
+
+    Projection can rarely introduce self-intersections into otherwise valid,
+    highly fragmented WGS84 truth. Valid and empty inputs are returned by
+    identity. Invalid inputs alone pass through ``make_valid``; any line/point
+    debris is discarded before polygonal members are unioned and revalidated.
+    Canonical EPSG:4326 geometry must never be passed to this helper.
+    """
+    if geometry.is_empty or geometry.is_valid:
+        return geometry
+
+    repaired = make_valid(geometry)
+
+    def polygonal_parts(candidate):
+        if isinstance(candidate, Polygon):
+            return [candidate]
+        if isinstance(candidate, MultiPolygon):
+            return list(candidate.geoms)
+        if isinstance(candidate, GeometryCollection):
+            return [part for member in candidate.geoms
+                    for part in polygonal_parts(member)]
+        return []
+
+    parts = polygonal_parts(repaired)
+    if not parts:
+        raise ValueError(
+            "invalid projected geometry could not be repaired to polygonal content")
+    result = union_all(parts)
+    if (result.is_empty or not isinstance(result, (Polygon, MultiPolygon))
+            or not result.is_valid):
+        raise ValueError(
+            "projected polygonal geometry remains invalid after make_valid")
+    return result
+
+
 def extract_tcf_polygons(coverage_mask, lons, lats, min_area_m2=0, domain=None):
     """Turns a binary coverage mask into dissolved cell-footprint truth polygons.
 
@@ -915,6 +952,8 @@ def _build_miss_review_cues(gdf_sparse, gdf_medium, forecast_union,
                      .to_crs(PHYSICAL_AREA_CRS)) if sparse_geoms else [])
     medium_m = (list(gpd.GeoSeries(medium_geoms, crs="EPSG:4326")
                      .to_crs(PHYSICAL_AREA_CRS)) if medium_geoms else [])
+    sparse_m = [validate_projected_polygonal(geom) for geom in sparse_m]
+    medium_m = [validate_projected_polygonal(geom) for geom in medium_m]
     medium_union_m = union_all(medium_m) if medium_m else Polygon()
 
     sparse_context = []
@@ -1322,10 +1361,12 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
     # echo-top sampling and reporting. These projected copies exist only for
     # physical area measurement. Project each reused union once rather than once
     # per forecast feature.
-    truth_sparse_union_m = gpd.GeoSeries(
-        [truth_sparse_union], crs="EPSG:4326").to_crs(PHYSICAL_AREA_CRS).iloc[0]
-    truth_medium_union_m = gpd.GeoSeries(
-        [truth_medium_union], crs="EPSG:4326").to_crs(PHYSICAL_AREA_CRS).iloc[0]
+    truth_sparse_union_m = validate_projected_polygonal(
+        gpd.GeoSeries([truth_sparse_union], crs="EPSG:4326")
+        .to_crs(PHYSICAL_AREA_CRS).iloc[0])
+    truth_medium_union_m = validate_projected_polygonal(
+        gpd.GeoSeries([truth_medium_union], crs="EPSG:4326")
+        .to_crs(PHYSICAL_AREA_CRS).iloc[0])
     graded_forecasts = []
 
     # Preserve each source geometry alongside exploded grading components. Area
