@@ -580,7 +580,7 @@ def _():
                                           valid_dt, 19, 4, ARTCC, params=params)
         return (tuple((p["coverage"], round(p["coverage_fraction"], 6), p["category"])
                       for p in r["graded_forecasts"]),
-                len(r["graded_misses"]))
+                len(r["graded_misses"]), len(r["medium_core_review_flags"]))
 
     base = summarise(tcf_pipeline.GradingParams())
     assert len({c for _, _, c in base[0]}) >= 2, \
@@ -593,6 +593,7 @@ def _():
         "verified_close_cutoff": 0.10,
         "miss_capture_threshold": 1.01,   # > 1.0: every truth blob becomes a miss
         "candidate_miss_min_area_m2": 0.0,
+        "medium_core_review_min_area_m2": 1e20,
         "dilation_iterations": 6,
         "smoothing_size": 40,
         "apply_domain_mask": False,
@@ -622,6 +623,7 @@ def _():
         "dilation_iterations": 1,
         "smoothing_size": 15,
         "candidate_miss_min_area_m2": 7_500_000_000.0,
+        "medium_core_review_min_area_m2": 1_500_000_000.0,
         "apply_domain_mask": True,
     }
     for field, want in expected.items():

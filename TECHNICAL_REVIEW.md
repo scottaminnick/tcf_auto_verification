@@ -11,9 +11,9 @@
 > size-15 smoothing (approximately 66 × 84 km at 37.5°N on the geographic grid),
 > with the existing 25%/40% truth and 20%/50% grade thresholds. Candidate Miss
 > inventory requires strict capture below 20% and Sparse area at least 7,500 km²
-> in EPSG:5070. This is reviewer triage only, never a truth filter; Medium-core
-> review flags have no area floor. The six-event evidence is not claimed as
-> climatological optimization.
+> in EPSG:5070. Medium-core review flags separately require strict capture below
+> 20% and area at least 1,500 km². Both are reviewer triage only, never truth
+> filters. The six-event evidence is not claimed as climatological optimization.
 
 > **Current owner-decision note:** this review characterizes the inherited
 > 15,000 km² behavior. Methodology 1.0 RC1 now removes that hard floor from

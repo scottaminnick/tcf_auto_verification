@@ -662,6 +662,7 @@ class PhysicalGeometryTests(unittest.TestCase):
         table = tcf_pipeline.build_review_table(EMPTY, candidate, EMPTY)
         self.assertEqual(table.loc[0, "kind"], "candidate_miss")
         self.assertFalse(table.loc[0, "approved_for_report"])
+        self.assertTrue(table.loc[0, "reportable"])
         report = tcf_pipeline.build_report(
             table, datetime(2026, 5, 24, 23), 19, 4)
         self.assertNotIn(" - Missed (", report)
@@ -699,15 +700,18 @@ class CandidateMissReviewCueTests(unittest.TestCase):
 
     @staticmethod
     def cues(sparse, medium=Polygon(), forecast=Polygon(), threshold=0.20,
-             min_area_m2=7_500_000_000.0):
+             min_area_m2=7_500_000_000.0,
+             medium_min_area_m2=1_500_000_000.0):
         return tcf_pipeline._build_miss_review_cues(
-            _gdf(sparse), _gdf(medium), forecast, threshold, min_area_m2)
+            _gdf(sparse), _gdf(medium), forecast, threshold, min_area_m2,
+            medium_min_area_m2)
 
     def test_rc1_spatial_review_defaults(self):
         params = tcf_pipeline.GradingParams()
         self.assertEqual(params.smoothing_size, 15)
         self.assertEqual(params.dilation_iterations, 1)
         self.assertEqual(params.candidate_miss_min_area_m2, 7_500_000_000.0)
+        self.assertEqual(params.medium_core_review_min_area_m2, 1_500_000_000.0)
 
     def test_approved_sub_15000_components_are_retained(self):
         for area_km2 in (8_900, 14_828):
@@ -742,15 +746,19 @@ class CandidateMissReviewCueTests(unittest.TestCase):
 
     def test_small_low_capture_parent_can_still_emit_medium_flag(self):
         sparse = _projected_rect(0, 0, 70_000, 100_000)  # 7,000 km²
-        medium = _projected_rect(0, 0, 10_000, 10_000)
-        candidates, flags = self.cues(sparse, medium)
+        medium = _projected_rect(0, 0, 30_000, 50_000)  # 1,500 km²
+        exact_area = gpd.GeoSeries(
+            [medium], crs="EPSG:4326").to_crs("EPSG:5070").area.iloc[0]
+        candidates, _ = self.cues(sparse, medium)
+        _, flags = self.cues(
+            sparse, medium, medium_min_area_m2=exact_area)
         self.assertEqual(candidates, [])
         self.assertEqual(len(flags), 1)
         self.assertEqual(flags[0]["parent_sparse_component_id"], 1)
 
     def test_eligible_candidate_suppresses_embedded_medium_flag(self):
         sparse = _projected_rect(0, 0, 100_000, 100_000)
-        medium = _projected_rect(0, 0, 10_000, 10_000)
+        medium = _projected_rect(0, 0, 40_000, 40_000)
         candidates, flags = self.cues(sparse, medium)
         self.assertEqual(len(candidates), 1)
         self.assertEqual(flags, [])
@@ -769,8 +777,8 @@ class CandidateMissReviewCueTests(unittest.TestCase):
     def test_hidden_disconnected_medium_components_are_individual_flags(self):
         sparse = _projected_rect(0, 0, 100_000, 100_000)
         medium = MultiPolygon([
-            _projected_rect(0, 0, 10_000, 10_000),
-            _projected_rect(30_000, 0, 20_000, 10_000),
+            _projected_rect(0, 0, 40_000, 40_000),
+            _projected_rect(45_000, 0, 24_000, 70_000),
         ])
         # Rightmost 30% of Sparse is captured, but neither Medium core is.
         forecast = _projected_rect(70_000, 0, 30_000, 100_000)
@@ -780,13 +788,32 @@ class CandidateMissReviewCueTests(unittest.TestCase):
         self.assertTrue(all(flag["medium_capture_fraction"] < 0.20 for flag in flags))
         self.assertTrue(all(flag["parent_sparse_component_id"] == 1 for flag in flags))
 
-    def test_tiny_medium_core_has_no_area_gate(self):
+    def test_medium_core_review_area_floor(self):
         sparse = _projected_rect(0, 0, 100_000, 100_000)
-        medium = _projected_rect(0, 0, 100, 100)  # 0.01 km²
+        medium = _projected_rect(0, 0, 30_000, 40_000)  # 1,200 km²
         forecast = _projected_rect(70_000, 0, 30_000, 100_000)
         _, flags = self.cues(sparse, medium, forecast)
+        self.assertEqual(flags, [])
+        above = _projected_rect(0, 0, 40_000, 40_000)  # 1,600 km²
+        _, flags = self.cues(sparse, above, forecast)
         self.assertEqual(len(flags), 1)
-        self.assertAlmostEqual(flags[0]["medium_area_km2"], 0.01, places=5)
+        self.assertAlmostEqual(flags[0]["medium_area_km2"], 1_600, places=4)
+
+    def test_medium_capture_threshold_is_strict(self):
+        # Parent is below the 7,500 km² Candidate floor, so duplicate
+        # suppression cannot obscure the Medium capture-boundary assertion.
+        sparse = _projected_rect(0, 0, 70_000, 100_000)
+        medium = _projected_rect(0, 0, 50_000, 40_000)  # 2,000 km²
+        forecast = _projected_rect(0, 0, 10_000, 40_000)
+        projected = gpd.GeoSeries(
+            [medium, forecast], crs="EPSG:4326").to_crs("EPSG:5070")
+        exact_capture = (projected.iloc[0].intersection(projected.iloc[1]).area
+                         / projected.iloc[0].area)
+        self.assertAlmostEqual(exact_capture, 0.20, places=10)
+        self.assertEqual(self.cues(
+            sparse, medium, forecast, threshold=exact_capture)[1], [])
+        self.assertEqual(len(self.cues(
+            sparse, medium, forecast, threshold=exact_capture + 1e-9)[1]), 1)
 
     def test_capture_threshold_is_strict_and_physical(self):
         sparse = _projected_rect(0, 0, 100_000, 100_000)
@@ -811,6 +838,7 @@ class CandidateMissReviewCueTests(unittest.TestCase):
         table = tcf_pipeline.build_review_table(
             EMPTY, EMPTY, EMPTY, gdf_medium_core_flags=flag)
         self.assertEqual(table.loc[0, "kind"], "medium_core_review_flag")
+        self.assertFalse(table.loc[0, "approved_for_report"])
         self.assertFalse(table.loc[0, "reportable"])
         table.loc[0, "approved_for_report"] = True
         table.loc[0, "reportable"] = True
@@ -861,6 +889,42 @@ class CandidateMissReviewCueTests(unittest.TestCase):
                          hidden["graded_forecasts"][0]["category"])
         self.assertEqual(len(visible["graded_misses"]), 1)
         self.assertEqual(len(hidden["graded_misses"]), 0)
+
+    def test_medium_area_parameter_changes_only_flag_inventory(self):
+        sparse = _projected_rect(0, 0, 100_000, 100_000)
+        medium = _projected_rect(0, 0, 40_000, 40_000)
+        forecast_geometry = _projected_rect(70_000, 0, 30_000, 100_000)
+        forecast = gpd.GeoDataFrame([{
+            "geometry": forecast_geometry, "coverage": 3,
+            "feat_type": "AREA",
+        }], crs="EPSG:4326")
+
+        def run(floor):
+            truth = [_gdf(sparse), _gdf(medium), EMPTY, EMPTY]
+            params = tcf_pipeline.GradingParams(
+                medium_core_review_min_area_m2=floor,
+                apply_domain_mask=False)
+            with patch.object(tcf_pipeline, "extract_tcf_polygons",
+                              side_effect=truth):
+                return tcf_pipeline.run_verification(
+                    forecast, np.zeros((2, 2)), np.zeros((2, 2)),
+                    np.array([-100.0, -99.0]), np.array([40.0, 41.0]),
+                    datetime(2026, 1, 1), 1, 4, EMPTY, params=params,
+                    qualifying_mask=np.zeros((2, 2), dtype=bool))
+
+        visible, hidden = run(0), run(1e20)
+        self.assertTrue(visible["gdf_sparse"].union_all().equals(
+            hidden["gdf_sparse"].union_all()))
+        self.assertTrue(visible["gdf_medium_truth"].union_all().equals(
+            hidden["gdf_medium_truth"].union_all()))
+        self.assertEqual(visible["graded_forecasts"][0]["coverage_fraction"],
+                         hidden["graded_forecasts"][0]["coverage_fraction"])
+        self.assertEqual(visible["graded_forecasts"][0]["category"],
+                         hidden["graded_forecasts"][0]["category"])
+        self.assertEqual(len(visible["graded_misses"]),
+                         len(hidden["graded_misses"]))
+        self.assertEqual(len(visible["medium_core_review_flags"]), 1)
+        self.assertEqual(len(hidden["medium_core_review_flags"]), 0)
 
 
 class TruthPolygonizationTests(unittest.TestCase):

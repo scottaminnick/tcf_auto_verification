@@ -342,8 +342,8 @@ needed.
 
 * inherited spatial transformation and 25%/40% truth fields;
 * full-issued denominator over the selected policy domain;
-* the 7,500 km² floor is limited to Candidate Miss reviewer inventory, with no
-  area floor for scoring truth or Medium-core reviewer visibility;
+* the 7,500 km² Sparse and 1,500 km² Medium floors are limited to reviewer-cue
+  inventory, with no area floor for Sparse/Medium scoring truth;
 * buffered-area Solid LINE;
 * Candidate Miss capture logic with explicit FAA-report approval;
 * no Decision 1B gate or adequacy thresholds, with provenance review; and

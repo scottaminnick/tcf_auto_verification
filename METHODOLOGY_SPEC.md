@@ -269,12 +269,13 @@ for treating 20% as an autonomous classification threshold.
 geometry suppresses a miss, only a corresponding coverage class does, or Sparse,
 Medium, and Solid LINE classes interact hierarchically.
 
-**Approved Medium-core review cue:** every individual Medium component with
-strict `<20%` forecast capture is surfaced as a non-reportable Medium-core Review
-Flag when its parent Sparse component is not already a Candidate Miss. If the
-parent is already a candidate, its Medium density is metadata and no duplicate
-flag is created. No Medium-area threshold or automatic object consolidation is
-approved.
+**Approved Medium-core review cue:** an individual Medium component is surfaced
+as a non-reportable Medium-core Review Flag when capture is strict `<20%`,
+EPSG:5070 area is `>=1,500 km²`, and its parent Sparse component is not already
+an eligible Candidate Miss. Equality is eligible. If the parent is already a
+candidate, its Medium density is metadata and no duplicate flag is created. The
+1,500 km² floor is reviewer triage only; it does not filter Medium truth or
+define valid TCF convection. No automatic object consolidation is approved.
 
 **Historical analysis status:** the legacy replay found seven floor-filtered
 Sparse-only misses and demonstrated strong area/capture parameter coupling. The

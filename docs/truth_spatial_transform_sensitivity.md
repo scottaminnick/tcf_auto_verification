@@ -48,7 +48,9 @@ means the stored pair-first seed is passed through unchanged. All other
   Medium context, and `eligible_candidate_miss`. This preserves future 5k,
   7.5k, 10k, and 15k comparisons without another MRMS run.
 * `medium_components.csv`: every disconnected Medium component, physical area,
-  capture, centroid/bounds, Sparse-parent context, and flag status.
+  capture, centroid/bounds, Sparse-parent context, raw low-capture status,
+  1,500 km² eligibility, and duplicate-suppression status. Thus future Medium
+  triage comparisons do not require another MRMS run.
 * `summary.md`: grade changes relative to RC1 and a compact topology/review-cue
   table. It is descriptive evidence, not a replacement-parameter decision.
 
@@ -65,3 +67,12 @@ projection to EPSG:5070 is repaired before area/intersection operations. Valid
 projected geometry bypasses repair unchanged. This prevents rare GEOS topology
 failures in fragmented sensitivity fields without changing the meteorological
 transformation being evaluated.
+
+The current reviewer hierarchy is deliberately separate from truth: Candidate
+Misses require Sparse capture below 20% and area at least 7,500 km²; Medium-core
+flags require Medium capture below 20% and area at least 1,500 km² and are
+suppressed only by an eligible Candidate Miss parent. Neither area floor removes
+Sparse or Medium scoring truth. In six paired development events the Medium
+floor reduced 24 flags to 12, and total cues from 39 to 27, while 15 Candidate
+Misses were unchanged. These are development evidence, not climatological
+optimization or definitions of valid convection.

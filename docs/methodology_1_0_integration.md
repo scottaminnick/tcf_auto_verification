@@ -26,8 +26,15 @@ Sparse physical area at least 7,500 km² in EPSG:5070. Equality is eligible. The
 area floor is reviewer triage, not a TCF definition and never filters Sparse or
 Medium scoring truth. At smoothing 15 the paired audit found 74 raw low-capture
 components, retaining 24 at 5,000 km², 15 at 7,500 km², 8 at 10,000 km², and 7
-at 15,000 km². Medium-core flags retain no area floor and are suppressed only
-when their parent satisfies both Candidate Miss criteria.
+at 15,000 km². Medium-core flags require strict capture below 20% and Medium
+area at least 1,500 km² in EPSG:5070, and are suppressed only when their parent
+satisfies both Candidate Miss criteria. This separate floor is also reviewer
+triage only and never filters complete Medium scoring truth.
+
+Across the six paired development events, the 1,500 km² Medium-core floor
+reduced 24 raw flags to 12 while leaving 15 Candidate Misses unchanged: total
+review cues fell from 39 to 27. This is reviewer-inventory evidence, not
+climatological optimization or a Medium-convection definition.
 
 ### Projected-topology safeguard
 

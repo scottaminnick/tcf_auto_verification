@@ -59,10 +59,17 @@ class PairedArtifactIdentityTests(unittest.TestCase):
             self.assertTrue(all(
                 "low_capture_sparse_component_count" in row
                 for row in rows["event"]))
+            self.assertTrue(all(
+                "low_capture_medium_component_count" in row
+                for row in rows["event"]))
             self.assertTrue(rows["candidate"])
             self.assertTrue(all(
                 "eligible_candidate_miss" in row
                 for row in rows["candidate"]))
+            self.assertTrue(rows["medium"])
+            self.assertTrue(all(
+                "eligible_medium_core_review_flag" in row
+                for row in rows["medium"]))
 
 
 if __name__ == "__main__":

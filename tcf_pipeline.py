@@ -192,6 +192,10 @@ class GradingParams:
     # Sparse/Medium truth or forecast scoring.
     candidate_miss_min_area_m2: float = 7_500_000_000.0
 
+    # Reviewer-inventory triage for disconnected Medium-core cues only. It
+    # never filters the complete Medium truth used for scoring/display.
+    medium_core_review_min_area_m2: float = 1_500_000_000.0
+
     # Truth-field construction, in decimated (5x) grid cells.
     dilation_iterations: int = 1
     smoothing_size: int = 15
@@ -937,13 +941,15 @@ def _individual_geometries(gdf):
 
 def _build_miss_review_cues(gdf_sparse, gdf_medium, forecast_union,
                             miss_capture_threshold,
-                            candidate_miss_min_area_m2=7_500_000_000.0):
+                            candidate_miss_min_area_m2=7_500_000_000.0,
+                            medium_core_review_min_area_m2=1_500_000_000.0):
     """Build physical-area Candidate Misses and reviewer-only Medium cues.
 
     Every disconnected Sparse and Medium component is evaluated separately.
     The Sparse physical-area floor is reviewer triage only and never filters
-    truth. Medium flags have no area floor and are suppressed only when their
-    parent is an actual Candidate Miss under both Sparse criteria.
+    truth. Medium flags use a separate reviewer-triage area floor and are
+    suppressed only when their parent is an actual Candidate Miss under both
+    Sparse criteria.
     """
     sparse_geoms = sorted(
         _individual_geometries(gdf_sparse), key=lambda geom: geom.centroid.x,
@@ -1003,6 +1009,7 @@ def _build_miss_review_cues(gdf_sparse, gdf_medium, forecast_union,
             if overlap > parent_overlap:
                 parent, parent_overlap = context, overlap
         if (capture < miss_capture_threshold
+                and area_m2 >= medium_core_review_min_area_m2
                 and not (parent is not None and parent["is_candidate"])):
             flags.append({
                 "geometry": geom,
@@ -1429,7 +1436,8 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
 
     graded_misses, medium_core_flags = _build_miss_review_cues(
         gdf_sparse, gdf_medium_truth, fcst_union,
-        params.miss_capture_threshold, params.candidate_miss_min_area_m2)
+        params.miss_capture_threshold, params.candidate_miss_min_area_m2,
+        params.medium_core_review_min_area_m2)
 
     # ORDER EAST -> WEST: east = larger (least-negative) longitude, so sort centroid.x
     # descending. Renumber after sorting so BOTH the map labels and the report read E->W.
