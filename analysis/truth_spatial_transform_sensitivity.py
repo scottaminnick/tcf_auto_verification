@@ -18,6 +18,8 @@ from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
+from shapely import union_all
+from shapely.geometry import Polygon
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
@@ -26,7 +28,7 @@ import tcf_pipeline as pipeline  # noqa: E402
 
 DILATIONS = (0, 1)
 SMOOTHING_SIZES = (5, 10, 15, 20)
-CURRENT = (1, 20)
+CURRENT = (1, 15)
 
 
 def load_paired_event(event_dir):
@@ -97,6 +99,27 @@ def audit_event(event_dir, artccs):
                 qualifying_mask=data["qualifying_mask"])
             sparse = _components(result["gdf_sparse"])
             medium = _components(result["gdf_medium_truth"])
+            forecast_union = forecasts.union_all()
+            forecast_m = gpd.GeoSeries(
+                [forecast_union], crs="EPSG:4326").to_crs(
+                    pipeline.PHYSICAL_AREA_CRS).iloc[0]
+            sparse_m = (list(gpd.GeoSeries(sparse, crs="EPSG:4326").to_crs(
+                pipeline.PHYSICAL_AREA_CRS)) if sparse else [])
+            sparse_m = [pipeline.validate_projected_polygonal(g) for g in sparse_m]
+            medium_m_all = (list(gpd.GeoSeries(medium, crs="EPSG:4326").to_crs(
+                pipeline.PHYSICAL_AREA_CRS)) if medium else [])
+            medium_m_all = [pipeline.validate_projected_polygonal(g)
+                            for g in medium_m_all]
+            medium_union_m = union_all(medium_m_all) if medium_m_all else Polygon()
+            low_capture = []
+            for component_index, (geometry, geometry_m) in enumerate(
+                    zip(sparse, sparse_m), 1):
+                area = geometry_m.area
+                capture = (geometry_m.intersection(forecast_m).area / area
+                           if area else 0.0)
+                if capture < params.miss_capture_threshold:
+                    low_capture.append((component_index, geometry, geometry_m,
+                                        area, capture))
             counts = (result["gdf_graded_fcst"]["category"].value_counts()
                       if "category" in result["gdf_graded_fcst"] else {})
             rows["event"].append({
@@ -106,6 +129,7 @@ def audit_event(event_dir, artccs):
                 "total_sparse_area_km2": sum(map(_area_km2, sparse)),
                 "medium_component_count": len(medium),
                 "total_medium_area_km2": sum(map(_area_km2, medium)),
+                "low_capture_sparse_component_count": len(low_capture),
                 "candidate_miss_count": len(result["gdf_graded_miss"]),
                 "medium_core_review_flag_count": len(result["gdf_medium_core_flags"]),
                 "verified_well_count": int(counts.get("Verified Well", 0)),
@@ -123,24 +147,25 @@ def audit_event(event_dir, artccs):
                     "category": item["category"],
                     "boundary": pipeline.is_boundary(item["coverage_fraction"], params),
                 })
-            for item in result["graded_misses"]:
+            for component_index, geometry, geometry_m, area, capture in low_capture:
+                core_area = geometry_m.intersection(medium_union_m).area
                 row = {
                     "event_id": event_id, "dilation_iterations": dilation,
-                    "smoothing_size": smoothing, "candidate_index": item["idx"],
-                    "area_km2": item["sparse_area_km2"],
-                    "forecast_capture_fraction": item["forecast_capture_fraction"],
-                    "medium_core_area_km2": item["medium_core_area_km2"],
-                    "medium_core_fraction": item["medium_core_fraction"],
-                    "contains_medium_core": item["contains_medium_core"],
+                    "smoothing_size": smoothing,
+                    "sparse_component_index": component_index,
+                    "area_km2": area / 1_000_000.0,
+                    "forecast_capture_fraction": capture,
+                    "medium_core_area_km2": core_area / 1_000_000.0,
+                    "medium_core_fraction": core_area / area if area else 0.0,
+                    "contains_medium_core": core_area > 0.0,
+                    "eligible_candidate_miss": (
+                        area >= params.candidate_miss_min_area_m2),
                 }
-                _spatial_fields(row, item["geometry"])
+                _spatial_fields(row, geometry)
                 rows["candidate"].append(row)
             flag_geometries = {geom.wkb: flag for geom, flag in zip(
                 result["gdf_medium_core_flags"].geometry,
                 result["medium_core_review_flags"])}
-            forecast_union = forecasts.union_all()
-            forecast_m = gpd.GeoSeries([forecast_union], crs="EPSG:4326").to_crs(
-                pipeline.PHYSICAL_AREA_CRS).iloc[0]
             sparse_geoms = _components(result["gdf_sparse"])
             sparse_m = (list(gpd.GeoSeries(sparse_geoms, crs="EPSG:4326").to_crs(
                 pipeline.PHYSICAL_AREA_CRS)) if sparse_geoms else [])
@@ -192,24 +217,26 @@ def write_summary(path, event_rows, forecast_rows):
         "# Truth spatial-transform sensitivity", "",
         "This is a diagnostic experiment, not a methodology recommendation. Truth",
         "was seeded only from stored paired `qualifying_mask` arrays.", "",
-        "## Grade changes relative to production RC1 (dilation=1, smoothing=20)", "",
+        "## Grade changes relative to production RC1 (dilation=1, smoothing=15)", "",
         "| dilation | smoothing | changed forecasts |", "|---:|---:|---:|",
     ]
     for dilation in DILATIONS:
         for smoothing in SMOOTHING_SIZES:
             lines.append(f"| {dilation} | {smoothing} | {changes.get((dilation, smoothing), 0)} |")
     lines.extend(["", "## Event topology and review cues", "",
-                  "| event | dilation | smoothing | Sparse components | Medium components | Candidate Misses | Medium flags |",
-                  "|---|---:|---:|---:|---:|---:|---:|"])
+                  "| event | dilation | smoothing | Sparse components | Medium components | Low-capture Sparse | Candidate Misses | Medium flags |",
+                  "|---|---:|---:|---:|---:|---:|---:|---:|"])
     for row in event_rows:
         lines.append(
             f"| {row['event_id']} | {row['dilation_iterations']} | "
             f"{row['smoothing_size']} | {row['sparse_component_count']} | "
-            f"{row['medium_component_count']} | {row['candidate_miss_count']} | "
+            f"{row['medium_component_count']} | "
+            f"{row['low_capture_sparse_component_count']} | "
+            f"{row['candidate_miss_count']} | "
             f"{row['medium_core_review_flag_count']} |")
     lines.extend(["", "Large changes across adjacent rows identify topology or",
                   "small-object sensitivity. Compare each event's dilation=1,",
-                  "smoothing=20 row with its smaller smoothing rows to assess whether",
+                  "smoothing=15 row with its other smoothing rows to assess whether",
                   "the current configuration is unusual. `candidate_miss_components.csv`",
                   "and `medium_components.csv` provide physical areas and spatial",
                   "coordinates; filter `event_id=20260403_21Z_F04` for the targeted",

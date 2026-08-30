@@ -3,9 +3,14 @@
 ## Scope
 
 This is read-only instrumentation for the Methodology 1.0 RC1 meteorologist
-review. It does not change or recommend production parameters. Production stays
-at one binary-dilation iteration, size-20 uniform smoothing, 25% Sparse truth,
+review. It does not recommend further production parameters. Production now uses
+one binary-dilation iteration, size-15 uniform smoothing, 25% Sparse truth,
 and 40% Medium truth.
+
+Size 15 on the approximately 0.05° geographic verification grid spans roughly
+66 × 84 km at 37.5°N. The east-west physical width varies with latitude. The
+owner selected it provisionally after the six-event paired numerical audit and
+meteorologist spatial review; this sample is not climatological optimization.
 
 The audit accepts only fresh paired evidence produced by:
 
@@ -38,8 +43,10 @@ means the stored pair-first seed is passed through unchanged. All other
   grades, and boundary counts for every event and parameter combination.
 * `forecast_features.csv`: feature identity, coverage semantics, overlap,
   category, and boundary status.
-* `candidate_miss_components.csv`: physical area, capture, centroid/bounds, and
-  embedded Medium context for each individual Candidate Miss.
+* `candidate_miss_components.csv`: every low-capture Sparse component before
+  area triage, including physical area, capture, centroid/bounds, embedded
+  Medium context, and `eligible_candidate_miss`. This preserves future 5k,
+  7.5k, 10k, and 15k comparisons without another MRMS run.
 * `medium_components.csv`: every disconnected Medium component, physical area,
   capture, centroid/bounds, Sparse-parent context, and flag status.
 * `summary.md`: grade changes relative to RC1 and a compact topology/review-cue

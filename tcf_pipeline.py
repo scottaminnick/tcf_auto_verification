@@ -188,9 +188,13 @@ class GradingParams:
     # two must be able to move independently.
     miss_capture_threshold: float = 0.20
 
+    # Reviewer-inventory triage only. This physical-area floor never filters
+    # Sparse/Medium truth or forecast scoring.
+    candidate_miss_min_area_m2: float = 7_500_000_000.0
+
     # Truth-field construction, in decimated (5x) grid cells.
     dilation_iterations: int = 1
-    smoothing_size: int = 20
+    smoothing_size: int = 15
 
     # Clip truth to the verification domain (ARTCC boundaries unioned with
     # cmac_domain.geojson) before Candidate Miss review. On means convection
@@ -932,13 +936,14 @@ def _individual_geometries(gdf):
 
 
 def _build_miss_review_cues(gdf_sparse, gdf_medium, forecast_union,
-                            miss_capture_threshold):
+                            miss_capture_threshold,
+                            candidate_miss_min_area_m2=7_500_000_000.0):
     """Build physical-area Candidate Misses and reviewer-only Medium cues.
 
     Every disconnected Sparse and Medium component is evaluated separately.
-    Area is factual reviewer context, never an eligibility threshold. Medium
-    flags are suppressed when their parent Sparse component is already a
-    Candidate Miss, because that candidate carries the embedded-density facts.
+    The Sparse physical-area floor is reviewer triage only and never filters
+    truth. Medium flags have no area floor and are suppressed only when their
+    parent is an actual Candidate Miss under both Sparse criteria.
     """
     sparse_geoms = sorted(
         _individual_geometries(gdf_sparse), key=lambda geom: geom.centroid.x,
@@ -964,7 +969,8 @@ def _build_miss_review_cues(gdf_sparse, gdf_medium, forecast_union,
         capture = (geom_m.intersection(forecast_m).area / area_m2
                    if area_m2 > 0 else 0.0)
         core_area_m2 = geom_m.intersection(medium_union_m).area
-        is_candidate = capture < miss_capture_threshold
+        is_candidate = (capture < miss_capture_threshold
+                        and area_m2 >= candidate_miss_min_area_m2)
         context = {
             "component_id": component_id,
             "geometry_m": geom_m,
@@ -1422,7 +1428,8 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
                                  'coverage_fraction': coverage})
 
     graded_misses, medium_core_flags = _build_miss_review_cues(
-        gdf_sparse, gdf_medium_truth, fcst_union, params.miss_capture_threshold)
+        gdf_sparse, gdf_medium_truth, fcst_union,
+        params.miss_capture_threshold, params.candidate_miss_min_area_m2)
 
     # ORDER EAST -> WEST: east = larger (least-negative) longitude, so sort centroid.x
     # descending. Renumber after sorting so BOTH the map labels and the report read E->W.

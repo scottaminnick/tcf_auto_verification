@@ -15,8 +15,19 @@ Medium AREA and interim Solid LINE scoring.
 smoothing 5/10/15/20 only against fresh paired validation directories. It
 rejects maxima-only legacy artifacts and writes event, forecast, Candidate Miss,
 and individual Medium-component CSVs plus a concise Markdown comparison. This
-experiment supplies evidence; it does not select a new default. Production
-remains dilation 1, smoothing 20, Sparse 25%, and Medium 40%.
+experiment supplied evidence for the owner decision. Production RC1 now uses
+dilation 1, smoothing 15, Sparse 25%, and Medium 40%. At 37.5°N the 15×15 window
+is approximately 66 × 84 km; east-west width varies with latitude on this
+geographic grid. This six-event selection is provisional, not climatological
+optimization.
+
+Candidate Miss reviewer inventory now requires strict capture below 20% and
+Sparse physical area at least 7,500 km² in EPSG:5070. Equality is eligible. The
+area floor is reviewer triage, not a TCF definition and never filters Sparse or
+Medium scoring truth. At smoothing 15 the paired audit found 74 raw low-capture
+components, retaining 24 at 5,000 km², 15 at 7,500 km², 8 at 10,000 km², and 7
+at 15,000 km². Medium-core flags retain no area floor and are suppressed only
+when their parent satisfies both Candidate Miss criteria.
 
 ### Projected-topology safeguard
 
@@ -62,8 +73,9 @@ The integrated executable path contains all approved corrections:
 - [x] parser semantics are feature-aware (`AREA 2 = Medium`, `AREA 3 = Sparse`,
   `LINE 1 = Solid`) and invalid combinations are diagnostically excluded;
 - [x] forecast-scoring Sparse and Medium truth have no 15,000 km2 floor;
-- [x] Candidate Miss visibility has no hard area floor; Sparse area and embedded
-  Medium-core area/fraction are factual reviewer metadata;
+- [x] Candidate Miss reviewer inventory uses strict `<20%` capture and a
+  provisional 7,500 km² EPSG:5070 area floor; truth remains unfiltered and
+  Sparse/Medium density fields remain reviewer metadata;
 - [x] individual poorly captured Medium components hidden by adequate Sparse
   capture become non-reportable Medium-core Review Flags without duplication;
 - [x] Candidate Miss rows default to `approved_for_report = False`; only an

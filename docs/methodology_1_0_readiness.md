@@ -12,7 +12,8 @@ tested. Most remaining research questions can remain explicitly provisional in
 a mandatory human-review system.
 
 The methodology owner resolved the scientific/workflow blockers identified by
-this review: forecast truth and Candidate Misses have no hard area floor;
+this review: forecast truth has no hard area floor; Candidate Miss reviewer
+inventory uses the approved provisional 7,500 km² triage floor;
 automated candidates require approval; the inherited core parameters, minimum
 MRMS adequacy rule, and interim Solid LINE method are explicitly accepted as
 provisional for 1.0. Remaining blockers are release mechanics: final validation,
@@ -82,8 +83,8 @@ calculation error or an undefined publication boundary.
 
 ### Provisional production behavior
 
-* Sparse/Medium processed truth uses 25%/40% fields after inherited dilation and
-  smoothing.
+* Sparse/Medium processed truth uses 25%/40% fields after one dilation and
+  provisional size-15 smoothing.
 * categories use 50%/20% forecast-area overlap cutoffs;
 * verification domain is 21 ARTCC polygons plus committed CMAC supplement;
 * Solid LINE is a 0.15° corridor scored against Medium truth by area overlap;
@@ -91,8 +92,9 @@ calculation error or an undefined publication boundary.
 * echo top is full-geometry temporal-max P90 with a six-cell minimum;
 * ARTCC labels are geometry-derived and editable; and
 * Candidate Miss review evaluates every disconnected Sparse component with
-  `<20%` observed-area capture and a class-blind forecast union; no hard area
-  floor applies. Hidden poorly captured Medium components are separate
+  `<20%` observed-area capture, at least 7,500 km² EPSG:5070 area, and a
+  class-blind forecast union. The area floor is triage only and never filters
+  truth. Hidden poorly captured Medium components are separate
   non-reportable reviewer flags. Candidates still require explicit approval.
 
 ### Open decisions after the owner decisions
@@ -340,7 +342,8 @@ needed.
 
 * inherited spatial transformation and 25%/40% truth fields;
 * full-issued denominator over the selected policy domain;
-* no hard area floor for Candidate Miss or Medium-core reviewer visibility;
+* the 7,500 km² floor is limited to Candidate Miss reviewer inventory, with no
+  area floor for scoring truth or Medium-core reviewer visibility;
 * buffered-area Solid LINE;
 * Candidate Miss capture logic with explicit FAA-report approval;
 * no Decision 1B gate or adequacy thresholds, with provenance review; and

@@ -223,7 +223,8 @@ print(f"fixture: {EMPTY} -> {EMPTY_EXPECTED['counts']}")
 print()
 
 assert MAIN_EXPECTED["counts"]["polygons"] == 3, "fixture should grade 3 polygons"
-assert MAIN_EXPECTED["counts"]["misses"] == 2, "fixture should find 2 visible candidates"
+assert MAIN_EXPECTED["counts"]["misses"] == 1, \
+    "RC1 smoothing/floor fixture should find 1 production-eligible candidate"
 assert EMPTY_EXPECTED["counts"]["polygons"] == 0 and EMPTY_EXPECTED["counts"]["misses"] == 0
 
 
@@ -266,7 +267,7 @@ def _():
     assert_in("coverage_fraction", out, "scalar diff")
     assert_in("bounds: minx", out, "bounds diff names the component")
     assert_in("counts.misses", out, "count diff")
-    assert_in("misses[2]: missing", out, "missing entry")
+    assert_in(f"misses[{len(MAIN_EXPECTED['misses'])}]: missing", out, "missing entry")
     assert_in("report_text: differs", out, "report diff")
     assert_in("-Missing:", out, "report unified diff body")
 
@@ -344,7 +345,8 @@ def _():
 
     assert rc == 1, f"an empty expectation against a non-empty run must FAIL, got {rc}:\n{out}"
     assert_in("polygons: count expected 0, got 3", out, "polygon count diff")
-    assert_in("misses: count expected 0, got 2", out, "miss count diff")
+    assert_in(f"misses: count expected 0, got {MAIN_EXPECTED['counts']['misses']}",
+              out, "miss count diff")
     assert_in("unexpected extra entry", out, "each extra entry is listed")
     assert_not_in(f"PASS  {MAIN}", out, "must not pass")
 
@@ -529,9 +531,9 @@ def _():
     default = grade(tcf_pipeline.GradingParams())
     # The defaults must still be the frozen behaviour.
     assert [c for c, _ in default.values()].count("Verified Well") == 1
-    close = [(i, f) for i, (c, f) in default.items() if c == "Verified Close"]
-    assert close, f"fixture should have a Verified Close polygon to promote: {default}"
-    idx, frac = close[0]
+    promotable = [(i, f) for i, (c, f) in default.items() if c != "Verified Well"]
+    assert promotable, f"fixture should have a non-Well polygon to promote: {default}"
+    idx, frac = max(promotable, key=lambda item: item[1])
 
     # Drop the cutoff below that polygon's coverage fraction: it must promote.
     lowered = grade(tcf_pipeline.GradingParams(verified_well_cutoff=frac - 0.01))
@@ -581,15 +583,16 @@ def _():
                 len(r["graded_misses"]))
 
     base = summarise(tcf_pipeline.GradingParams())
-    assert {c for _, _, c in base[0]} >= {"Verified Close", "Verified Well"}, \
-        f"probe fixture should span both grade bands, got {base}"
+    assert len({c for _, _, c in base[0]}) >= 2, \
+        f"probe fixture should span multiple grade bands, got {base}"
 
     probes = {
         "sparse_truth_threshold": 0.60,
         "medium_truth_threshold": 0.90,
         "verified_well_cutoff": 0.90,
-        "verified_close_cutoff": 0.30,
+        "verified_close_cutoff": 0.10,
         "miss_capture_threshold": 1.01,   # > 1.0: every truth blob becomes a miss
+        "candidate_miss_min_area_m2": 0.0,
         "dilation_iterations": 6,
         "smoothing_size": 40,
         "apply_domain_mask": False,
@@ -617,7 +620,8 @@ def _():
         "verified_close_cutoff": 0.20,
         "miss_capture_threshold": 0.20,
         "dilation_iterations": 1,
-        "smoothing_size": 20,
+        "smoothing_size": 15,
+        "candidate_miss_min_area_m2": 7_500_000_000.0,
         "apply_domain_mask": True,
     }
     for field, want in expected.items():
@@ -662,9 +666,10 @@ def _():
 
     assert list(table.columns) == list(tcf_pipeline.REVIEW_COLUMNS), \
         f"unexpected columns: {list(table.columns)}"
-    assert len(table) == 5, f"3 forecasts + 2 candidates expected, got {len(table)} rows"
-    assert list(table["kind"]) == ["forecast"] * 3 + ["candidate_miss"] * 2, \
-        f"forecast rows then candidate rows expected, got {list(table['kind'])}"
+    assert len(table) == 5, f"3 forecasts + candidate + Medium cue expected, got {len(table)} rows"
+    assert list(table["kind"]) == (["forecast"] * 3 + ["candidate_miss"]
+                                    + ["medium_core_review_flag"]), \
+        f"forecast, Candidate Miss, then Medium cue expected, got {list(table['kind'])}"
 
     # Pandas-native nullable dtypes throughout, so the frame survives
     # st.data_editor -- in particular idx must stay an integer, since an idx that
@@ -680,7 +685,8 @@ def _():
                 f"column {col} holds a shapely {type(value).__name__}"
 
     fcst = table[table["kind"] == "forecast"]
-    assert set(fcst["category"]) == {"Verified Well", "Verified Close", "Overforecasted"}
+    assert set(fcst["category"]) <= {"Verified Well", "Verified Close", "Overforecasted"}
+    assert len(set(fcst["category"])) >= 2, "fixture should exercise multiple report sections"
     assert set(fcst["coverage_code"]) <= {1, 2, 3}
     assert all(a and a != "UNKNOWN" for a in table["artccs"]), \
         f"ARTCC lookup should have happened in the table: {list(table['artccs'])}"

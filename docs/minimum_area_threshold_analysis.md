@@ -3,7 +3,9 @@
 > **Superseded historical analysis:** a later Methodology 1.0 owner decision
 > removed the 15,000 km² floor from both forecast scoring and Candidate Miss
 > visibility. The results below remain a characterization of the retired
-> heuristic; they are not current production policy.
+> heuristic; they are not current production policy. A subsequent paired-MRMS
+> owner decision introduced a distinct 7,500 km² Candidate Miss reviewer-triage
+> floor only; scored truth remains unfiltered.
 
 ## 1. Executive summary
 

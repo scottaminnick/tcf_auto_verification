@@ -7,9 +7,18 @@
 > intersection calculations. Valid projected geometry bypasses repair. This is
 > numerical robustness, not a meteorological transformation.
 
+> **Subsequent spatial owner decision:** RC1 uses one dilation iteration and
+> size-15 smoothing (approximately 66 × 84 km at 37.5°N on the geographic grid),
+> with the existing 25%/40% truth and 20%/50% grade thresholds. Candidate Miss
+> inventory requires strict capture below 20% and Sparse area at least 7,500 km²
+> in EPSG:5070. This is reviewer triage only, never a truth filter; Medium-core
+> review flags have no area floor. The six-event evidence is not claimed as
+> climatological optimization.
+
 > **Current owner-decision note:** this review characterizes the inherited
 > 15,000 km² behavior. Methodology 1.0 RC1 now removes that hard floor from
-> forecast scoring and Candidate Miss visibility, adds EPSG:5070 Sparse/Medium
+> forecast scoring; Candidate Miss inventory now uses a distinct provisional
+> 7,500 km² reviewer-triage floor and adds EPSG:5070 Sparse/Medium
 > density metadata, and adds non-reportable individual Medium-core review flags.
 > See `docs/candidate_miss_owner_decision.md`.
 >

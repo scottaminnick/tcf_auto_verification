@@ -143,10 +143,16 @@ contouring, simplification, and area filtering shall be deliberate methodology,
 not accidental raster side effects.
 
 **Approved provisional core parameters for Methodology 1.0:** retain the current
-25% Sparse and 40% Medium thresholds, one dilation iteration, size-20 smoothing,
+25% Sparse and 40% Medium thresholds, one dilation iteration, size-15 smoothing,
 20%/50% grade cutoffs, and ARTCC-plus-CMAC verification domain. These values are
 fixed for reproducibility in 1.0 but are not claimed to be scientifically
 optimized and remain eligible for later evidence-based revision.
+
+On the approximately 0.05° geographic verification grid, the 15×15 window is
+about 66 × 84 km at 37.5°N; east-west physical width varies with latitude. Size
+15 was selected provisionally after six-event paired-MRMS sensitivity plus
+meteorologist spatial review. Six events do not establish climatological
+optimization.
 
 ## 11. Spatial coverage fields
 
@@ -160,8 +166,8 @@ scoring, not the subset represented by Medium-core Review Flags.
 
 A paired-artifact sensitivity audit may compare zero/one dilation iterations
 and smoothing sizes 5/10/15/20. Such runs must use stored `qualifying_mask`
-arrays, must reject maxima-only legacy artifacts, and do not approve a parameter
-change. Production remains one dilation iteration and size-20 smoothing.
+arrays and must reject maxima-only legacy artifacts. Production is one dilation
+iteration and size-15 smoothing.
 
 Current behavior uses approximately 25% or greater observed coverage for Sparse
 AREA forecasts and approximately 40% or greater for Medium AREA forecasts.
@@ -222,20 +228,22 @@ approved. See `docs/domain_denominator_analysis.md`.
 be removed solely because a processed Sparse or Medium component is below
 15,000 km². All processed components participate in forecast overlap scoring.
 
-**Approved owner decision:** no hard component-area floor applies to Sparse
-Candidate Miss visibility. Every disconnected post-domain Sparse component is
-evaluated individually. Physical area in EPSG:5070 is reviewer context, not an
-automatic accept/reject criterion.
+**Approved owner decision:** no component-area floor applies to scored truth.
+Every disconnected post-domain Sparse component is evaluated individually for
+review, but Candidate Miss inventory requires EPSG:5070 area at least 7,500 km²
+in addition to strict capture below 20%. This is reviewer triage, not a TCF
+physical definition or truth filter.
 
 **Analysis status:** the six-event legacy-replay audit found 87 Sparse and 61
 Medium pre-domain components but no retention, forecast-category, or miss
 differences between post-clip and parent pre-clip filtering. This is now
 historical characterization because no production minimum-area filter remains
-for scoring or Candidate Miss review. See
+for scoring. See
 `docs/minimum_area_order_analysis.md`.
 
-**Decision 5b — resolved for current RC:** no hard observational minimum applies
-to forecast scoring, Sparse Candidate Misses, or Medium-core reviewer flags.
+**Decision 5b — resolved for current RC:** no observational minimum applies to
+forecast scoring or Medium-core reviewer flags. A provisional 7,500 km² minimum
+applies only to Sparse Candidate Miss reviewer inventory.
 
 ## 17. Missed convection
 
@@ -247,10 +255,11 @@ Truth Capture Fraction = physical_area(T ∩ F) / physical_area(T)
 
 The current missed boundary is approximately 20% captured.
 
-**Decision 6a — approved Candidate Miss eligibility:** every individual Sparse
-component with strict `<20%` forecast capture is surfaced as a Candidate Miss,
-regardless of area. Each carries Sparse area, embedded Medium-core area/fraction,
-and a contains-Medium indicator measured in EPSG:5070.
+**Decision 6a — approved Candidate Miss eligibility:** an individual Sparse
+component is surfaced as a Candidate Miss when forecast capture is strict
+`<20%` and EPSG:5070 physical area is `>=7,500 km²`. Equality is eligible. Each
+candidate carries Sparse area, embedded Medium-core area/fraction, and a
+contains-Medium indicator. The area threshold controls reviewer inventory only.
 
 **Decision 6b — provisional triage threshold:** `<20%` observed-area capture may
 continue to identify Candidate Misses. Repository history provides no authority

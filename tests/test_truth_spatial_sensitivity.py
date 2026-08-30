@@ -21,7 +21,7 @@ class PairedArtifactIdentityTests(unittest.TestCase):
             "lats": np.array([40.0, 41.0]),
         }
         if paired:
-            arrays["qualifying_mask"] = np.zeros((2, 2), dtype=bool)
+            arrays["qualifying_mask"] = np.ones((2, 2), dtype=bool)
         np.savez(event / "arrays.npz", **arrays)
         (event / "tcf_raw.txt").write_text("", encoding="utf-8")
         (event / "validation.json").write_text(json.dumps({
@@ -56,6 +56,13 @@ class PairedArtifactIdentityTests(unittest.TestCase):
                  for row in rows["event"]},
                 {(dilation, smoothing) for dilation in (0, 1)
                  for smoothing in (5, 10, 15, 20)})
+            self.assertTrue(all(
+                "low_capture_sparse_component_count" in row
+                for row in rows["event"]))
+            self.assertTrue(rows["candidate"])
+            self.assertTrue(all(
+                "eligible_candidate_miss" in row
+                for row in rows["candidate"]))
 
 
 if __name__ == "__main__":
