@@ -49,7 +49,7 @@ means the stored pair-first seed is passed through unchanged. All other
   7.5k, 10k, and 15k comparisons without another MRMS run.
 * `medium_components.csv`: every disconnected Medium component, physical area,
   capture, centroid/bounds, Sparse-parent context, raw low-capture status,
-  1,500 km² eligibility, and duplicate-suppression status. Thus future Medium
+  5,000 km² eligibility, and duplicate-suppression status. Thus future Medium
   triage comparisons do not require another MRMS run.
 * `summary.md`: grade changes relative to RC1 and a compact topology/review-cue
   table. It is descriptive evidence, not a replacement-parameter decision.
@@ -70,9 +70,11 @@ transformation being evaluated.
 
 The current reviewer hierarchy is deliberately separate from truth: Candidate
 Misses require Sparse capture below 20% and area at least 7,500 km²; Medium-core
-flags require Medium capture below 20% and area at least 1,500 km² and are
+flags require Medium capture below 20% and area at least 5,000 km² and are
 suppressed only by an eligible Candidate Miss parent. Neither area floor removes
-Sparse or Medium scoring truth. In six paired development events the Medium
-floor reduced 24 flags to 12, and total cues from 39 to 27, while 15 Candidate
-Misses were unchanged. These are development evidence, not climatological
+Sparse or Medium scoring truth. In six paired development events, the earlier
+1,500 km² Medium triage retained 12 flags; final RC1 and independent September
+4 visual review found it too permissive. The revised 5,000 km² floor retains 2
+six-event flags while all 15 Candidate Misses remain unchanged. Sub-floor
+components remain serialized. These are development evidence, not climatological
 optimization or definitions of valid convection.

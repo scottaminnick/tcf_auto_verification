@@ -27,14 +27,17 @@ area floor is reviewer triage, not a TCF definition and never filters Sparse or
 Medium scoring truth. At smoothing 15 the paired audit found 74 raw low-capture
 components, retaining 24 at 5,000 km², 15 at 7,500 km², 8 at 10,000 km², and 7
 at 15,000 km². Medium-core flags require strict capture below 20% and Medium
-area at least 1,500 km² in EPSG:5070, and are suppressed only when their parent
+area at least 5,000 km² in EPSG:5070, and are suppressed only when their parent
 satisfies both Candidate Miss criteria. This separate floor is also reviewer
 triage only and never filters complete Medium scoring truth.
 
-Across the six paired development events, the 1,500 km² Medium-core floor
-reduced 24 raw flags to 12 while leaving 15 Candidate Misses unchanged: total
-review cues fell from 39 to 27. This is reviewer-inventory evidence, not
-climatological optimization or a Medium-convection definition.
+The earlier provisional 1,500 km² floor retained 12 flags. Final RC1 visual
+review found those cues too permissive, and an independent September 4, 2026
+case reinforced that smaller dense objects were over-emphasized. The revised
+5,000 km² floor retains 2 flags while leaving 15 Candidate Misses and all 48
+forecast grades unchanged in the six development events. This is operational
+reviewer-inventory evidence, not climatological optimization or a
+Medium-convection definition.
 
 ### Projected-topology safeguard
 

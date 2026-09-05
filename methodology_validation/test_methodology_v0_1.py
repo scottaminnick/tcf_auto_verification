@@ -701,7 +701,7 @@ class CandidateMissReviewCueTests(unittest.TestCase):
     @staticmethod
     def cues(sparse, medium=Polygon(), forecast=Polygon(), threshold=0.20,
              min_area_m2=7_500_000_000.0,
-             medium_min_area_m2=1_500_000_000.0):
+             medium_min_area_m2=5_000_000_000.0):
         return tcf_pipeline._build_miss_review_cues(
             _gdf(sparse), _gdf(medium), forecast, threshold, min_area_m2,
             medium_min_area_m2)
@@ -711,7 +711,7 @@ class CandidateMissReviewCueTests(unittest.TestCase):
         self.assertEqual(params.smoothing_size, 15)
         self.assertEqual(params.dilation_iterations, 1)
         self.assertEqual(params.candidate_miss_min_area_m2, 7_500_000_000.0)
-        self.assertEqual(params.medium_core_review_min_area_m2, 1_500_000_000.0)
+        self.assertEqual(params.medium_core_review_min_area_m2, 5_000_000_000.0)
 
     def test_approved_sub_15000_components_are_retained(self):
         for area_km2 in (8_900, 14_828):
@@ -746,7 +746,7 @@ class CandidateMissReviewCueTests(unittest.TestCase):
 
     def test_small_low_capture_parent_can_still_emit_medium_flag(self):
         sparse = _projected_rect(0, 0, 70_000, 100_000)  # 7,000 km²
-        medium = _projected_rect(0, 0, 30_000, 50_000)  # 1,500 km²
+        medium = _projected_rect(0, 0, 50_000, 100_000)  # 5,000 km²
         exact_area = gpd.GeoSeries(
             [medium], crs="EPSG:4326").to_crs("EPSG:5070").area.iloc[0]
         candidates, _ = self.cues(sparse, medium)
@@ -758,7 +758,7 @@ class CandidateMissReviewCueTests(unittest.TestCase):
 
     def test_eligible_candidate_suppresses_embedded_medium_flag(self):
         sparse = _projected_rect(0, 0, 100_000, 100_000)
-        medium = _projected_rect(0, 0, 40_000, 40_000)
+        medium = _projected_rect(0, 0, 80_000, 70_000)
         candidates, flags = self.cues(sparse, medium)
         self.assertEqual(len(candidates), 1)
         self.assertEqual(flags, [])
@@ -775,13 +775,13 @@ class CandidateMissReviewCueTests(unittest.TestCase):
         self.assertAlmostEqual(candidate["medium_core_fraction"], 0.20, places=6)
 
     def test_hidden_disconnected_medium_components_are_individual_flags(self):
-        sparse = _projected_rect(0, 0, 100_000, 100_000)
+        sparse = _projected_rect(0, 0, 200_000, 100_000)
         medium = MultiPolygon([
-            _projected_rect(0, 0, 40_000, 40_000),
-            _projected_rect(45_000, 0, 24_000, 70_000),
+            _projected_rect(0, 0, 60_000, 90_000),
+            _projected_rect(70_000, 0, 60_000, 90_000),
         ])
         # Rightmost 30% of Sparse is captured, but neither Medium core is.
-        forecast = _projected_rect(70_000, 0, 30_000, 100_000)
+        forecast = _projected_rect(140_000, 0, 60_000, 100_000)
         candidates, flags = self.cues(sparse, medium, forecast)
         self.assertEqual(candidates, [])
         self.assertEqual(len(flags), 2)
@@ -790,21 +790,21 @@ class CandidateMissReviewCueTests(unittest.TestCase):
 
     def test_medium_core_review_area_floor(self):
         sparse = _projected_rect(0, 0, 100_000, 100_000)
-        medium = _projected_rect(0, 0, 30_000, 40_000)  # 1,200 km²
+        medium = _projected_rect(0, 0, 60_000, 80_000)  # 4,800 km²
         forecast = _projected_rect(70_000, 0, 30_000, 100_000)
         _, flags = self.cues(sparse, medium, forecast)
         self.assertEqual(flags, [])
-        above = _projected_rect(0, 0, 40_000, 40_000)  # 1,600 km²
+        above = _projected_rect(0, 0, 60_000, 90_000)  # 5,400 km²
         _, flags = self.cues(sparse, above, forecast)
         self.assertEqual(len(flags), 1)
-        self.assertAlmostEqual(flags[0]["medium_area_km2"], 1_600, places=4)
+        self.assertAlmostEqual(flags[0]["medium_area_km2"], 5_400, places=4)
 
     def test_medium_capture_threshold_is_strict(self):
         # Parent is below the 7,500 km² Candidate floor, so duplicate
         # suppression cannot obscure the Medium capture-boundary assertion.
         sparse = _projected_rect(0, 0, 70_000, 100_000)
-        medium = _projected_rect(0, 0, 50_000, 40_000)  # 2,000 km²
-        forecast = _projected_rect(0, 0, 10_000, 40_000)
+        medium = _projected_rect(0, 0, 60_000, 100_000)  # 6,000 km²
+        forecast = _projected_rect(0, 0, 12_000, 100_000)
         projected = gpd.GeoSeries(
             [medium, forecast], crs="EPSG:4326").to_crs("EPSG:5070")
         exact_capture = (projected.iloc[0].intersection(projected.iloc[1]).area

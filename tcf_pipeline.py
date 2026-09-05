@@ -194,7 +194,7 @@ class GradingParams:
 
     # Reviewer-inventory triage for disconnected Medium-core cues only. It
     # never filters the complete Medium truth used for scoring/display.
-    medium_core_review_min_area_m2: float = 1_500_000_000.0
+    medium_core_review_min_area_m2: float = 5_000_000_000.0
 
     # Truth-field construction, in decimated (5x) grid cells.
     dilation_iterations: int = 1
@@ -942,7 +942,7 @@ def _individual_geometries(gdf):
 def _build_miss_review_cues(gdf_sparse, gdf_medium, forecast_union,
                             miss_capture_threshold,
                             candidate_miss_min_area_m2=7_500_000_000.0,
-                            medium_core_review_min_area_m2=1_500_000_000.0):
+                            medium_core_review_min_area_m2=5_000_000_000.0):
     """Build physical-area Candidate Misses and reviewer-only Medium cues.
 
     Every disconnected Sparse and Medium component is evaluated separately.

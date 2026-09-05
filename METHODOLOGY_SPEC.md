@@ -271,11 +271,17 @@ Medium, and Solid LINE classes interact hierarchically.
 
 **Approved Medium-core review cue:** an individual Medium component is surfaced
 as a non-reportable Medium-core Review Flag when capture is strict `<20%`,
-EPSG:5070 area is `>=1,500 km²`, and its parent Sparse component is not already
+EPSG:5070 area is `>=5,000 km²`, and its parent Sparse component is not already
 an eligible Candidate Miss. Equality is eligible. If the parent is already a
 candidate, its Medium density is metadata and no duplicate flag is created. The
-1,500 km² floor is reviewer triage only; it does not filter Medium truth or
+5,000 km² floor is reviewer triage only; it does not filter Medium truth or
 define valid TCF convection. No automatic object consolidation is approved.
+
+The earlier provisional 1,500 km² floor was superseded after final RC1 visual
+review found it too permissive, reinforced by an independent September 4, 2026
+case. Medium denotes dense coverage, so the distinct cue is reserved for
+substantial dense areas. This operational interpretation is not an official
+Medium-size rule or climatological optimization.
 
 **Historical analysis status:** the legacy replay found seven floor-filtered
 Sparse-only misses and demonstrated strong area/capture parameter coupling. The

@@ -12,7 +12,9 @@
 > with the existing 25%/40% truth and 20%/50% grade thresholds. Candidate Miss
 > inventory requires strict capture below 20% and Sparse area at least 7,500 km²
 > in EPSG:5070. Medium-core review flags separately require strict capture below
-> 20% and area at least 1,500 km². Both are reviewer triage only, never truth
+> 20% and area at least 5,000 km². The earlier provisional 1,500 km² value was
+> superseded after final RC1 and independent September 4 visual review found it
+> over-emphasized small dense objects. Both are reviewer triage only, never truth
 > filters. The six-event evidence is not claimed as climatological optimization.
 
 > **Current owner-decision note:** this review characterizes the inherited

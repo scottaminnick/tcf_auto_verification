@@ -593,7 +593,7 @@ def _():
         "verified_close_cutoff": 0.10,
         "miss_capture_threshold": 1.01,   # > 1.0: every truth blob becomes a miss
         "candidate_miss_min_area_m2": 0.0,
-        "medium_core_review_min_area_m2": 1e20,
+        "medium_core_review_min_area_m2": 0.0,
         "dilation_iterations": 6,
         "smoothing_size": 40,
         "apply_domain_mask": False,
@@ -623,7 +623,7 @@ def _():
         "dilation_iterations": 1,
         "smoothing_size": 15,
         "candidate_miss_min_area_m2": 7_500_000_000.0,
-        "medium_core_review_min_area_m2": 1_500_000_000.0,
+        "medium_core_review_min_area_m2": 5_000_000_000.0,
         "apply_domain_mask": True,
     }
     for field, want in expected.items():
@@ -668,10 +668,9 @@ def _():
 
     assert list(table.columns) == list(tcf_pipeline.REVIEW_COLUMNS), \
         f"unexpected columns: {list(table.columns)}"
-    assert len(table) == 5, f"3 forecasts + candidate + Medium cue expected, got {len(table)} rows"
-    assert list(table["kind"]) == (["forecast"] * 3 + ["candidate_miss"]
-                                    + ["medium_core_review_flag"]), \
-        f"forecast, Candidate Miss, then Medium cue expected, got {list(table['kind'])}"
+    assert len(table) == 4, f"3 forecasts + candidate expected, got {len(table)} rows"
+    assert list(table["kind"]) == ["forecast"] * 3 + ["candidate_miss"], \
+        f"forecast rows then Candidate Miss expected, got {list(table['kind'])}"
 
     # Pandas-native nullable dtypes throughout, so the frame survives
     # st.data_editor -- in particular idx must stay an integer, since an idx that
