@@ -1,4 +1,4 @@
-# Candidate Miss owner decision — Methodology 1.0 RC1
+# Candidate Miss owner decision — Methodology 1.0
 
 ## Approved behavior
 
@@ -23,7 +23,7 @@ density definition is introduced. A low-capture Sparse parent below 7,500 km²
 does not suppress an otherwise eligible Medium-core flag. Sparse remains 25%,
 Medium remains 40%, and the `<20%` capture boundary remains provisional.
 
-The earlier provisional 1,500 km² threshold retained 12 flags but final RC1
+The earlier provisional 1,500 km² threshold retained 12 flags but final release-candidate
 visual review found it too permissive. An independent September 4, 2026 case
 reinforced that small dense objects were receiving undue distinct emphasis. The
 5,000 km² floor retains 2 Medium flags while leaving all 15 Candidate Misses
@@ -45,6 +45,11 @@ cutoff; those components are flags rather than automatic misses.
 
 ## Release state
 
-This is an approved RC1 owner decision. `METHODOLOGY_VERSION` remains
-`1.0-rc1`; Methodology 1.0 is not frozen. Fresh paired evidence must be rerun
-after implementation and the reviewer cues inspected before release.
+This owner decision is frozen in Methodology 1.0.
+
+The final six-event paired regression set retains 15 Candidate Misses and
+2 Medium-core Review Flags. The independent September 4 case produced
+4 Candidate Misses and 0 Medium-core flags and passed meteorologist visual
+review. The 7,500 km² Sparse and 5,000 km² Medium floors remain reviewer-triage
+heuristics rather than official TCF physical-size definitions or climatological
+optimization.

@@ -1,9 +1,9 @@
-# Methodology 1.0 integration candidate
+# Methodology 1.0 integration and release record
 
 ## Truth-transformation instrumentation before freeze
 
 Meteorologist review identified a need to inspect the inherited objective
-coverage transformation before Methodology 1.0 is frozen. The integration
+coverage transformation before Methodology 1.0 was frozen. The integration
 candidate therefore exposes four reviewer-only layers: the stored Decision 1A
 pair-first seed, the configured post-dilation seed, complete processed Sparse
 (25%+) truth, and complete processed Medium (40%+) truth. These geometries are
@@ -15,7 +15,7 @@ Medium AREA and interim Solid LINE scoring.
 smoothing 5/10/15/20 only against fresh paired validation directories. It
 rejects maxima-only legacy artifacts and writes event, forecast, Candidate Miss,
 and individual Medium-component CSVs plus a concise Markdown comparison. This
-experiment supplied evidence for the owner decision. Production RC1 now uses
+experiment supplied evidence for the owner decision. Production Methodology 1.0 uses
 dilation 1, smoothing 15, Sparse 25%, and Medium 40%. At 37.5°N the 15×15 window
 is approximately 66 × 84 km; east-west width varies with latitude on this
 geographic grid. This six-event selection is provisional, not climatological
@@ -31,7 +31,7 @@ area at least 5,000 km² in EPSG:5070, and are suppressed only when their parent
 satisfies both Candidate Miss criteria. This separate floor is also reviewer
 triage only and never filters complete Medium scoring truth.
 
-The earlier provisional 1,500 km² floor retained 12 flags. Final RC1 visual
+The earlier provisional 1,500 km² floor retained 12 flags. Final release-candidate visual
 review found those cues too permissive, and an independent September 4, 2026
 case reinforced that smaller dense objects were over-emphasized. The revised
 5,000 km² floor retains 2 flags while leaving 15 Candidate Misses and all 48
@@ -53,16 +53,19 @@ methodology transformation.
 
 ## Status and identity
 
-**READY FOR FRESH PAIRED VALIDATION.** The candidate branch is
-`methodology/1.0-integration`, based on `5f0c615` (`fix: apply Methodology 1.0
-owner decisions`). Its machine-readable identity is `1.0-rc1`. This is not a
-final Methodology 1.0 baseline identity: paired historical evidence and human
-review must precede the freeze.
+**METHODOLOGY 1.0 FROZEN.**
 
-The separately cited Decision 1A SHA `63494ed` is not present in the local
-object database and no remote is configured. It was therefore not cherry-picked.
-The current implementation was audited semantically against the specification,
-tests, and evidence instead.
+The integrated release is carried on the branch backing PR #7,
+`codex/perform-independent-technical-review-of-tcf-auto-verificatio`.
+At release preflight the branch was 0 commits behind `main` and 9 commits ahead.
+
+The machine-readable methodology identity is `1.0`. Six official historical
+baselines contain stored pair-first `qualifying_mask` arrays and full MRMS
+provenance. Strict six-event replay and application/direct-pipeline parity
+passed before the release commit.
+
+Earlier candidate branch names, RC identities, and supplied standalone commit
+references are historical development context only.
 
 ## Approved behavior inventory
 

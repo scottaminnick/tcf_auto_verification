@@ -9,8 +9,8 @@ broke only the glue would leave check.py green and the dashboard wrong.
 So this drives app.py through streamlit's AppTest with the two network calls
 stubbed out by the frozen baseline inputs, clicks "Run Verification", and
 asserts the report text the app ends up holding equals a direct pipeline replay
-of the same frozen inputs. Historical expected.json remains intentionally stale
-across approved methodology changes.
+of the same frozen inputs. Methodology 1.0 expected.json and arrays.npz are the official paired
+regression baseline.
 
 The issuance/lead widgets still default to 19Z / FH 4, but the date input now
 defaults to today in UTC, so this drives that widget to the event's date before
@@ -55,7 +55,18 @@ with open(os.path.join(EVENT_DIR, "tcf_raw.txt"), encoding="utf-8") as f:
     raw_text = f.read()
 with np.load(os.path.join(EVENT_DIR, "arrays.npz")) as npz:
     frozen = (npz["max_tops"], npz["max_refl"], npz["lons"], npz["lats"])
-legacy_qualifying_mask = ((frozen[1] >= 40.0) & (frozen[0] >= 25.0))
+    if "qualifying_mask" not in npz:
+        print("FAIL: Methodology 1.0 baseline has no qualifying_mask")
+        sys.exit(1)
+    qualifying_mask = np.asarray(npz["qualifying_mask"], dtype=bool)
+
+if expected.get("methodology_version") != tcf_pipeline.METHODOLOGY_VERSION:
+    print(
+        "FAIL: baseline methodology version "
+        f"{expected.get('methodology_version')!r} does not match pipeline "
+        f"{tcf_pipeline.METHODOLOGY_VERSION!r}"
+    )
+    sys.exit(1)
 
 # Feed the app the frozen inputs instead of IEM/S3. Only the two network-bound
 # functions are replaced; every line of grading and report logic runs for real.
@@ -86,13 +97,12 @@ def fake_composite(valid_dt, log=None, window_minutes=None, cadence_minutes=None
         # The frozen arrays are the verification grid; for display purposes the
         # app only needs something with the same extent, and this keeps the
         # parity test independent of full-resolution scans it does not have.
-        # Explicit legacy-only fixture seam: checked-in arrays predate Decision
-        # 1A and cannot reconstruct a paired mask. This exercises app/report
-        # parity, not approved temporal-method validation.
-        return (frozen[0], frozen[1], legacy_qualifying_mask,
+        # Methodology 1.0 parity uses the exact stored Decision 1A
+        # pair-first qualifying mask from the official baseline.
+        return (frozen[0], frozen[1], qualifying_mask,
                 frozen[2], frozen[3], tcf_pipeline.DisplayRaster(
                     frozen[0], frozen[1], frozen[2], frozen[3]), None)
-    return frozen[0], frozen[1], legacy_qualifying_mask, frozen[2], frozen[3]
+    return frozen[0], frozen[1], qualifying_mask, frozen[2], frozen[3]
 
 
 tcf_pipeline.fetch_iem_cow_tcf = fake_fetch
@@ -136,10 +146,15 @@ if "results" not in at.session_state:
     print("FAIL: app.py did not stash results in session_state")
     sys.exit(1)
 results = at.session_state["results"]
-direct = tcf_pipeline.run_verification_legacy_independent_max(
-    tcf_pipeline.parse_iem_cow_text(raw_text), *frozen,
-    dt.datetime.fromisoformat(expected["valid_dt"]), expected["issuance_hour"],
-    expected["lead_time"], tcf_pipeline.load_artccs())
+direct = tcf_pipeline.run_verification(
+    tcf_pipeline.parse_iem_cow_text(raw_text),
+    frozen[0], frozen[1], frozen[2], frozen[3],
+    dt.datetime.fromisoformat(expected["valid_dt"]),
+    expected["issuance_hour"],
+    expected["lead_time"],
+    tcf_pipeline.load_artccs(),
+    qualifying_mask=qualifying_mask,
+)
 
 failures = list(bounds_failures)
 
@@ -177,6 +192,6 @@ if failures:
         print(f"  {line}")
     sys.exit(1)
 
-print(f"PASS  {EVENT_ID}: app.py matches direct legacy-input replay "
+print(f"PASS  {EVENT_ID}: app.py matches stored pair-first baseline replay "
       f"({n_polys} polygons, {n_misses} Candidate Misses)")
 sys.exit(0)

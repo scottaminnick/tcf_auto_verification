@@ -48,7 +48,7 @@ REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 ARTCC_PATH = os.path.join(REPO_ROOT, "artcc1.geojson")
 CMAC_DOMAIN_PATH = os.path.join(REPO_ROOT, "cmac_domain.geojson")
 PHYSICAL_AREA_CRS = "EPSG:5070"
-METHODOLOGY_VERSION = "1.0-rc1"
+METHODOLOGY_VERSION = "1.0"
 
 
 @dataclass(frozen=True)

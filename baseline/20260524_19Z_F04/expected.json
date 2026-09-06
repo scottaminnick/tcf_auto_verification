@@ -1,11 +1,12 @@
 {
+  "methodology_version": "1.0",
   "event_id": "20260524_19Z_F04",
   "date": "2026-05-24",
   "issuance_hour": 19,
   "lead_time": 4,
   "valid_time_hour": 23,
   "valid_dt": "2026-05-24T23:00:00",
-  "report_text": "National System Review\nNWS TCF Review\nSunday, May 24, 2026\n  May 24, 2026   IT: 19Z   VT: 23Z   FCST HR: 04\nVerified Well:\nZDC/ZID/ZTL - Sparse (Area 2) [Top: 42.7 kft]\nZTL - Sparse (Area 4) [Top: 39.4 kft]\nZFW - Sparse (Area 9) [Top: 49.2 kft]\n\nVerified Close:\nZJX/ZMA/ZTL - Sparse (Area 3) [Top: 49.2 kft]\nZJX/ZTL - Sparse (Area 5) [Top: 42.7 kft]\n\nOver-forecast:\nZDC/ZJX - Sparse (Area 1)\nZHU/ZME - Sparse (Area 6)\nZHU - Sparse (Area 7)\nZHU - Sparse (Area 8)\nZHU - Sparse (Area 10) [Top: 45.9 kft]\nZDV/ZKC - Sparse (Area 11) [Top: 42.7 kft]\nZLC - Sparse (Area 12)\n\nMissed:\nZMP - Missed (Area M1)\nUNKNOWN - Missed (Area M2)\n\n",
+  "report_text": "National System Review\nNWS TCF Review\nSunday, May 24, 2026\n  May 24, 2026   IT: 19Z   VT: 23Z   FCST HR: 04\nVerified Well:\nZFW - Sparse (Area 9)\n\nVerified Close:\nZDC/ZID/ZTL - Sparse (Area 2)\nZJX/ZMA/ZTL - Sparse (Area 3)\nZTL - Sparse (Area 4)\nZJX/ZTL - Sparse (Area 5)\n\nOver-forecast:\nZDC/ZJX - Sparse (Area 1)\nZHU/ZME - Sparse (Area 6)\nZHU - Sparse (Area 7)\nZHU - Sparse (Area 8)\nZHU - Sparse (Area 10)\nZDV/ZKC - Sparse (Area 11)\nZLC - Sparse (Area 12)\n\nMissed:\nNone\n\n",
   "polygons": [
     {
       "idx": 1,
@@ -13,7 +14,7 @@
       "coverage_code": 3,
       "feat_type": "AREA",
       "coverage_fraction": 0.0,
-      "top_kft": 0.0,
+      "top_kft": null,
       "artccs": "ZDC/ZJX",
       "bounds": [
         -80.0,
@@ -24,10 +25,10 @@
     },
     {
       "idx": 2,
-      "category": "Verified Well",
+      "category": "Verified Close",
       "coverage_code": 3,
       "feat_type": "AREA",
-      "coverage_fraction": 0.5807,
+      "coverage_fraction": 0.4971,
       "top_kft": 42.65,
       "artccs": "ZDC/ZID/ZTL",
       "bounds": [
@@ -35,14 +36,15 @@
         36.9,
         -80.4,
         38.5
-      ]
+      ],
+      "boundary": true
     },
     {
       "idx": 3,
       "category": "Verified Close",
       "coverage_code": 3,
       "feat_type": "AREA",
-      "coverage_fraction": 0.2715,
+      "coverage_fraction": 0.2798,
       "top_kft": 49.21,
       "artccs": "ZJX/ZMA/ZTL",
       "bounds": [
@@ -54,10 +56,10 @@
     },
     {
       "idx": 4,
-      "category": "Verified Well",
+      "category": "Verified Close",
       "coverage_code": 3,
       "feat_type": "AREA",
-      "coverage_fraction": 0.5614,
+      "coverage_fraction": 0.4799,
       "top_kft": 39.37,
       "artccs": "ZTL",
       "bounds": [
@@ -72,7 +74,7 @@
       "category": "Verified Close",
       "coverage_code": 3,
       "feat_type": "AREA",
-      "coverage_fraction": 0.4909,
+      "coverage_fraction": 0.4669,
       "top_kft": 42.65,
       "artccs": "ZJX/ZTL",
       "bounds": [
@@ -88,7 +90,7 @@
       "coverage_code": 3,
       "feat_type": "AREA",
       "coverage_fraction": 0.0,
-      "top_kft": 0.0,
+      "top_kft": null,
       "artccs": "ZHU/ZME",
       "bounds": [
         -91.3,
@@ -103,7 +105,7 @@
       "coverage_code": 3,
       "feat_type": "AREA",
       "coverage_fraction": 0.0,
-      "top_kft": 0.0,
+      "top_kft": null,
       "artccs": "ZHU",
       "bounds": [
         -91.7,
@@ -118,7 +120,7 @@
       "coverage_code": 3,
       "feat_type": "AREA",
       "coverage_fraction": 0.0,
-      "top_kft": 0.0,
+      "top_kft": null,
       "artccs": "ZHU",
       "bounds": [
         -95.4,
@@ -132,7 +134,7 @@
       "category": "Verified Well",
       "coverage_code": 3,
       "feat_type": "AREA",
-      "coverage_fraction": 0.6914,
+      "coverage_fraction": 0.6785,
       "top_kft": 49.21,
       "artccs": "ZFW",
       "bounds": [
@@ -147,7 +149,7 @@
       "category": "Overforecasted",
       "coverage_code": 3,
       "feat_type": "AREA",
-      "coverage_fraction": 0.0,
+      "coverage_fraction": 0.0735,
       "top_kft": 45.93,
       "artccs": "ZHU",
       "bounds": [
@@ -178,7 +180,7 @@
       "coverage_code": 3,
       "feat_type": "AREA",
       "coverage_fraction": 0.0,
-      "top_kft": 0.0,
+      "top_kft": null,
       "artccs": "ZLC",
       "bounds": [
         -110.1,
@@ -191,31 +193,60 @@
   "misses": [
     {
       "idx": 1,
-      "artccs": "ZMP",
+      "artccs": "ZTL",
       "bounds": [
-        -96.395,
-        43.745,
-        -93.995,
-        45.345
-      ]
+        -85.27,
+        35.22,
+        -84.07,
+        36.07
+      ],
+      "forecast_capture_fraction": 0.0751,
+      "sparse_area_km2": 7914.25,
+      "medium_core_area_km2": 3844.41,
+      "medium_core_fraction": 0.4858,
+      "contains_medium_core": true,
+      "approved_for_report": false
     },
     {
       "idx": 2,
-      "artccs": "UNKNOWN",
+      "artccs": "ZMP",
       "bounds": [
-        -100.145,
-        24.095,
-        -98.895,
-        25.795
-      ]
+        -96.42,
+        43.67,
+        -93.87,
+        45.42
+      ],
+      "forecast_capture_fraction": 0.0,
+      "sparse_area_km2": 18491.69,
+      "medium_core_area_km2": 9618.53,
+      "medium_core_fraction": 0.5202,
+      "contains_medium_core": true,
+      "approved_for_report": false
+    }
+  ],
+  "medium_core_review_flags": [
+    {
+      "idx": 1,
+      "artccs": "ZJX",
+      "bounds": [
+        -85.77,
+        30.02,
+        -84.47,
+        31.27
+      ],
+      "medium_area_km2": 10340.63,
+      "medium_capture_fraction": 0.1813,
+      "parent_sparse_component_id": 16,
+      "reportable": false
     }
   ],
   "counts": {
     "polygons": 12,
     "misses": 2,
-    "verified_well": 3,
-    "verified_close": 2,
+    "medium_core_review_flags": 1,
+    "verified_well": 1,
+    "verified_close": 4,
     "overforecasted": 7,
-    "boundary": 0
+    "boundary": 1
   }
 }

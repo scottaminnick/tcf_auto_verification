@@ -1,9 +1,10 @@
 # TCF Auto Verification Methodology and Functional Specification
 
-**Version:** 0.1  
-**Status:** Working methodology specification  
-**Purpose:** Define intended automated TCF verification behavior before further
-algorithmic changes.
+**Version:** 1.0
+**Status:** Frozen Methodology 1.0 for mandatory meteorologist-reviewed decision support
+**Purpose:** Define the reproducible Methodology 1.0 automated first-pass TCF
+verification behavior, reviewer safeguards, provisional limitations, and
+publication boundary.
 
 ## 1. Purpose and authority
 
@@ -210,17 +211,15 @@ percentage. Imagery and broader context remain available to the reviewer.
 Verification applies only to the intended geographic domain. Truth shall not
 produce misses primarily from out-of-domain convection.
 
-**Open Decision 4:** when a forecast crosses the domain boundary, use either the
-entire polygon or only its in-domain portion as the denominator. This decision
-must be explicit because it directly changes the percentage.
+**Methodology 1.0 provisional behavior:** when a forecast crosses the
+verification-domain boundary, the denominator remains the full issued forecast
+geometry. Truth remains limited to the ARTCC-plus-CMAC verification domain.
 
-**Analysis status:** the six-event, 48-feature denominator audit found seven
-partially out-of-domain AREA forecasts, no fully out-of-domain forecasts, and no
-category changes when only the denominator was changed. In-domain geometry is a
-working conceptual direction because numerator and denominator then share the
-same observational support, but forecasts with little or zero eligible geometry
-require an explicit operational eligibility policy. No denominator policy is
-approved. See `docs/domain_denominator_analysis.md`.
+The six-event, 48-feature denominator audit found seven partially out-of-domain
+AREA forecasts, no fully out-of-domain forecasts, and no category changes when
+only the denominator was changed. An in-domain-only denominator remains a
+post-1.0 research alternative, not current production behavior. See
+`docs/domain_denominator_analysis.md`.
 
 ## 16. Minimum observed convective area
 
@@ -241,9 +240,10 @@ historical characterization because no production minimum-area filter remains
 for scoring. See
 `docs/minimum_area_order_analysis.md`.
 
-**Decision 5b — resolved for current RC:** no observational minimum applies to
-forecast scoring or Medium-core reviewer flags. A provisional 7,500 km² minimum
-applies only to Sparse Candidate Miss reviewer inventory.
+**Decision 5b — resolved for Methodology 1.0:** no component-area minimum
+filters Sparse or Medium forecast-scoring truth. Reviewer inventory separately
+uses a provisional 7,500 km² floor for Sparse Candidate Misses and a 5,000 km²
+floor for Medium-core Review Flags. Neither floor defines qualifying convection.
 
 ## 17. Missed convection
 
@@ -265,9 +265,10 @@ contains-Medium indicator. The area threshold controls reviewer inventory only.
 continue to identify Candidate Misses. Repository history provides no authority
 for treating 20% as an autonomous classification threshold.
 
-**Open Decision 6c — coverage interaction:** decide whether any forecast
-geometry suppresses a miss, only a corresponding coverage class does, or Sparse,
-Medium, and Solid LINE classes interact hierarchically.
+**Methodology 1.0 provisional coverage interaction:** Sparse AREA, Medium AREA,
+and buffered Solid LINE forecast geometries suppress Candidate Miss capture
+through the current class-blind forecast union. Class-aware or hierarchical
+suppression remains post-1.0 methodology research.
 
 **Approved Medium-core review cue:** an individual Medium component is surfaced
 as a non-reportable Medium-core Review Flag when capture is strict `<20%`,
@@ -286,9 +287,9 @@ Medium-size rule or climatological optimization.
 **Historical analysis status:** the legacy replay found seven floor-filtered
 Sparse-only misses and demonstrated strong area/capture parameter coupling. The
 subsequent paired audit established the hidden Medium-core visibility gap now
-addressed by reviewer flags. All forecast classes still suppress through one
-geometry union; no permanent capture threshold or coverage policy is approved. See
-`docs/missed_event_methodology_analysis.md`.
+addressed by reviewer flags. Methodology 1.0 retains the class-blind forecast
+union and strict `<20%` capture rule provisionally; neither is claimed to be
+scientifically optimized. See `docs/missed_event_methodology_analysis.md`.
 
 **Approved publication safeguard:** an automated Candidate Miss is excluded from
 the FAA-facing `Missed` section by default. It enters that section only after a
@@ -415,78 +416,73 @@ questionable cases, enable meteorological judgment, and reduce the effort needed
 to prepare the existing FAA product. When choosing between a silent uncertain
 decision and a clear reviewer flag, generally choose the flag.
 
-## 29. Decisions required before methodology 1.0
+## 29. Post-1.0 methodology research
 
-1. What maximum actual reflectivity/echo-top timestamp separation, if any, is
-   acceptable within a nominal observation pair (Decision 1B)?
-2. Is a domain-crossing forecast denominator whole or in-domain only?
-3. Which observed events are miss-eligible, what capture prevents a miss, and how
-   do Sparse, Medium, and Solid LINE forecast classes interact?
-4. Which automated fields belong in the editable FAA Google Doc rather than
-    remaining diagnostic-only?
+Methodology 1.0 intentionally carries several visible provisional behaviors.
+Future evidence-based revisions may examine:
 
-Resolve and document these independently rather than answering them implicitly
-through code.
+1. authoritative MRMS cycle/timestamp semantics and whether Decision 1B should
+   eventually impose a pair-separation sanity limit;
+2. full-issued versus in-domain forecast denominators near the verification
+   boundary;
+3. class-aware Candidate Miss capture interaction among Sparse AREA, Medium AREA,
+   and Solid LINE forecasts;
+4. long-term Solid LINE distance/occupancy verification methods;
+5. MRMS adequacy classifications beyond the current one-usable-pair minimum; and
+6. an observed echo-top methodology suitable for FAA-facing publication.
 
-## 30. Methodology 1.0 Readiness
+These are post-1.0 research items, not unresolved release blockers. Any adopted
+result-altering change requires a new methodology version and new regression
+baseline identity.
 
-**Readiness status: READY FOR INTEGRATION CANDIDATE, not ready for Methodology
-1.0 baseline capture.** See `docs/methodology_1_0_readiness.md` and the authoritative planning
-matrix `analysis/methodology_1_0_decision_matrix.csv`.
+## 30. Methodology 1.0 release status
 
-### Blockers
+**Release status: METHODOLOGY 1.0 FROZEN.**
 
-1. Integrate and validate all approved corrections on one candidate branch.
-2. Assign Methodology 1.0 only after fresh paired historical verification and
-   final application/report parity review.
-3. Capture new paired baselines only after the integrated policy is frozen.
+The release freeze completed after paired historical validation, independent
+meteorologist review, official pair-first baseline promotion, strict replay, and
+application/direct-pipeline parity review.
 
-The current core parameters, provenance-first adequacy minimum, and interim
-Solid LINE method are owner-approved provisional behavior for 1.0—not permanent
-or scientifically optimized policy. The full-issued denominator, no Decision 1B
-gate, Candidate Miss capture parameters, and broader echo-top choices remain
-separate provisional/open items.
+Frozen six-event regression inventory:
 
-### Integration prerequisites
+* 48 forecasts;
+* 5 Verified Well;
+* 17 Verified Close;
+* 26 Overforecasted;
+* 15 Candidate Misses;
+* 2 Medium-core Review Flags; and
+* 1 forecast near a grading boundary.
 
-* integrate or verify equivalent Decision 1A, parser/coverage, physical-geometry,
-  provenance, and nullable echo-top corrections on one candidate branch;
-* preserve the explicit legacy independent-max replay for old artifacts;
-* run fresh paired historical cases with saved `qualifying_mask` and provenance;
-  and
-* resolve merge conflicts according to approved methodology rather than stale
-  baseline parity.
+Each of the six official baseline events contains 15 usable paired MRMS analyses,
+the stored Decision 1A `qualifying_mask`, numerical diagnostic maxima, exact TCF
+source text, and `mrms_provenance.json`.
 
-### Minimum exit criteria
+An independent September 4, 2026 F04 case contained 11 forecasts, produced
+1 Verified Well / 2 Verified Close / 8 Overforecasted, 4 Candidate Misses, and
+0 Medium-core Review Flags with 15/15 usable paired analyses. Meteorologist
+visual review accepted the resulting morphology and reviewer inventory.
 
-* forecast-scoring truth remains independent of the Candidate Miss area floor;
-* Candidate Misses require explicit meteorologist approval for FAA inclusion;
-* automated and reviewer-approved states remain distinct and final FAA use
-  requires human approval;
-* methodology, unit, fixture, and application/report parity checks pass on the
-  integrated candidate;
-* no unavailable or insufficient observation is silently represented as
-  meteorological zero;
-* unsupported TCF feature/code combinations remain rejected;
-* provenance and provisional limitations remain reviewer-visible;
-* Methodology 1.0 is explicitly versioned only after policy freeze; and
-* new paired baselines are captured afterward while legacy maxima-only artifacts
-  remain unmistakably distinct.
+These cases establish release regression evidence and operational review
+acceptability; they are not a climatology or proof of scientific optimization.
 
-## 31. Methodology 1.0 integration candidate
+## 31. Methodology identity and baseline governance
 
-The approved behaviors are assembled on `methodology/1.0-integration` with the
-machine-readable release-candidate identity `1.0-rc1`. This identity is not a
-final baseline designation. The integration audit is recorded in
-`docs/methodology_1_0_integration.md`.
+The machine-readable production identity is `1.0`.
 
-The candidate contains Decision 1A, provenance, physical/topology corrections,
-feature-aware parsing, nullable echo tops, scoring truth without the historical
-area floor, and the separate human-approved Candidate Miss boundary. All Option
-C behaviors listed above remain provisional and unchanged.
+Versioned Methodology 1.0 regression artifacts require:
 
-**Current release status: READY FOR FRESH PAIRED VALIDATION.** Actual paired
-historical evidence, meteorologist inspection, a final UI/report smoke test, and
-an explicit policy freeze remain prerequisites to renaming the methodology
-`1.0` and capturing new baselines. New versioned artifacts must contain the
-paired mask and source provenance; a maxima-only artifact is always legacy.
+* `expected.json` with `methodology_version = "1.0"`;
+* `arrays.npz` containing `max_tops`, `max_refl`, `qualifying_mask`, `lons`,
+  and `lats`;
+* exact `tcf_raw.txt`; and
+* `mrms_provenance.json`.
+
+Versioned Methodology 1.0 artifacts always replay through normal pair-first
+`run_verification(..., qualifying_mask=...)`. The explicitly named
+`run_verification_legacy_independent_max()` path remains only so old external or
+historical maxima-only artifacts remain interpretable.
+
+Any future change capable of altering truth, grading, review-cue inventory,
+misses, domain treatment, LINE scoring, temporal qualification, or another
+result-bearing calculation shall increment the methodology version and receive
+corresponding regression evidence.

@@ -2,7 +2,7 @@
 
 ## Scope
 
-This is read-only instrumentation for the Methodology 1.0 RC1 meteorologist
+This is read-only instrumentation for the Methodology 1.0 release-development meteorologist
 review. It does not recommend further production parameters. Production now uses
 one binary-dilation iteration, size-15 uniform smoothing, 25% Sparse truth,
 and 40% Medium truth.
@@ -35,7 +35,7 @@ python analysis/truth_spatial_transform_sensitivity.py \
 
 The grid is dilation `{0, 1}` by smoothing `{5, 10, 15, 20}`. Zero dilation
 means the stored pair-first seed is passed through unchanged. All other
-`GradingParams` values remain at RC1 defaults.
+`GradingParams` values remain at the frozen Methodology 1.0 defaults.
 
 ## Outputs
 
@@ -51,7 +51,7 @@ means the stored pair-first seed is passed through unchanged. All other
   capture, centroid/bounds, Sparse-parent context, raw low-capture status,
   5,000 km² eligibility, and duplicate-suppression status. Thus future Medium
   triage comparisons do not require another MRMS run.
-* `summary.md`: grade changes relative to RC1 and a compact topology/review-cue
+* `summary.md`: grade changes relative to the Methodology 1.0 production default and a compact topology/review-cue
   table. It is descriptive evidence, not a replacement-parameter decision.
 
 For the targeted April 3 review, filter the two component CSVs to
@@ -73,7 +73,7 @@ Misses require Sparse capture below 20% and area at least 7,500 km²; Medium-cor
 flags require Medium capture below 20% and area at least 5,000 km² and are
 suppressed only by an eligible Candidate Miss parent. Neither area floor removes
 Sparse or Medium scoring truth. In six paired development events, the earlier
-1,500 km² Medium triage retained 12 flags; final RC1 and independent September
+1,500 km² Medium triage retained 12 flags; final release-candidate and independent September
 4 visual review found it too permissive. The revised 5,000 km² floor retains 2
 six-event flags while all 15 Candidate Misses remain unchanged. Sub-floor
 components remain serialized. These are development evidence, not climatological

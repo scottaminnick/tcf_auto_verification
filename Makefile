@@ -12,7 +12,7 @@
 #   make check-pass-a                        also require byte-exact pass A reports
 #   make fixture                             run the harness's own fixture test
 #   make parity                              drive app.py and diff its report
-#   make test                                fixture + parity + check-pass-a
+#   make test                                methodology + unit + fixture + parity + strict paired replay
 
 IMAGE   ?= tcf-baseline
 EVENT   ?=
@@ -28,7 +28,7 @@ DOCKER_RUN = docker run --rm \
 	-e HOME=/tmp \
 	$(IMAGE)
 
-.PHONY: baseline-image capture capture-shell check check-pass-a fixture parity test methodology
+.PHONY: baseline-image capture capture-shell check check-strict check-pass-a fixture parity test methodology unit sensitivity
 
 baseline-image:
 	docker build -t $(IMAGE) .
@@ -51,6 +51,9 @@ else
 	$(PYTHON) baseline/check.py --pipeline $(PIPELINE) $(EVENT)
 endif
 
+check-strict:
+	$(PYTHON) baseline/check.py --pipeline $(PIPELINE) --strict $(EVENT)
+
 # Adds the byte-exact pass A comparison against the report text captured from
 # the live app.
 check-pass-a:
@@ -66,10 +69,18 @@ fixture:
 parity:
 	$(PYTHON) baseline/test_app_parity.py
 
-# Independent analytic oracles for approved Methodology Specification 0.1
-# requirements. This is intentionally NOT part of the historical baseline test
-# target: known specification conflicts remain red until production is corrected.
+# Independent analytic oracles for frozen Methodology 1.0 requirements.
 methodology:
 	$(PYTHON) -m unittest discover -s methodology_validation -p 'test_*.py' -v
 
-test: fixture parity check-pass-a
+unit:
+	$(PYTHON) -m unittest discover -s tests -p 'test_*.py' -v
+
+# Explicit convenience target; these tests are also included in `unit`.
+sensitivity:
+	$(PYTHON) -m unittest discover -s tests -p 'test_truth_spatial_sensitivity.py' -v
+
+# Aggregate offline Methodology 1.0 release validation.
+# check-pass-a remains available as an optional historical/manual live-app
+# comparison but is not authoritative for the pair-first 1.0 baseline.
+test: methodology unit fixture parity check-strict

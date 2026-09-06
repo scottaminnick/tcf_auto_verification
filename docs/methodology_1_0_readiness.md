@@ -1,358 +1,117 @@
-# Methodology 1.0 Consolidation and Readiness Review
-
-## Overall readiness
-
-**READY FOR INTEGRATION CANDIDATE**, but **not ready for Methodology 1.0
-baseline capture**.
-
-The calculation is substantially more deterministic, physically correct, and
-auditable than the inherited implementation. Decision 1A, feature-aware parsing,
-physical geometry/area, and unavailable-value corrections are implemented and
-tested. Most remaining research questions can remain explicitly provisional in
-a mandatory human-review system.
-
-The methodology owner resolved the scientific/workflow blockers identified by
-this review: forecast truth has no hard area floor; Candidate Miss reviewer
-inventory uses the approved provisional 7,500 km² triage floor;
-automated candidates require approval; the inherited core parameters, minimum
-MRMS adequacy rule, and interim Solid LINE method are explicitly accepted as
-provisional for 1.0. Remaining blockers are release mechanics: final validation,
-version freeze, and new baseline capture.
-
-All other identified Option C methodologies remain explicitly provisional and
-unchanged for 1.0. This does not convert them into permanent approved policy.
-
-The authoritative planning artifact is
-`analysis/methodology_1_0_decision_matrix.csv`, with 28 separately classified
-decisions/subdecisions.
-
-## Status and blocker vocabulary
-
-Each matrix row has exactly one decision status:
-
-* **APPROVED + IMPLEMENTED** — an approved behavior exists in this checkout;
-* **APPROVED + NOT YET INTEGRATED** — approved, but absent from the candidate;
-* **PROVISIONAL PRODUCTION BEHAVIOR** — implemented behavior may be carried only
-  with explicit provisional documentation;
-* **WORKING HYPOTHESIS** — analysis favors a direction but does not approve it;
-* **OPEN — EVIDENCE REQUIRED** — empirical/authoritative support is missing;
-* **OPEN — POLICY DECISION REQUIRED** — owner judgment, not more coding, is next;
-* **DEFERRED BEYOND 1.0** — intentionally outside the release boundary.
-
-No current row is labeled approved-not-integrated or deferred because the local
-squashed checkout contains equivalent Decision 1A code, and deferral decisions
-must be made by the methodology owner. The supplied standalone Decision 1A
-commit still matters to branch integration, discussed below.
-
-A **blocker** is not merely an unanswered question. It is current behavior that
-can silently construct invalid truth, materially change FAA-facing grading via
-an unsupported load-bearing parameter, conflate unavailable evidence with
-absence, prevent reproducibility/version identity, undermine an approved rule,
-or bypass the required approval boundary. A limitation can be provisional when
-it is visible, editable, explicitly documented, and constrained to reviewed
-decision support. Human review mitigates ambiguity; it cannot excuse a silent
-calculation error or an undefined publication boundary.
-
-## Consolidated decision inventory
-
-### Approved and implemented
-
-* **Decision 1A:** per usable pair, `reflectivity >=40 dBZ AND echo top >=FL250`,
-  followed by Boolean temporal union. Numerical maxima remain diagnostic only.
-* **Feature-aware TCF semantics:** AREA 2 is Medium, AREA 3 Sparse, LINE 1 Solid;
-  structurally invalid combinations are rejected rather than relabeled.
-* **Physical AREA metric:** intersection and denominator area use EPSG:5070.
-* **Parser/topology corrections:** structured validation, LINE identity,
-  cell-footprint polygonization, holes, multipart geometry, and grid edges.
-* **Echo-top insufficient sample:** fewer than six qualifying samples is `None`,
-  not zero.
-* **Human-stage separation as specification intent:** automated, approved, and
-  published results are distinct. Operational enforcement remains a release
-  blocker rather than a new scientific decision.
-
-### Working hypotheses and post-1.0 research
-
-* **Decision 1B:** common authoritative MRMS cycle identity is preferred; current
-  no-gate behavior remains interim because filename semantics are unresolved.
-* **MRMS adequacy research:** numerical quality states may be studied later;
-  1.0 requires one usable pair plus visible provenance and adds no thresholds.
-* **Solid LINE research:** physical-distance or occupancy alternatives may be
-  studied later; the current buffered-area method is accepted provisionally.
-* **Domain denominator:** in-domain denominator is conceptually favored, while
-  current full-issued denominator remains unchanged.
-
-### Provisional production behavior
-
-* Sparse/Medium processed truth uses 25%/40% fields after one dilation and
-  provisional size-15 smoothing.
-* categories use 50%/20% forecast-area overlap cutoffs;
-* verification domain is 21 ARTCC polygons plus committed CMAC supplement;
-* Solid LINE is a 0.15° corridor scored against Medium truth by area overlap;
-* full issued geometry is the domain-boundary denominator;
-* echo top is full-geometry temporal-max P90 with a six-cell minimum;
-* ARTCC labels are geometry-derived and editable; and
-* Candidate Miss review evaluates every disconnected Sparse component with
-  `<20%` observed-area capture, at least 7,500 km² EPSG:5070 area, and a
-  class-blind forecast union. The area floor is triage only and never filters
-  truth. Hidden poorly captured Medium components are separate
-  non-reportable reviewer flags. Candidates still require explicit approval.
-
-### Open decisions after the owner decisions
-
-The matrix separates minimum-area use for forecast scoring from use for miss
-triage; miss eligibility, capture, and class interaction; echo statistic, source
-region, sample count, and report role; Decision 1B;
-methodology version; and final publication governance. The 20%/50% cutoffs,
-25%/40% fields, dilation/smoothing, ARTCC+CMAC domain, one-pair adequacy minimum,
-and interim Solid LINE method are no longer blockers: they are explicitly
-provisional production behavior, not claims of scientific optimization.
-
-## Evidence strength
-
-**Strong** evidence applies to executable mathematical corrections: Decision 1A
-has analytic invariants plus a paired six-event experiment that exactly rebuilt
-the frozen maxima; feature semantics cover all 48 frozen forecasts; physical
-area, parser, topology, holes, multipart, and null behavior have independent
-synthetic oracles. “Strong” here supports the rule/mechanism, not climatological
-generalization.
-
-**Moderate** evidence applies where analytic behavior is strong but policy scope
-is narrower: post-domain area ordering, Sparse/Medium selection, ARTCC
-attribution, and editable report plumbing.
-
-**Limited** evidence applies to six-event boundary/timing studies, observation
-adequacy without per-slot arrays, one Solid LINE, echo-top distributions, and
-coverage contributions to misses.
-
-**None / historical heuristic** applies to the 15,000 km² magnitude, six-cell
-minimum, P90 choice, 20% miss capture, inherited smoothing/dilation parameters,
-and—pending owner documentation—the 20/50 category cutoffs. Regression tests
-prove implementation stability, not scientific authority.
-
-## Implemented methodology corrections
-
-Local history is squashed: current commit `a3c02bb` contains the consolidated
-equivalent of multiple supplied methodology commits, so not every correction has
-a separately addressable local hash. The integration record must preserve both
-the supplied original IDs and equivalence checks.
-
-| Change | Commit/equivalent | Corrected behavior | Validation / known impact |
-|---|---|---|---|
-| Decision 1A | supplied `63494ed`; equivalent present in local `a3c02bb` | rejects cross-time reflectivity/top conjunction | pair-first subset/oracle tests; six events removed 1,417 cells, changed one category and two misses |
-| feature-aware coverage/parser | supplied methodology-hardening commits; consolidated in `a3c02bb` | correct AREA/LINE labels and rejects invalid combinations | 48-feature audit and malformed-record tests |
-| EPSG:5070 physical area | consolidated in `a3c02bb` | replaces degree-space physical area | analytic projected-area/intersection tests |
-| cell-footprint polygonization | consolidated in `a3c02bb` | replaces contour truncation and preserves topology | single-cell, edge, hole, connectivity, nonuniform-grid tests |
-| complete echo geometry | consolidated in `a3c02bb` | holes and all multipart pieces sampled strictly inside | hole/multipart/boundary tests |
-| MRMS provenance/failures | consolidated in `a3c02bb` | exclusions and unavailable composite are explicit | 17 unit/audit tests include resolve/download/read/grid paths |
-| nullable echo-top availability | consolidated in `a3c02bb` | unavailable array is not zero | nullable table/report tests |
-| insufficient echo sample | supplied `89865cf`; equivalent present in `a3c02bb` | `<6` qualifying cells returns `None` | 15/48 frozen fields changed; no score/category/FAA-text changes; 0/1/5/6/7/NaN tests |
-
-These are production corrections. By contrast, Solid LINE, denominator,
-minimum-area order/magnitude, miss policy, adequacy rules, Decision 1B, and the
-broader echo-top statistic analysis have not changed production policy.
-
-## Special blocker assessments
-
-### Minimum-area threshold
-
-The owner resolved the forecast-scoring blocker: **no processed Sparse or Medium
-component is removed from forecast truth solely because it is below 15,000
-km²**. Forecast overlap now uses all post-domain processed components.
-
-For **Candidate Misses**, the owner subsequently removed the floor after fresh
-paired validation and meteorologist review. Historical sensitivity remains
-evidence that a hard floor was load-bearing, not a reason to retain one. Area
-and embedded Medium density are now reviewer context.
-
-### Misses
-
-Current triage remains deterministic—retained Sparse components, `<20%`
-observed-area capture, and class-blind forecast union—but eligibility and capture
-remain provisional. Automated results are now labeled Candidate Miss, default to
-`approved_for_report=False`, and are omitted from the FAA `Missed` section until
-a meteorologist explicitly checks approval in the review table.
-
-### MRMS adequacy — owner decision complete for 1.0
-
-At least one usable pair is required; zero usable pairs raises, and detailed
-paired-source provenance is visible for meteorologist review. The owner accepts
-that minimum provisionally for 1.0. No unsupported numerical quality states or
-additional safeguard thresholds are introduced. Further adequacy research is
-post-1.0 refinement rather than a release blocker.
-
-### Decision 1B
-
-The supplied 90 pairs were separated by 0–1 second, and separation is visible.
-No abnormal archive evidence or filename/cycle semantics supports a gate. The
-current no-gate behavior is acceptable provisionally for 1.0 if documented and
-reviewed; cycle semantics and outlier sampling can follow. A discovered large
-separation would reopen blocker classification because it could undermine 1A.
-
-### Solid LINE — owner decision complete for 1.0
-
-The owner explicitly accepts the current 0.15° geographic buffer, Medium truth,
-EPSG:5070 physical-area overlap, and 20%/50% grading cutoffs as interim reviewed
-1.0 behavior. The limited evidence does not establish optimization, but it also
-does not justify an evidence-free replacement. Solid LINE is no longer a 1.0
-blocker; future physical-distance or occupancy work is refinement.
-
-### Domain and minimum-area order
-
-Seven forecasts were partially outside the selected domain; the minimum
-in-domain fraction was about 85.37%, and no frozen category changed. The full
-denominator is acceptable provisional behavior. The owner has explicitly adopted
-ARTCC+CMAC as the provisional 1.0 domain while retaining its authority limitation.
-
-Post-domain minimum-area filtering had no frozen retention, category, or miss
-difference and avoids arbitrary boundary slivers. It can remain the documented
-working order once the magnitude/use decision is made.
-
-### Echo-top diagnostic
-
-P90, full-geometry temporal maxima, and six cells are inherited, but the value
-does not affect grading. The owner approves it only as provisional reviewer
-context: it remains visible in the table/hover, preserves `None`, and is excluded
-from FAA text. It is not a maximum storm top, pair-qualified top, or operational
-TCF forecast-top method. Echo publication is no longer a 1.0 blocker.
-
-## Reviewer-only versus FAA-facing fields
-
-| Field | Reviewer | FAA draft | Publication risk |
-|---|---|---|---|
-| category | table/map, editable | section heading | high; unsupported grading/truth parameters directly affect it |
-| overlap fraction | table and boundary context | not printed | moderate; it drives category |
-| Missed | map/table | `Missed` line | high unless explicitly human-approved candidate |
-| echo-top P90 | table/hover, editable | absent | reviewer-only provisional context; no publication claim |
-| ARTCC | table, editable | printed | low/moderate; geometry-derived wording is reviewable |
-| MRMS provenance/separations | provenance panel | absent | reviewer context; essential safety evidence |
-| exclusion reasons | provenance/parser diagnostics | absent | reviewer context; prevents silent failure |
-| boundary flag | review table/context | absent | useful marginal-case safeguard |
-
-The UI/report seam permits edits, and fixture tests prove report text follows the
-table. The deployed workflow must also retain automated versus approved state;
-editability alone does not prove that approval occurred.
-
-## Human-in-the-loop safety case
-
-Intended flow is automated first pass → meteorologist review/edit → editable FAA
-report → downstream slide conversion → final meteorologist review → publication.
-Human review adequately mitigates documented interim LINE/echo/domain choices,
-geographic wording, and candidate-miss triage when the limitation is visible.
-It does not mitigate invisible removal of truth by an unsupported floor, hidden
-data absence, or an operational process that can publish an unapproved draft.
-
-Therefore Methodology 1.0 needs a documented approval control, provenance access,
-editable automated outputs, and explicit provisional labels. It does not need a
-permanent answer to every diagnostic research question.
-
-## Validation inventory
-
-At this review point:
-
-* `make methodology` runs 56 independent analytic methodology tests;
-* unit discovery runs 17 MRMS provenance and coverage-audit tests;
-* `baseline/test_fixture.py` runs 35 harness scenarios;
-* six frozen events contain 48 forecasts but maxima-only arrays;
-* committed scripts reproduce domain, area, miss, timing, LINE, and echo audits;
-* legacy replay is explicitly named and cannot validate Decision 1A; and
-* app parity exists for UI plumbing but was not rerun as part of this review.
-
-Tests establish behavior and invariants. Six historical events characterize
-impact but are not climatology or independent scientific validation.
-
-## Baseline status
-
-Historical expected artifacts are intentionally stale characterizations. Their
-arrays lack per-slot `qualifying_mask`; they encode legacy independent maxima,
-older geometry/domain behavior, and zero-valued insufficient echo diagnostics.
-The named legacy path preserves their interpretability without pretending they
-represent approved Decision 1A.
-
-Before recapture: resolve true blockers; integrate equivalent production
-changes; assign an explicit methodology version; run fresh paired events; store
-`qualifying_mask` and provenance; review app/report parity; and preserve legacy
-artifacts under an unmistakable legacy identity. Do not tune policy to make stale
-expected files green.
-
-## Branch and commit integration
-
-The locally available branch is squashed at `a3c02bb` and already contains an
-equivalent pair-first implementation and the supplied `89865cf` semantic change.
-The task-supplied standalone `63494ed` object is not present in local refs, so
-this checkout cannot determine its branch ancestry or byte-level overlap. The
-candidate integrator must fetch the source refs and compare behavior before
-cherry-picking; blindly applying both risks duplicate/conflicting changes.
-
-Recommended order, not executed:
-
-1. obtain owner decisions for any remaining true or conditional blockers;
-2. select a candidate base and fetch `63494ed` plus coverage/parser and
-   `89865cf` source branches;
-3. integrate Decision 1A first, or document equivalence if already present;
-4. integrate parser/coverage/physical-geometry corrections;
-5. integrate provenance and nullable/insufficient echo semantics;
-6. resolve conflicts by approved behavior, not by baseline parity;
-7. run methodology, unit, fixture, app-parity, and legacy-characterization tests;
-8. run fresh paired historical verification with provenance;
-9. freeze/version the candidate methodology;
-10. capture new 1.0 baselines with paired masks, perform report review, then open
-    one final integration PR.
-
-## Minimum Methodology 1.0 exit criteria
-
-- [x] Remove the unsupported minimum-area floor from forecast scoring truth.
-- [x] Remove the unsupported 15,000 km² Candidate Miss gate; retain `<20%`
-  capture provisionally and expose physical area/density as reviewer context.
-- [x] Require explicit meteorologist approval before a candidate enters FAA
-      `Missed` text.
-- [ ] Integrate/verify Decision 1A and all approved corrections on one branch.
-- [ ] Preserve parser rejection of unsupported feature/code combinations.
-- [ ] Preserve provenance visibility and no unavailable-to-zero semantics.
-- [ ] Run all validation layers on the integrated candidate.
-- [ ] Run fresh paired cases and review score/report impacts.
-- [ ] Document every retained provisional behavior and its reviewer mitigation.
-- [ ] Assign explicit Methodology 1.0 version only after policy freeze.
-- [ ] Capture new baselines containing `qualifying_mask` and provenance.
-- [ ] Keep legacy maxima-only artifacts and replay visibly distinct.
-- [ ] Perform application/report parity and final meteorologist review before the
-      final integration PR.
-
-## Shortest path and owner questions
-
-The owner has answered the minimum-truth, Candidate Miss, provisional core
-parameter, MRMS adequacy, Solid LINE, and echo-publication questions.
-
-Only targeted implementation/workflow changes, integrated
-testing, a fresh paired experiment, version assignment, and baseline capture are
-needed.
-
-## Draft 0.1 → 1.0 candidate changelog
-
-### Approved behavioral corrections
-
-* pair-first MRMS qualification and temporal Boolean union;
-* factual per-slot provenance and explicit unusable composite failure;
-* feature-aware coverage parsing and invalid-combination rejection;
-* physical EPSG:5070 area calculations;
-* full cell-footprint topology with holes/multipart support;
-* full-geometry hole/multipart echo sampling; and
-* unavailable and insufficient echo samples represented as nullable.
-
-### Documented provisional behavior
-
-* inherited spatial transformation and 25%/40% truth fields;
-* full-issued denominator over the selected policy domain;
-* the 7,500 km² Sparse and 5,000 km² Medium floors are limited to reviewer-cue
-  inventory, with no area floor for Sparse/Medium scoring truth;
-* buffered-area Solid LINE;
-* Candidate Miss capture logic with explicit FAA-report approval;
-* no Decision 1B gate or adequacy thresholds, with provenance review; and
-* temporal-max full-geometry P90 and six-cell minimum.
-
-This is a candidate changelog, not a declaration of Methodology 1.0.
-
-## Scope preservation
-
-This consolidation changes documentation and a compact planning CSV only. It
-does not change production code, thresholds, truth, scoring, misses, LINE,
-domain, MRMS retrieval, Decisions 1A/1B, echo statistics, reports, or baselines.
+# Methodology 1.0 Final Release Readiness Record
+
+## Final status
+
+**METHODOLOGY 1.0 RELEASE FREEZE COMPLETE.**
+
+The integrated verification methodology is frozen at machine-readable version
+`1.0`. The workflow remains mandatory human-reviewed decision support:
+automated verification → meteorologist review/edit/approval → editable FAA draft
+→ downstream slide preparation → final meteorologist review → publication.
+
+The six historical events and independent September 4 case are release evidence,
+not climatology or claims of scientific optimization.
+
+## Frozen Methodology 1.0 behavior
+
+Observed TCF convection requires reflectivity >=40 dBZ and echo tops >=FL250
+within the same usable nominal MRMS pair. Per-pair masks are Boolean-unioned
+across the verification window; independent numerical maxima are diagnostic only.
+
+Production spatial defaults are Sparse 25%, Medium 40%, one dilation iteration,
+and size-15 smoothing. Forecast-scoring truth has no component-area floor.
+Physical area calculations use EPSG:5070.
+
+Forecast categories remain:
+
+* Verified Well >=50%;
+* Verified Close >=20% and <50%;
+* Overforecasted <20%.
+
+Candidate Miss review requires strict capture <20% and Sparse area >=7,500 km².
+Medium-core Review Flags require strict capture <20%, Medium area >=5,000 km²,
+and no already-eligible Candidate Miss parent. Both area floors are reviewer
+triage only and do not filter scored truth. Medium-core flags are never
+reportable; Candidate Misses require explicit meteorologist approval before FAA
+inclusion.
+
+The current full-issued forecast denominator, class-blind Candidate Miss forecast
+union, ARTCC+CMAC domain, one-usable-pair MRMS adequacy minimum, no additional
+Decision 1B separation gate, interim buffered Solid LINE method, and reviewer-only
+P90/six-cell echo-top diagnostic are accepted provisional Methodology 1.0
+behaviors. They remain eligible for later evidence-based revision.
+
+## Six-event official paired baseline
+
+Every official event contains the exact frozen pair-first evidence package:
+`arrays.npz` with `qualifying_mask`, exact `tcf_raw.txt`,
+`mrms_provenance.json`, and a Methodology 1.0 `expected.json`.
+
+Event results:
+
+* 20260324_13Z_F04: 15 pairs; 1 forecast; 0 Well / 0 Close / 1 Over;
+  0 Candidate Misses; 0 Medium flags; 0 boundary.
+* 20260403_21Z_F04: 15 pairs; 7 forecasts; 1 Well / 2 Close / 4 Over;
+  4 Candidate Misses; 1 Medium flag; 0 boundary.
+* 20260524_13Z_F04: 15 pairs; 6 forecasts; 0 Well / 3 Close / 3 Over;
+  5 Candidate Misses; 0 Medium flags; 0 boundary.
+* 20260524_19Z_F04: 15 pairs; 12 forecasts; 1 Well / 4 Close / 7 Over;
+  2 Candidate Misses; 1 Medium flag; 1 boundary.
+* 20260524_19Z_F06: 15 pairs; 9 forecasts; 3 Well / 1 Close / 5 Over;
+  2 Candidate Misses; 0 Medium flags; 0 boundary.
+* 20260728_19Z_F04: 15 pairs; 13 forecasts; 0 Well / 7 Close / 6 Over;
+  2 Candidate Misses; 0 Medium flags; 0 boundary.
+
+Aggregate: 90 usable MRMS pairs, 48 forecasts, 5 Well, 17 Close, 26 Over,
+15 Candidate Misses, 2 Medium-core Review Flags, and 1 boundary case.
+
+The observational arrays and provenance were promoted byte-for-byte from the
+previously frozen and meteorologist-reviewed paired evidence. Exact source hashes
+are retained in `baseline/methodology_1_0_release_manifest.json`.
+
+## Independent September 4 validation
+
+Independent case `20260904_19Z_F04` used 15/15 usable MRMS pairs with zero
+reflectivity/echo-top pair separation, compatible grids, and no parser
+diagnostics.
+
+It produced 11 forecasts: 1 Verified Well, 2 Verified Close,
+8 Overforecasted, 4 Candidate Misses, and 0 Medium-core Review Flags.
+
+Meteorologist visual review accepted the Candidate Miss inventory and truth
+morphology. This supported the final 5,000 km² Medium-core reviewer floor.
+
+## Final validation inventory
+
+Release validation completed with:
+
+* `git diff --check` — PASS;
+* Python compile checks — PASS;
+* methodology suite — 80/80 PASS;
+* unit/audit discovery — 20/20 PASS;
+* truth spatial sensitivity — 3/3 PASS;
+* baseline fixture harness — 35/35 scenarios PASS;
+* strict Methodology 1.0 six-event replay — 6/6 PASS; and
+* Streamlit application/direct-pipeline stored pair-first parity — PASS.
+
+Streamlit emitted non-fatal bare-mode/deprecation warnings about
+`ScriptRunContext` and future `use_container_width` removal. These did not alter
+verification results.
+
+## Baseline and legacy separation
+
+The six active repository baselines are Methodology 1.0 pair-first baselines.
+Versioned artifacts cannot fall back to legacy independent-max replay.
+
+`run_verification_legacy_independent_max()` remains intentionally available only
+for old unversioned/maxima-only external or historical artifacts. Git history
+preserves the superseded checked-in pre-1.0 baseline state.
+
+## Post-1.0 research
+
+Future methodology work may revisit Decision 1B timing semantics, denominator
+treatment, coverage-class miss interaction, Solid LINE verification, observation
+adequacy categories, and an FAA-suitable observed echo-top methodology.
+
+None is a Methodology 1.0 release blocker. Any adopted result-altering change
+requires a new methodology version, tests, and appropriately versioned baselines.

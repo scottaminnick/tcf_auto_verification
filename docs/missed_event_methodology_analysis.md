@@ -1,6 +1,6 @@
 # Automated missed-event methodology analysis
 
-> **Current Methodology 1.0 RC1 decision:** this algorithm produces **Candidate
+> **Current Methodology 1.0 decision:** this algorithm produces **Candidate
 > Misses** only; the 15,000 km² floor is removed, while `<20%` remains a
 > provisional capture parameter. The historical floor sensitivity below is
 > retained as evidence. Candidate FAA inclusion still requires explicit approval,

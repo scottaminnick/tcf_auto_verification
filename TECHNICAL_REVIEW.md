@@ -1,24 +1,24 @@
 # Independent technical review of TCF auto verification
 
-> **RC1 projected-topology safeguard:** canonical EPSG:4326 truth remains
+> **Release-development projected-topology safeguard (retained in 1.0):** canonical EPSG:4326 truth remains
 > unchanged. EPSG:5070 projection can rarely introduce self-intersection into
 > highly fragmented valid truth, so invalid projected Sparse/Medium polygonal
 > geometry is repaired with `make_valid` solely before physical-area and
 > intersection calculations. Valid projected geometry bypasses repair. This is
 > numerical robustness, not a meteorological transformation.
 
-> **Subsequent spatial owner decision:** RC1 uses one dilation iteration and
+> **Subsequent spatial owner decision (retained in 1.0):** Methodology 1.0 uses one dilation iteration and
 > size-15 smoothing (approximately 66 × 84 km at 37.5°N on the geographic grid),
 > with the existing 25%/40% truth and 20%/50% grade thresholds. Candidate Miss
 > inventory requires strict capture below 20% and Sparse area at least 7,500 km²
 > in EPSG:5070. Medium-core review flags separately require strict capture below
 > 20% and area at least 5,000 km². The earlier provisional 1,500 km² value was
-> superseded after final RC1 and independent September 4 visual review found it
+> superseded after final release-candidate and independent September 4 visual review found it
 > over-emphasized small dense objects. Both are reviewer triage only, never truth
 > filters. The six-event evidence is not claimed as climatological optimization.
 
 > **Current owner-decision note:** this review characterizes the inherited
-> 15,000 km² behavior. Methodology 1.0 RC1 now removes that hard floor from
+> 15,000 km² behavior. Methodology 1.0 removes that hard floor from
 > forecast scoring; Candidate Miss inventory now uses a distinct provisional
 > 7,500 km² reviewer-triage floor and adds EPSG:5070 Sparse/Medium
 > density metadata, and adds non-reportable individual Medium-core review flags.
@@ -36,7 +36,7 @@
 > Automatically generated FAA text now excludes it for every numeric/null state.
 > It is not a maximum storm top or operational TCF forecast-top methodology.
 
-**Review date:** 2026-08-18  
+**Review date:** 2026-08-18
 **Scope:** static trace of the repository, replay of the frozen baselines, and
 small synthetic/numerical checks. No verification algorithm was changed as part
 of this review. This assessment is now read together with
@@ -229,7 +229,7 @@ silently appearing complete.
 
 ### C3. Domain treatment is internally inconsistent
 
-**Type: Open methodology choice (Outstanding Decision 5 / Open Decision 4).**
+**Type: Accepted provisional Methodology 1.0 behavior; post-1.0 refinement question.**
 
 Truth is clipped before minimum-area filtering, but each forecast's full,
 unclipped area remains in the score denominator. A forecast half inside the
@@ -525,7 +525,7 @@ full review workflow:
 | Marginal forecast grades | A ±0.005 internal boundary flag exists in the review table | Partial: the app does not display the fraction or marginal flag, and misses/truth-area boundaries are not flagged. |
 | AREA physical-area metric | Forecast and hit ratios use EPSG:4326 planar area | **Nonconforming:** specification 0.1 explicitly requires an appropriate physical-area projection. |
 | Minimum truth area | EPSG:5070 and 15,000 km² are implemented after smoothing, thresholding, polygonization, and domain clipping | Physical units align; processing order awaits Open Decision 5. |
-| Domain | Out-of-domain truth is clipped; full forecast denominator remains | One documented but unapproved option; requires Open Decision 4 and reviewer flagging meanwhile. |
+| Domain | Out-of-domain truth is clipped; full forecast denominator remains | Full-issued denominator accepted provisionally for Methodology 1.0; in-domain alternatives remain post-1.0 research. |
 | LINE identity | LINE type survives parsing and report labeling | Partial: interim buffering is visible only as “Line”; physical width and limitations are not shown. |
 | Echo-top diagnostics | 90th percentile is calculated and conditionally printed | Partial/nonconforming: statistic remains open, while hole handling and unavailable-as-zero already conflict with section 19. |
 | Audit metadata/version | IT/VT/FH appear in report; parameters exist in code; scan provenance accompanies the live result | **Partial gap:** no methodology version, input hashes, or automated/reviewer-approved history is persisted. |

@@ -30,21 +30,25 @@ baseline/
   test_fixture.py    tests the harness itself against synthetic data
   test_app_parity.py drives app.py and diffs its report against the baseline
   <event_id>/
-    arrays.npz         legacy files: max_tops, max_refl, lons, lats
-                       new captures also include qualifying_mask (Decision 1A)
-    tcf_raw.txt        the raw IEM response for the TCF product
-    expected.json      graded output: metadata, report_text, polygons, misses, counts
-    pass_a_report.txt  report text captured from the live app (see below)
+    arrays.npz         max_tops, max_refl, qualifying_mask, lons, lats
+    tcf_raw.txt        exact archived TCF source text
+    expected.json      Methodology 1.0 graded output and reviewer inventory
+    mrms_provenance.json paired MRMS source/timing/grid manifest
+    pass_a_report.txt  optional historical/manual live-app report capture
 ```
 
-The checked-in historical arrays predate approved Decision 1A and cannot
-reconstruct same-pair qualification. `check.py` therefore invokes the explicitly
-named `run_verification_legacy_independent_max()` characterization path. This is
-legacy behavior replay, not validation of the approved temporal methodology.
+The six active repository event directories are now official Methodology 1.0
+pair-first regression baselines. Their `arrays.npz` files contain the stored
+Decision 1A `qualifying_mask`, and their source provenance is retained in
+`mrms_provenance.json`.
 
-### Methodology 1.0 candidate schema
+The explicitly named `run_verification_legacy_independent_max()` path remains
+only for old unversioned/maxima-only external or historical artifacts. It is
+not used for Methodology 1.0 baseline replay.
 
-A versioned candidate capture also contains `mrms_provenance.json`. It is
+### Methodology 1.0 baseline schema
+
+A versioned Methodology 1.0 capture contains `mrms_provenance.json`. It is
 complete only when `expected.json` has `methodology_version`, `arrays.npz` has
 `qualifying_mask`, `max_refl`, `max_tops`, `lons`, and `lats`, the provenance
 file has the per-slot source/timing/grid manifest, and `tcf_raw.txt` preserves
@@ -52,17 +56,17 @@ the exact forecast source. `check.py` refuses a versioned artifact without its
 paired mask or provenance. Unversioned maxima-only directories remain explicitly
 pre-1.0 and use only `run_verification_legacy_independent_max()`.
 
-Methodology 1.0 also removes the 15,000 km² floor from forecast-scoring truth and
+Methodology 1.0 removes the 15,000 km² floor from forecast-scoring truth and
 requires explicit meteorologist approval before a Candidate Miss enters FAA
-text. Historical expected reports remain intentionally unchanged. App parity
-therefore compares the app with a direct current-pipeline replay of frozen inputs,
-not with stale `expected.json` methodology output.
+text. The active `expected.json` files are versioned Methodology 1.0 regression
+outputs. App parity uses the exact stored pair-first `qualifying_mask` and
+compares the Streamlit result with direct current-pipeline replay.
 
-RC1 Candidate Miss evidence now serializes each individual Sparse component's
+Methodology 1.0 Candidate Miss baselines serialize each individual Sparse component's
 EPSG:5070 area, forecast capture, embedded Medium-core area/fraction, and default
 approval state. Distinct individual Medium-core Review Flags serialize their
-area, capture, parent Sparse context, and permanent non-reportable state. No hard
-component-area floor is applied to either review-cue type.
+area, capture, parent Sparse context, and permanent non-reportable state. The Sparse Candidate Miss reviewer floor is 7,500 km² and the Medium-core
+Review Flag floor is 5,000 km². Neither floor filters forecast-scoring truth.
 
 ## Events
 
