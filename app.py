@@ -2,10 +2,13 @@ import base64
 import gc
 import html
 import io
+import logging
 import os
+import threading
+import uuid
 import streamlit as st
 import requests
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import numpy as np
 import plotly.graph_objects as go
 import geopandas as gpd
@@ -22,9 +25,10 @@ import tcf_pipeline
 from tcf_pipeline import (
     build_composite,
     compute_valid_dt,
-    fetch_iem_cow_tcf,
     run_verification,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 # --- 1. PAGE CONFIG & CACHED LOADERS ---
 st.set_page_config(page_title="TCF Verification Dashboard", layout="wide", page_icon="✈️")
@@ -70,7 +74,25 @@ def load_geography():
     return states, artccs
 
 
+_tcf_cache_executions = set()
+_tcf_cache_executions_lock = threading.Lock()
+
+
 @st.cache_data(show_spinner=False)
+def _cached_fetch_iem_cow_tcf(product, issue_time_iso, forecast_hour,
+                              _execution_token=None):
+    """Strict cached fetch keyed by product, issuance, and forecast hour."""
+    if product != tcf_pipeline.tcf_product_for_forecast_hour(forecast_hour):
+        raise ValueError("TCF cache product does not match forecast hour")
+    issue_time = datetime.fromisoformat(issue_time_iso)
+    result = tcf_pipeline.fetch_iem_cow_tcf(
+        issue_time.date(), issue_time.hour, forecast_hour)
+    if _execution_token is not None:
+        with _tcf_cache_executions_lock:
+            _tcf_cache_executions.add(_execution_token)
+    return result
+
+
 def cached_fetch_iem_cow_tcf(date_obj, issue_hr, f_hr):
     """Cached wrapper around the pipeline's IEM fetch.
 
@@ -79,11 +101,27 @@ def cached_fetch_iem_cow_tcf(date_obj, issue_hr, f_hr):
     empty frame (the caller then warns and stops), so the exception is turned
     back into exactly that here.
     """
+    issue_time = datetime.combine(date_obj, datetime.min.time()).replace(hour=issue_hr)
+    product = tcf_pipeline.tcf_product_for_forecast_hour(f_hr)
+    cache_key = f"{product}:{issue_time.isoformat()}:F{f_hr:02d}"
+    token = uuid.uuid4().hex
     try:
-        return fetch_iem_cow_tcf(date_obj, issue_hr, f_hr)
+        result = _cached_fetch_iem_cow_tcf(
+            product, issue_time.isoformat(), f_hr, _execution_token=token)
     except Exception as e:
+        # Exceptions leave the strict cached function and are not cacheable.
         st.sidebar.error(f"IEM Fetch Error: {e}")
         return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
+    with _tcf_cache_executions_lock:
+        cache_miss = token in _tcf_cache_executions
+        _tcf_cache_executions.discard(token)
+    provenance = result.attrs.get("forecast_provenance", {})
+    LOGGER.info(
+        "TCF CACHE cache_key=%s cache_hit=%s cached_at=%s source_identifier=%s",
+        cache_key, not cache_miss, provenance.get("fetched_at"),
+        provenance.get("source_identifier"),
+    )
+    return result
 
 @st.cache_data(show_spinner=False)
 def cached_build_composite(valid_dt, window_minutes, cadence_minutes, step, _log=None):
@@ -526,6 +564,12 @@ st.sidebar.markdown(f"**Valid Time (VT):** {valid_dt.strftime('%b %d, %H:00Z')}"
 # --- 5. MAIN EXECUTION (compute once, then stash in session_state) ---
 if st.sidebar.button("Run Verification"):
 
+    requested_issue_time = datetime.combine(
+        target_date, datetime.min.time()).replace(hour=issuance_hour)
+    LOGGER.info(
+        "TCF REQUEST issue_time=%s forecast_hour=F%02d expected_valid_time=%s",
+        requested_issue_time.isoformat(), lead_time, valid_dt.isoformat())
+
     with st.status("Fetching Data...", expanded=True) as status:
         # AUTOMATIC FETCH VIA IEM
         st.write("Pulling Forecast from IEM Archives...")
@@ -550,6 +594,21 @@ if st.sidebar.button("Run Verification"):
             st.warning("No valid TCF features were available for this issuance/lead time.")
             st.stop()
 
+        try:
+            forecast_provenance = tcf_pipeline.validate_forecast_provenance(
+                gdf_forecast, requested_issue_time, lead_time, valid_dt)
+        except ValueError as exc:
+            st.error(f"Forecast identity check failed: {exc}")
+            st.stop()
+
+        st.write(
+            "Forecast source: "
+            f"{forecast_provenance['product']} issued "
+            f"{forecast_provenance['issue_time']:%Y-%m-%d %H:%MZ}; "
+            f"F{forecast_provenance['forecast_hour']:02d}; "
+            f"valid {forecast_provenance['valid_time']:%Y-%m-%d %H:%MZ}"
+        )
+
         # --- Rolling Composite ---
         # st.write is handed to the pipeline as its progress sink, so the per-scan
         # lines still appear in this status box.
@@ -567,6 +626,12 @@ if st.sidebar.button("Run Verification"):
 
         (max_tops, max_refl, qualifying_mask, lons, lats, raster,
          mrms_provenance) = composite
+        LOGGER.info(
+            "TCF VERIFICATION valid_time=%s mrms_window_start=%s mrms_window_end=%s",
+            valid_dt.isoformat(),
+            (valid_dt - timedelta(minutes=tcf_pipeline.COMPOSITE_WINDOW_MINUTES)).isoformat(),
+            (valid_dt + timedelta(minutes=tcf_pipeline.COMPOSITE_WINDOW_MINUTES)).isoformat(),
+        )
 
         st.write("Rendering display raster...")
         display_png_bytes, display_extent, _factor = cached_display_png(
@@ -607,6 +672,7 @@ if st.sidebar.button("Run Verification"):
         'valid_dt': R['valid_dt'],
         'issuance_hour': issuance_hour,
         'lead_time': lead_time,
+        'forecast_provenance': forecast_provenance,
     }
 
 

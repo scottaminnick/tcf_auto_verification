@@ -76,7 +76,18 @@ scan_log = []
 def fake_fetch(date_obj, issue_hr, f_hr):
     assert (issue_hr, f_hr) == (expected["issuance_hour"], expected["lead_time"]), \
         f"app.py passed the wrong issuance/lead: {(issue_hr, f_hr)}"
-    return tcf_pipeline.parse_iem_cow_text(raw_text)
+    result = tcf_pipeline.parse_iem_cow_text(raw_text)
+    issue_time = dt.datetime.combine(date_obj, dt.time(issue_hr))
+    result.attrs["forecast_provenance"] = {
+        "product": tcf_pipeline.tcf_product_for_forecast_hour(f_hr),
+        "issue_time": issue_time,
+        "forecast_hour": f_hr,
+        "valid_time": issue_time + dt.timedelta(hours=f_hr),
+        "source_identifier": "frozen baseline",
+        "fallback_used": False,
+        "fetched_at": dt.datetime.now(dt.timezone.utc),
+    }
+    return result
 
 
 def fake_composite(valid_dt, log=None, window_minutes=None, cadence_minutes=None,
