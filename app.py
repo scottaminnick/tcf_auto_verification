@@ -676,15 +676,19 @@ if st.sidebar.button("Run Verification"):
     }
 
 
-# --- 6. VIEW SWITCHER (runs every rerun; reads from session_state) ---
+# --- 6. MAP-CENTERED WORKSTATION (runs every rerun; reads session_state) ---
 if 'results' in st.session_state:
-    st.markdown("---")
-    view = st.radio("Select View", ["Verification Scorecard", "Reanalysis (Truth)"],
-                    horizontal=True)
+    from dashboard_workstation import render_workstation
+
     R = st.session_state['results']
-    if view == "Verification Scorecard":
-        render_scorecard(R)
-    else:
-        render_reanalysis(R)
+    render_workstation(
+        R,
+        pipeline=tcf_pipeline,
+        new_map_fig=_new_map_fig,
+        geom_to_xy=_geom_to_xy,
+        gdf_to_xy=_gdf_to_xy,
+        composite_label=composite_label,
+        duration=_duration,
+    )
 else:
     st.info("Set the event in the sidebar and click **Run Verification** to begin.")
