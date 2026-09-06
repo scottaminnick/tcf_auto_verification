@@ -7,15 +7,18 @@ reorganizes reviewer-facing presentation and adds the participant utility.
 from __future__ import annotations
 
 import html
+import json
 
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 
 import tcf_participants
 
 
 PLOT_CONFIG = {"scrollZoom": True, "displaylogo": False}
+REVIEW_RESULTS = ["Verified Well", "Verified Close", "Overforecast", "Missed"]
 
 
 def _scorecard_figure(R, *, pipeline, new_map_fig, geom_to_xy, composite_label):
@@ -249,10 +252,90 @@ def _feature_label(row, *, pipeline):
     return f"F{row.idx} · Review cue"
 
 
+def _default_review_result(row):
+    if row.kind == "candidate_miss":
+        return "Missed"
+    if row.category == "Overforecasted":
+        return "Overforecast"
+    if row.category in ("Verified Well", "Verified Close"):
+        return row.category
+    return "Verified Close"
+
+
+def _review_result(row):
+    value = getattr(row, "review_result", None)
+    if value is not None and not (isinstance(value, float) and np.isnan(value)):
+        value = str(value)
+        if value in REVIEW_RESULTS:
+            return value
+    return _default_review_result(row)
+
+
+def _build_reviewed_report(review_table, valid_dt, issuance_hour, lead_time, *, pipeline):
+    """Build the human-reviewed FAA draft without changing objective scoring.
+
+    The automated pipeline report remains the default.  The workstation adds an
+    optional ``review_result`` column only after a meteorologist applies edits;
+    this formatter honors that disposition while keeping the objective category
+    and map untouched as provenance.
+    """
+    doc_report = {
+        "Verified Well:": [],
+        "Verified Close:": [],
+        "Over-forecast:": [],
+        "Missed:": [],
+    }
+    target_section = {
+        "Verified Well": "Verified Well:",
+        "Verified Close": "Verified Close:",
+        "Overforecast": "Over-forecast:",
+        "Missed": "Missed:",
+    }
+
+    for row in review_table.itertuples(index=False):
+        if row.kind == "medium_core_review_flag":
+            continue
+        if not row.approved_for_report:
+            continue
+
+        result = _review_result(row)
+        section = target_section[result]
+
+        if row.kind == "candidate_miss":
+            if result == "Missed":
+                line_text = f"{row.artccs} - Missed (Area M{row.idx})"
+            else:
+                line_text = f"{row.artccs} - Sparse (Area M{row.idx})"
+        else:
+            cov_label = pipeline._coverage_label(row.feat_type, row.coverage_code)
+            feat_label = "Line" if row.feat_type == "LINE" else "Area"
+            line_text = f"{row.artccs} - {cov_label} ({feat_label} {row.idx})"
+
+        doc_report[section].append(line_text)
+
+    report_text = (
+        f"National System Review\nNWS TCF Review\n"
+        f"{valid_dt.strftime('%A, %B %d, %Y')}\n"
+    )
+    report_text += (
+        f"  {valid_dt.strftime('%b %d, %Y')}   IT: {issuance_hour:02d}Z   "
+        f"VT: {valid_dt.strftime('%H')}Z   FCST HR: {lead_time:02d}\n"
+    )
+    for category, items in doc_report.items():
+        report_text += f"{category}\n"
+        if not items:
+            report_text += "None\n"
+        for item in items:
+            report_text += f"{item}\n"
+        report_text += "\n"
+    return report_text
+
+
 def _render_review_panel(R, *, pipeline):
     st.caption(
-        "Objective grades are fixed here. Edit ARTCC attribution as needed; "
-        "Candidate Misses enter the FAA draft only when FAA is checked."
+        "Set the reviewed result, adjust ARTCC attribution, and choose what enters "
+        "the FAA draft. Changes are batched until **Apply Review Changes**, so "
+        "checkboxes and dropdowns no longer rerun the page one click at a time."
     )
 
     table = R["review_table"]
@@ -262,15 +345,19 @@ def _render_review_panel(R, *, pipeline):
     if main_table.empty:
         st.info("No forecast or Candidate Miss rows are available for review.")
     else:
-        display = main_table[["category", "artccs", "approved_for_report"]].copy()
+        display = main_table[["artccs", "approved_for_report"]].copy()
         display.insert(
             0,
             "Feature",
             [_feature_label(row, pipeline=pipeline)
              for row in main_table.itertuples(index=False)],
         )
+        display.insert(
+            1,
+            "Result",
+            [_review_result(row) for row in main_table.itertuples(index=False)],
+        )
         display = display.rename(columns={
-            "category": "Result",
             "artccs": "ARTCCs",
             "approved_for_report": "FAA",
         })
@@ -280,40 +367,57 @@ def _render_review_panel(R, *, pipeline):
             f"{R['valid_dt']:%Y%m%d%H}_"
             f"{R['issuance_hour']:02d}_F{R['lead_time']:02d}"
         )
-        edited = st.data_editor(
-            display,
-            hide_index=True,
-            use_container_width=True,
-            height=min(480, 38 * (len(display) + 1) + 6),
-            disabled=["Feature", "Result"],
-            column_config={
-                "Feature": st.column_config.TextColumn("Feature", width="medium"),
-                "Result": st.column_config.TextColumn("Result", width="medium"),
-                "ARTCCs": st.column_config.TextColumn(
-                    "ARTCCs",
-                    help="Editable FAA-facing ARTCC attribution.",
-                    width="medium",
-                ),
-                "FAA": st.column_config.CheckboxColumn(
-                    "FAA",
-                    help=(
-                        "Include this row in the FAA report. Candidate Misses "
-                        "require explicit meteorologist approval."
+        form_key = f"{editor_key}_form"
+        with st.form(form_key, clear_on_submit=False):
+            edited = st.data_editor(
+                display,
+                hide_index=True,
+                use_container_width=True,
+                height=min(520, 38 * (len(display) + 1) + 6),
+                disabled=["Feature"],
+                column_config={
+                    "Feature": st.column_config.TextColumn("Feature", width="medium"),
+                    "Result": st.column_config.SelectboxColumn(
+                        "Result",
+                        options=REVIEW_RESULTS,
+                        required=True,
+                        help=(
+                            "Meteorologist-reviewed disposition used in the FAA draft. "
+                            "The objective map and score remain unchanged."
+                        ),
+                        width="medium",
                     ),
-                    width="small",
-                ),
-            },
-            key=editor_key,
-        )
+                    "ARTCCs": st.column_config.TextColumn(
+                        "ARTCCs",
+                        help="Editable FAA-facing ARTCC attribution.",
+                        width="medium",
+                    ),
+                    "FAA": st.column_config.CheckboxColumn(
+                        "FAA",
+                        help="Include this reviewed item in the FAA report.",
+                        width="small",
+                    ),
+                },
+                key=editor_key,
+            )
+            submitted = st.form_submit_button(
+                "Apply Review Changes", use_container_width=True, type="primary"
+            )
 
-        updated = table.copy()
-        for position, original_index in enumerate(main_table.index):
-            updated.at[original_index, "artccs"] = edited.iloc[position]["ARTCCs"]
-            updated.at[original_index, "approved_for_report"] = edited.iloc[position]["FAA"]
-        R["review_table"] = updated.astype(pipeline.REVIEW_COLUMNS)
+        if submitted:
+            updated = table.copy()
+            if "review_result" not in updated.columns:
+                updated["review_result"] = None
+            for position, original_index in enumerate(main_table.index):
+                updated.at[original_index, "artccs"] = edited.iloc[position]["ARTCCs"]
+                updated.at[original_index, "approved_for_report"] = edited.iloc[position]["FAA"]
+                updated.at[original_index, "review_result"] = edited.iloc[position]["Result"]
+            R["review_table"] = updated.astype(pipeline.REVIEW_COLUMNS)
+            st.success("Review changes applied to the FAA draft.")
 
-    R["report_text"] = pipeline.build_report(
-        R["review_table"], R["valid_dt"], R["issuance_hour"], R["lead_time"]
+    R["report_text"] = _build_reviewed_report(
+        R["review_table"], R["valid_dt"], R["issuance_hour"], R["lead_time"],
+        pipeline=pipeline,
     )
 
     review_flags = R["review_table"][
@@ -344,6 +448,45 @@ def _render_report_panel(R):
         R["report_text"],
         file_name="pass_a_report.txt",
         use_container_width=True,
+    )
+
+
+def _render_copy_codes_button(codes_text):
+    """One-click clipboard helper with a legacy fallback for locked-down browsers."""
+    if not codes_text:
+        return
+    payload = json.dumps(codes_text)
+    fallback = html.escape(codes_text, quote=True)
+    components.html(
+        f"""
+        <div style="display:flex;align-items:center;gap:10px;font-family:system-ui,sans-serif;">
+          <button id="copy-codes" onclick="copyCodes()"
+            style="border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;">
+            Copy Codes
+          </button>
+          <span id="copy-status" style="font-size:13px;opacity:.75"></span>
+          <textarea id="copy-fallback" aria-hidden="true"
+            style="position:absolute;left:-10000px;top:-10000px;">{fallback}</textarea>
+        </div>
+        <script>
+          async function copyCodes() {{
+            const text = {payload};
+            const status = document.getElementById('copy-status');
+            try {{
+              await navigator.clipboard.writeText(text);
+            }} catch (err) {{
+              const box = document.getElementById('copy-fallback');
+              box.value = text;
+              box.focus();
+              box.select();
+              document.execCommand('copy');
+            }}
+            status.textContent = 'Copied!';
+            window.setTimeout(() => status.textContent = '', 1200);
+          }}
+        </script>
+        """,
+        height=46,
     )
 
 
@@ -388,6 +531,14 @@ def _render_participants():
             include_orgs=include_orgs,
             strict_short=strict_short,
         )
+        codes_text = ", ".join(result.codes)
+
+        st.markdown("**Collaboration field**")
+        st.code(codes_text if codes_text else "—", language=None, wrap_lines=True)
+        _render_copy_codes_button(codes_text)
+        if codes_text:
+            st.caption(f"PowerPoint preview: Collaboration:  {codes_text}")
+
         cwsu_col, org_col = st.columns(2)
         with cwsu_col:
             st.markdown("**CWSUs**")
@@ -399,8 +550,9 @@ def _render_participants():
         if result.unknown:
             st.warning("Unmapped: " + "; ".join(result.unknown))
         st.caption(
-            "Participant parsing is a reviewer utility only; it does not alter "
-            "verification scoring or FAA report text."
+            "Copy Codes copies the complete comma-separated participant list for "
+            "the PowerPoint Collaboration field. Participant parsing remains a "
+            "reviewer utility and does not alter verification scoring."
         )
 
 
