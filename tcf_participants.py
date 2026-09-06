@@ -108,8 +108,15 @@ def _norm(value: str) -> str:
 def build_aliases(include_orgs: bool = True, strict_short: bool = True) -> dict[str, str]:
     aliases = dict(BASE_ALIASES)
     if not include_orgs:
-        aliases = {key: value for key, value in aliases.items()
-                   if value not in ORGANIZATIONS}
+        for key in (
+            "nws - awc", "awc",
+            "av - meteorological service of canada", "msc",
+            "av - fedex", "fedex",
+            "av - jetblue", "jetblue",
+            "av - atl delta air lines", "delta",
+            "southwest", "swa",
+        ):
+            aliases.pop(key, None)
     if strict_short:
         for key in ("kc", "dc", "mia"):
             aliases.pop(key, None)
