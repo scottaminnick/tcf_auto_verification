@@ -13,9 +13,9 @@ as a missed forecast.
 **48N is the scoring-relevant boundary, and it was traced by eye from a TCF
 graphic. It is not an official shapefile and carries no authority.**
 
-Every truth blob that straddles 48N has its area reduced by the clip, and a blob
-that ends up under `min_area_m2` disappears — so moving this line up or down
-directly changes which misses are reported. Anyone auditing a scored event should
+Every truth blob that straddles 48N has its geometry and measured reviewer area
+reduced by the clip, so moving this line up or down can directly change scoring
+and Candidate Miss context. Anyone auditing a scored event should
 treat a miss near the northern edge as provisional. If an authoritative CMAC or
 TCF domain boundary becomes available, replace this file rather than nudging the
 coordinates: the intent is to be replaceable, not to be tuned.
@@ -35,8 +35,8 @@ The same reasoning applies to the eastern edge stepping out to -68.5.
 
 `tcf_pipeline.verification_domain()` unions this with `artcc1.geojson` and
 caches the result for the life of the process. `extract_tcf_polygons` clips truth
-to it **before** `min_area_m2` is applied — see the comment at that call site for
-why the order is load-bearing.
+to it. Its optional area argument remains for historical sensitivity analysis;
+production scoring/review passes zero and applies no hard component-area floor.
 
 Set `GradingParams(apply_domain_mask=False)` to score without it, which is how
 the effect of the mask on a given event can be measured.

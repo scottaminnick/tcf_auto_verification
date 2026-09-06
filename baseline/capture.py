@@ -9,9 +9,10 @@ pipeline proves nothing about the pipeline.
 
 For each event in EVENTS, writes ``baseline/<event_id>/``:
 
-    arrays.npz    max_tops, max_refl, lons, lats   (the rolling MRMS composite)
+    arrays.npz    max_tops, max_refl, qualifying_mask, lons, lats
     tcf_raw.txt   the raw IEM response text for the TCF product
-    expected.json the graded output (report text, per-polygon grades, counts)
+    expected.json the versioned graded output and event metadata
+    mrms_provenance.json the nominal-slot source manifest and summary
 
 One more file belongs in each event directory but is NOT written here:
 
@@ -38,6 +39,7 @@ whatever the pipeline does today.
 import json
 import os
 import sys
+from dataclasses import asdict
 from datetime import date
 
 import numpy as np
@@ -103,7 +105,23 @@ def _round_bounds(geom):
     return [round(float(b), COVERAGE_DP) for b in geom.bounds]
 
 
-def build_expected(event, valid_dt, results, gdf_artcc):
+def _json_value(value):
+    """Convert dataclass provenance to stable JSON-compatible values."""
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {key: _json_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_value(item) for item in value]
+    return value
+
+
+def provenance_payload(provenance):
+    """Serialize the factual nominal-slot MRMS source manifest."""
+    return _json_value(asdict(provenance))
+
+
+def build_expected(event, valid_dt, results, gdf_artcc, methodology_version=None):
     """The expected.json payload: metadata + report + per-polygon grades."""
     polygons = []
     for r in results['graded_forecasts']:
@@ -114,7 +132,8 @@ def build_expected(event, valid_dt, results, gdf_artcc):
             'coverage_code': int(r['coverage']),
             'feat_type': r['feat_type'],
             'coverage_fraction': cov_frac,
-            'top_kft': round(float(r['top']), TOP_DP),
+            'top_kft': (None if r['top'] is None
+                        else round(float(r['top']), TOP_DP)),
             'artccs': get_artccs(r['geometry'], gdf_artcc),
             'bounds': _round_bounds(r['geometry']),
         }
@@ -130,13 +149,31 @@ def build_expected(event, valid_dt, results, gdf_artcc):
             'idx': int(r['idx']),
             'artccs': get_artccs(r['geometry'], gdf_artcc),
             'bounds': _round_bounds(r['geometry']),
+            'forecast_capture_fraction': round(float(r['forecast_capture_fraction']), COVERAGE_DP),
+            'sparse_area_km2': round(float(r['sparse_area_km2']), TOP_DP),
+            'medium_core_area_km2': round(float(r['medium_core_area_km2']), TOP_DP),
+            'medium_core_fraction': round(float(r['medium_core_fraction']), COVERAGE_DP),
+            'contains_medium_core': bool(r['contains_medium_core']),
+            'approved_for_report': False,
+        })
+
+    medium_core_review_flags = []
+    for r in results['medium_core_review_flags']:
+        medium_core_review_flags.append({
+            'idx': int(r['idx']),
+            'artccs': get_artccs(r['geometry'], gdf_artcc),
+            'bounds': _round_bounds(r['geometry']),
+            'medium_area_km2': round(float(r['medium_area_km2']), TOP_DP),
+            'medium_capture_fraction': round(float(r['medium_capture_fraction']), COVERAGE_DP),
+            'parent_sparse_component_id': r['parent_sparse_component_id'],
+            'reportable': False,
         })
 
     categories = {}
     for p in polygons:
         categories[p['category']] = categories.get(p['category'], 0) + 1
 
-    return {
+    payload = {
         'event_id': event['event_id'],
         'date': event['date'].strftime('%Y-%m-%d'),
         'issuance_hour': event['issuance_hour'],
@@ -146,15 +183,20 @@ def build_expected(event, valid_dt, results, gdf_artcc):
         'report_text': results['report_text'],
         'polygons': polygons,
         'misses': misses,
+        'medium_core_review_flags': medium_core_review_flags,
         'counts': {
             'polygons': len(polygons),
             'misses': len(misses),
+            'medium_core_review_flags': len(medium_core_review_flags),
             'verified_well': categories.get('Verified Well', 0),
             'verified_close': categories.get('Verified Close', 0),
             'overforecasted': categories.get('Overforecasted', 0),
             'boundary': sum(1 for p in polygons if p.get('boundary')),
         },
     }
+    if methodology_version is not None:
+        payload = {'methodology_version': methodology_version, **payload}
+    return payload
 
 
 
@@ -172,19 +214,27 @@ def capture_event(event, gdf_artcc):
     if gdf_forecast.empty:
         raise RuntimeError("IEM failed or data missing for this issuance/lead time.")
 
-    max_tops, max_refl, lons, lats = build_composite(valid_dt)
+    (max_tops, max_refl, qualifying_mask, lons, lats,
+     provenance) = build_composite(valid_dt, with_provenance=True)
 
     _log("Building Objective Truth Polygons...")
     results = run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
-                               valid_dt, event['issuance_hour'], event['lead_time'], gdf_artcc)
+                               valid_dt, event['issuance_hour'], event['lead_time'], gdf_artcc,
+                               qualifying_mask=qualifying_mask)
 
     with open(os.path.join(out_dir, 'tcf_raw.txt'), 'w', encoding='utf-8') as f:
         f.write(raw_text)
     np.savez_compressed(os.path.join(out_dir, 'arrays.npz'),
-                        max_tops=max_tops, max_refl=max_refl, lons=lons, lats=lats)
-    expected = build_expected(event, valid_dt, results, gdf_artcc)
+                        max_tops=max_tops, max_refl=max_refl,
+                        qualifying_mask=qualifying_mask, lons=lons, lats=lats)
+    expected = build_expected(
+        event, valid_dt, results, gdf_artcc,
+        methodology_version=tcf_pipeline.METHODOLOGY_VERSION)
     with open(os.path.join(out_dir, 'expected.json'), 'w', encoding='utf-8') as f:
         json.dump(expected, f, indent=2, sort_keys=False)
+        f.write('\n')
+    with open(os.path.join(out_dir, 'mrms_provenance.json'), 'w', encoding='utf-8') as f:
+        json.dump(provenance_payload(provenance), f, indent=2, sort_keys=False)
         f.write('\n')
 
     _log(f"wrote {out_dir}: {expected['counts']['polygons']} polygons, "

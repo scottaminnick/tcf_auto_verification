@@ -1,0 +1,133 @@
+{
+  "artifact_method": "legacy independent-max; Decision 1A mask unavailable",
+  "event_id": "20260403_21Z_F04",
+  "source_feature_number": 7,
+  "report_feature_number": 4,
+  "issuance_hour": 21,
+  "valid_time": "2026-04-04T01:00:00",
+  "centerline_coordinates": [
+    [
+      -94.3,
+      38.9
+    ],
+    [
+      -96.0,
+      36.3
+    ],
+    [
+      -97.8,
+      35.2
+    ]
+  ],
+  "centerline_vertices": 3,
+  "centerline_length_nm": 285.49379663675944,
+  "centerline_bounds": [
+    -97.8,
+    35.2,
+    -94.3,
+    38.9
+  ],
+  "production_buffer_half_width_degrees": 0.15,
+  "production_corridor_bounds": [
+    -97.94987700280078,
+    35.05012299719923,
+    -94.15000746151723,
+    39.049992538482755
+  ],
+  "production_corridor_area_km2": 16164.924542202354,
+  "current_fraction": 0.0,
+  "current_category": "Overforecasted",
+  "echo_top_kft": 47.613189697265625,
+  "medium_truth_count": 1,
+  "medium_truth_area_km2": 30651.512944817474,
+  "medium_truth_bounds": [
+    [
+      -94.42000101659463,
+      39.72000000000304,
+      -92.82000106231638,
+      43.220000000002344
+    ]
+  ],
+  "distance_centerline_to_medium_truth_km": 93.97801393609883,
+  "sparse_truth_count": 1,
+  "sparse_truth_area_km2": 193515.00390410455,
+  "centerline_fraction_intersecting_sparse_truth": 0.3606304814355066,
+  "miss_count_with_line": 1,
+  "miss_count_without_line": 1,
+  "buffer_sensitivity": [
+    {
+      "half_width_degrees": 0.03,
+      "corridor_area_km2": 3121.6919409214515,
+      "medium_truth_area_overlap_fraction": 0.0
+    },
+    {
+      "half_width_degrees": 0.05,
+      "corridor_area_km2": 5233.735436694956,
+      "medium_truth_area_overlap_fraction": 0.0
+    },
+    {
+      "half_width_degrees": 0.1,
+      "corridor_area_km2": 10622.045693184573,
+      "medium_truth_area_overlap_fraction": 0.0
+    },
+    {
+      "half_width_degrees": 0.15,
+      "corridor_area_km2": 16164.924542202354,
+      "medium_truth_area_overlap_fraction": 0.0
+    },
+    {
+      "half_width_degrees": 0.2,
+      "corridor_area_km2": 21862.365577734134,
+      "medium_truth_area_overlap_fraction": 0.0
+    },
+    {
+      "half_width_degrees": 0.3,
+      "corridor_area_km2": 33720.90769054542,
+      "medium_truth_area_overlap_fraction": 0.0
+    },
+    {
+      "half_width_degrees": 0.5,
+      "corridor_area_km2": 59292.43644973858,
+      "medium_truth_area_overlap_fraction": 0.0
+    },
+    {
+      "half_width_degrees": 1.0,
+      "corridor_area_km2": 134035.95947267348,
+      "medium_truth_area_overlap_fraction": 0.0016550889436748467
+    }
+  ],
+  "medium_truth_distance_sensitivity": [
+    {
+      "analysis_distance_nm": 0,
+      "line_length_fraction_near_medium_truth": 0.0
+    },
+    {
+      "analysis_distance_nm": 10,
+      "line_length_fraction_near_medium_truth": 0.0
+    },
+    {
+      "analysis_distance_nm": 20,
+      "line_length_fraction_near_medium_truth": 0.0
+    },
+    {
+      "analysis_distance_nm": 30,
+      "line_length_fraction_near_medium_truth": 0.0
+    },
+    {
+      "analysis_distance_nm": 40,
+      "line_length_fraction_near_medium_truth": 0.0
+    },
+    {
+      "analysis_distance_nm": 50,
+      "line_length_fraction_near_medium_truth": 0.0
+    },
+    {
+      "analysis_distance_nm": 75,
+      "line_length_fraction_near_medium_truth": 0.08680921982091688
+    },
+    {
+      "analysis_distance_nm": 100,
+      "line_length_fraction_near_medium_truth": 0.1749143671484004
+    }
+  ]
+}

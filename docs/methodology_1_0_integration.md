@@ -1,0 +1,201 @@
+# Methodology 1.0 integration and release record
+
+## Truth-transformation instrumentation before freeze
+
+Meteorologist review identified a need to inspect the inherited objective
+coverage transformation before Methodology 1.0 was frozen. The integration
+candidate therefore exposes four reviewer-only layers: the stored Decision 1A
+pair-first seed, the configured post-dilation seed, complete processed Sparse
+(25%+) truth, and complete processed Medium (40%+) truth. These geometries are
+observational instrumentation; the seed/dilation display layers never feed back
+into scoring, and Medium display geometry is the same object already used for
+Medium AREA and interim Solid LINE scoring.
+
+`analysis/truth_spatial_transform_sensitivity.py` evaluates dilation 0/1 and
+smoothing 5/10/15/20 only against fresh paired validation directories. It
+rejects maxima-only legacy artifacts and writes event, forecast, Candidate Miss,
+and individual Medium-component CSVs plus a concise Markdown comparison. This
+experiment supplied evidence for the owner decision. Production Methodology 1.0 uses
+dilation 1, smoothing 15, Sparse 25%, and Medium 40%. At 37.5°N the 15×15 window
+is approximately 66 × 84 km; east-west width varies with latitude on this
+geographic grid. This six-event selection is provisional, not climatological
+optimization.
+
+Candidate Miss reviewer inventory now requires strict capture below 20% and
+Sparse physical area at least 7,500 km² in EPSG:5070. Equality is eligible. The
+area floor is reviewer triage, not a TCF definition and never filters Sparse or
+Medium scoring truth. At smoothing 15 the paired audit found 74 raw low-capture
+components, retaining 24 at 5,000 km², 15 at 7,500 km², 8 at 10,000 km², and 7
+at 15,000 km². Medium-core flags require strict capture below 20% and Medium
+area at least 5,000 km² in EPSG:5070, and are suppressed only when their parent
+satisfies both Candidate Miss criteria. This separate floor is also reviewer
+triage only and never filters complete Medium scoring truth.
+
+The earlier provisional 1,500 km² floor retained 12 flags. Final release-candidate visual
+review found those cues too permissive, and an independent September 4, 2026
+case reinforced that smaller dense objects were over-emphasized. The revised
+5,000 km² floor retains 2 flags while leaving 15 Candidate Misses and all 48
+forecast grades unchanged in the six development events. This is operational
+reviewer-inventory evidence, not climatological optimization or a
+Medium-convection definition.
+
+### Projected-topology safeguard
+
+Canonical truth remains valid EPSG:4326 geometry and is not repaired or
+otherwise mutated. In a highly fragmented July 28 sensitivity field, projection
+to EPSG:5070 introduced a self-intersection that caused GEOS to reject a
+physical-area intersection. Projected Sparse and Medium truth is now checked
+immediately after transformation: valid geometry is used unchanged, while an
+invalid projected polygon is passed through `make_valid` and reduced to valid
+polygonal content solely for EPSG:5070 area/intersection calculations. This is a
+numerical geometry safeguard, not an objective-truth or meteorological
+methodology transformation.
+
+## Status and identity
+
+**METHODOLOGY 1.0 FROZEN.**
+
+The integrated release is carried on the branch backing PR #7,
+`codex/perform-independent-technical-review-of-tcf-auto-verificatio`.
+At release preflight the branch was 0 commits behind `main` and 9 commits ahead.
+
+The machine-readable methodology identity is `1.0`. Six official historical
+baselines contain stored pair-first `qualifying_mask` arrays and full MRMS
+provenance. Strict six-event replay and application/direct-pipeline parity
+passed before the release commit.
+
+Earlier candidate branch names, RC identities, and supplied standalone commit
+references are historical development context only.
+
+## Approved behavior inventory
+
+The integrated executable path contains all approved corrections:
+
+- [x] each usable MRMS pair is jointly thresholded at 40 dBZ and FL250, then
+  masks are Boolean-unioned; duplicates are idempotent;
+- [x] numerical maxima remain separate diagnostics; production verification
+  requires `qualifying_mask`, while a clearly named independent-max function is
+  restricted to legacy replay;
+- [x] actual source timestamps, nominal offsets, pair separation, availability,
+  grid compatibility, use, and exclusions are retained as provenance;
+- [x] physical area uses EPSG:5070; polygonization uses cell footprints,
+  four-neighbor connectivity, and topology-preserving geometry;
+- [x] echo-top sampling respects complete source geometry, holes, multipart
+  features and nullability; fewer than six valid qualifying cells returns
+  `None`, while a genuine numeric zero remains numeric;
+- [x] parser semantics are feature-aware (`AREA 2 = Medium`, `AREA 3 = Sparse`,
+  `LINE 1 = Solid`) and invalid combinations are diagnostically excluded;
+- [x] forecast-scoring Sparse and Medium truth have no 15,000 km2 floor;
+- [x] Candidate Miss reviewer inventory uses strict `<20%` capture and a
+  provisional 7,500 km² EPSG:5070 area floor; truth remains unfiltered and
+  Sparse/Medium density fields remain reviewer metadata;
+- [x] individual poorly captured Medium components hidden by adequate Sparse
+  capture become non-reportable Medium-core Review Flags without duplication;
+- [x] Candidate Miss rows default to `approved_for_report = False`; only an
+  explicit reviewer edit permits an FAA `Missed` line, and revocation removes it;
+- [x] forecast rows default approved, nullable review-table dtypes round-trip,
+  and echo-top diagnostics remain reviewer-only with no FAA report annotation.
+
+## Provisional behavior preserved
+
+The owner explicitly accepts the existing 20%/50% grading cutoffs, 25%/40%
+Sparse/Medium fields, dilation/smoothing, and ARTCC+CMAC domain as provisional
+1.0 production parameters. MRMS adequacy requires at least one usable pair and
+visible provenance, with zero pairs a hard failure and no additional numerical
+thresholds. Solid LINE retains its interim 0.15° buffer, Medium truth,
+EPSG:5070 area overlap, and existing grading cutoffs. These decisions remove the
+three topics as 1.0 blockers without claiming scientific optimization.
+
+No policy was changed for Decision 1B (no hard pair-time gate) or the full-issued
+forecast denominator. Candidate Miss review remains Sparse-parented, class-blind,
+and below 20% captured, but its former 15,000 km2 floor is removed by owner
+decision. Echo tops remain full-forecast-geometry temporal-maximum P90 with a
+six-cell minimum, but the owner now restricts them to reviewer context and
+excludes them from FAA text. The statistic remains provisional, not an approved
+operational forecast-top method.
+
+## Decision 1A equivalence and test-set audit
+
+`build_composite` resolves two products independently for every nominal slot,
+excludes missing/download-failed/incompatible pairs, applies joint thresholding
+per usable pair, and folds with Boolean OR. It retains numerical maxima in
+parallel. `run_verification` has a keyword-only required mask and validates its
+shape. Baseline capture stores the mask. Tests cover false temporal conjunction,
+union, missing pairs, duplicate resolution, grid incompatibility, and the
+required-mask seam. This establishes behavioral equivalence without duplicating
+an unavailable commit.
+
+The integrated test set also covers physical area, raster footprints,
+connectivity/topology/holes, feature-aware parsing, nullable echo tops,
+sub-15,000 km2 Candidate visibility, disconnected Sparse/Medium evaluation,
+density metadata, Medium-core non-reportability, and candidate approval/revoke
+behavior. AppTest is application-to-pipeline parity only; it
+is not independent scientific validation and intentionally uses a labeled
+legacy fixture seam.
+
+## Static and dataflow audit
+
+The independent-max conjunction appears in production code only inside
+`run_verification_legacy_independent_max`; other occurrences are tests or
+analysis. A bare `coverage == 1` remains only in read-only miss analysis. `Dense`
+appears only in a negative test. No production area floor filters scored truth,
+Candidate Misses, or Medium flags. Every report-generation
+path calls `build_report`, which filters `approved_for_report` before formatting.
+
+Integrated dataflow is:
+
+1. `parse_iem_cow_text` parses raw TCF and records structural exclusions.
+2. `build_composite` produces paired provenance, diagnostic maxima, and the
+   Decision 1A `qualifying_mask`.
+3. `run_verification` constructs scoring truth without an area floor and grades
+   forecast fractions/categories.
+4. The same function explodes Sparse/Medium components, emits Sparse Candidate
+   Misses under the provisional capture rule, and emits distinct hidden-core flags.
+5. `build_review_table` defaults forecasts to approved and candidates to not
+   approved.
+6. Streamlit retains the editable table; `build_report` reads the current table
+   and cannot emit an unapproved Candidate Miss.
+
+## Methodology 1.0 baseline schema
+
+A new candidate artifact is valid only when all of the following are present:
+
+- `expected.json`: `methodology_version`, event ID/date, issuance, lead and valid
+  time, forecast categories/fractions/tops, Candidate Misses, default report,
+  and counts;
+- `arrays.npz`: `qualifying_mask`, `max_refl`, `max_tops`, `lons`, and `lats`;
+- `mrms_provenance.json`: per-nominal-slot requested time, both product keys and
+  parsed actual timestamps, nominal offsets, pair separation, availability,
+  download/use/grid state, exclusion reason, plus aggregate counts/maxima;
+- `tcf_raw.txt`: exact forecast source text required for deterministic parsing.
+
+`baseline/check.py` rejects a versioned artifact missing either the paired mask
+or provenance manifest. Unversioned maxima-only artifacts remain explicitly
+legacy and are announced before invoking the named legacy replay function.
+
+## Fresh paired validation
+
+No network collection or baseline regeneration was performed during assembly.
+Run the six-event evidence capture outside `baseline/`:
+
+```bash
+python analysis/validate_methodology_1_0_paired.py \
+  --output /path/to/reviewable/paired-validation
+```
+
+The utility downloads real paired products, saves compact arrays/provenance and
+results, marks them `paired-validation-evidence-not-baseline`, and retains no raw
+GRIB. Before baseline capture, require all six events to reconstruct, provenance
+and real masks to exist, used grids to be compatible, all integrated tests to
+pass, outputs to be meteorologically inspectable, and every surprising score,
+category, or Candidate Miss change to receive human review. Stale report parity
+is not an acceptance condition.
+
+## Remaining release steps
+
+1. Run and meteorologically review the six real paired cases.
+2. Resolve anomalies without fabricating masks or using legacy fallback.
+3. Perform a human visual smoke test of Candidate Miss approval/revocation and
+   regenerated FAA draft text.
+4. Freeze the identifier as Methodology 1.0, then capture versioned baselines.
+5. Re-run full regression/application parity and open the final release PR.

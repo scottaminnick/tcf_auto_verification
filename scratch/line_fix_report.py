@@ -85,7 +85,7 @@ def parse_old(text_data):
 def grade(gdf_forecast, event, arrays, gdf_artcc):
     valid_dt = tcf_pipeline.compute_valid_dt(
         event["date"], event["issuance_hour"], event["lead_time"])
-    results = tcf_pipeline.run_verification(
+    results = tcf_pipeline.run_verification_legacy_independent_max(
         gdf_forecast, arrays["max_tops"], arrays["max_refl"],
         arrays["lons"], arrays["lats"],
         valid_dt, event["issuance_hour"], event["lead_time"], gdf_artcc)

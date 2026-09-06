@@ -1,0 +1,11 @@
+case,nominal_time,reflectivity_filename_time,echo_top_filename_time,reflectivity_nominal_offset_sec,echo_top_nominal_offset_sec,pair_separation_sec,both_within_current_300_sec_resolver_limit,same_analysis_cycle,decision_1b_accepted,interpretation
+exact_match,2026-05-24T23:00:00,2026-05-24T23:00:00,2026-05-24T23:00:00,0.0,0.0,0.0,True,unknown,not_assigned,both products present
+one_second,2026-05-24T23:00:00,2026-05-24T23:00:00,2026-05-24T23:00:01,0.0,1.0,1.0,True,unknown,not_assigned,seconds-level difference observed in supplied six-event evidence
+thirty_seconds,2026-05-24T23:00:00,2026-05-24T23:00:00,2026-05-24T23:00:30,0.0,30.0,30.0,True,unknown,not_assigned,timestamp meaning needed
+sixty_seconds,2026-05-24T23:00:00,2026-05-24T23:00:00,2026-05-24T23:01:00,0.0,60.0,60.0,True,unknown,not_assigned,timestamp meaning needed
+one_hundred_nineteen_seconds,2026-05-24T23:00:00,2026-05-24T23:00:00,2026-05-24T23:01:59,0.0,119.0,119.0,True,unknown,not_assigned,cycle identity cannot be inferred safely
+one_hundred_twenty_one_seconds,2026-05-24T23:00:00,2026-05-24T23:00:00,2026-05-24T23:02:01,0.0,121.0,121.0,True,unknown,not_assigned,exceeds nominal product cadence but no policy follows
+mutually_close_far_from_nominal,2026-05-24T23:00:00,2026-05-24T23:04:00,2026-05-24T23:04:01,240.0,241.0,1.0,True,unknown,not_assigned,pair compatibility and nominal adequacy differ
+individually_close_cross_pair,2026-05-24T23:00:00,2026-05-24T22:58:30,2026-05-24T23:01:30,-90.0,90.0,180.0,True,unknown,not_assigned,both pass current resolver but are three minutes apart
+preceding_following_candidates,2026-05-24T23:00:00,2026-05-24T22:59:00,2026-05-24T23:01:00,-60.0,60.0,120.0,True,unknown,not_assigned,independent resolution can select neighboring source times
+echo_top_missing,2026-05-24T23:00:00,2026-05-24T23:00:00,,0.0,,,False,unknown,not_assigned,Decision 1A excludes; Decision 1B is not evaluated

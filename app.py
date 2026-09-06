@@ -102,7 +102,8 @@ def cached_build_composite(valid_dt, window_minutes, cadence_minutes, step, _log
                            window_minutes=window_minutes,
                            cadence_minutes=cadence_minutes,
                            step=step,
-                           with_display=True)
+                           with_display=True,
+                           with_provenance=True)
 
 
 @st.cache_data(show_spinner=False, max_entries=3)
@@ -311,8 +312,62 @@ def _new_map_fig(R, title):
     return fig
 
 
+def _duration(seconds):
+    """Compact absolute duration for factual MRMS provenance display."""
+    if seconds is None:
+        return "n/a"
+    seconds = abs(float(seconds))
+    minutes, remainder = divmod(int(round(seconds)), 60)
+    return f"{minutes}m {remainder:02d}s" if minutes else f"{remainder}s"
+
+
+def render_mrms_provenance(provenance):
+    """Concise reviewer-only MRMS provenance; never enters the FAA report."""
+    if provenance is None:
+        return
+
+    largest_offset = max(
+        (v for v in (provenance.max_reflectivity_offset_seconds,
+                     provenance.max_echo_top_offset_seconds) if v is not None),
+        default=None)
+    excluded_grid = any(record.grid_compatible is False
+                        for record in provenance.observations)
+    grid_text = ("Excluded mismatch" if excluded_grid else
+                 "OK" if provenance.all_used_grids_compatible else "No usable grid")
+    st.markdown("**MRMS Data Used**")
+    st.caption(
+        f"Requested times: {provenance.total_requested} · "
+        f"Paired observations used: {provenance.observations_used} · "
+        f"Reflectivity resolved: {provenance.reflectivity_resolved}/{provenance.total_requested} · "
+        f"Echo tops resolved: {provenance.echo_top_resolved}/{provenance.total_requested} · "
+        f"Largest scan offset: {_duration(largest_offset)} · "
+        f"Largest product-pair separation: "
+        f"{_duration(provenance.max_product_separation_seconds)} · "
+        f"Grid consistency: {grid_text}")
+
+    excluded = [record for record in provenance.observations if not record.used]
+    if excluded:
+        with st.expander(f"Excluded or unavailable observations ({len(excluded)})"):
+            rows = []
+            for record in excluded:
+                rows.append({
+                    "Requested UTC": record.requested_time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "Reflectivity UTC": (record.reflectivity_time.strftime("%H:%M:%S")
+                                           if record.reflectivity_time else "Unavailable"),
+                    "Refl offset (s)": record.reflectivity_offset_seconds,
+                    "Echo top UTC": (record.echo_top_time.strftime("%H:%M:%S")
+                                     if record.echo_top_time else "Unavailable"),
+                    "Top offset (s)": record.echo_top_offset_seconds,
+                    "Pair separation (s)": record.product_separation_seconds,
+                    "Grid compatible": record.grid_compatible,
+                    "Reason": record.exclusion_reason,
+                })
+            st.dataframe(rows, hide_index=True, use_container_width=True)
+
+
 def render_scorecard(R):
     """View 1: graded forecast polygons + misses (interactive), plus the FAA text report."""
+    render_mrms_provenance(R.get('mrms_provenance'))
     col1, col2 = st.columns([2, 1])
 
     with col1:
@@ -329,10 +384,17 @@ def render_scorecard(R):
                 xs, ys = _geom_to_xy(row.geometry)
                 show = row.category not in seen
                 seen.add(row.category)
+                top_text = (f"{row.top:.1f} kft"
+                            if row.top is not None and not np.isnan(row.top)
+                            else "Unavailable")
+                coverage_label = tcf_pipeline._coverage_label(
+                    row.feat_type, row.coverage)
+                feature_label = "Line" if row.feat_type == "LINE" else "Area"
                 fig.add_trace(go.Scatter(
                     x=xs, y=ys, mode='lines', line=dict(color=row.color, width=3),
                     name=row.category, legendgroup=row.category, showlegend=show,
-                    hovertemplate=f"Area {row.idx} — {row.category}<br>Top: {row.top:.1f} kft<extra></extra>"))
+                    hovertemplate=(f"{coverage_label} {feature_label} {row.idx} — "
+                                   f"{row.category}<br>Top: {top_text}<extra></extra>")))
                 c = row.geometry.centroid
                 label_x.append(c.x); label_y.append(c.y); label_txt.append(str(row.idx))
 
@@ -342,11 +404,36 @@ def render_scorecard(R):
                 xs, ys = _geom_to_xy(row.geometry)
                 fig.add_trace(go.Scatter(
                     x=xs, y=ys, mode='lines', fill='toself', fillcolor='rgba(255,0,0,0.35)',
-                    line=dict(color='red', width=2), name='Missed', legendgroup='Missed',
-                    showlegend=show, hovertemplate=f"Missed Area M{row.idx}<extra></extra>"))
+                    line=dict(color='red', width=2), name='Candidate Miss',
+                    legendgroup='Candidate Miss', showlegend=show,
+                    hovertemplate=(f"Candidate Miss M{row.idx}<br>"
+                                   f"Sparse area: {row.sparse_area_km2:,.1f} km²<br>"
+                                   f"Forecast capture: {row.forecast_capture_fraction:.1%}<br>"
+                                   f"Medium core: {row.medium_core_area_km2:,.1f} km² "
+                                   f"({row.medium_core_fraction:.1%})<extra></extra>")))
                 show = False
                 c = row.geometry.centroid
                 label_x.append(c.x); label_y.append(c.y); label_txt.append(f"M{row.idx}")
+
+        medium_flags = R['gdf_medium_core_flags']
+        if not medium_flags.empty:
+            show = True
+            for _, row in medium_flags.iterrows():
+                xs, ys = _geom_to_xy(row.geometry)
+                fig.add_trace(go.Scatter(
+                    x=xs, y=ys, mode='lines', fill='toself',
+                    fillcolor='rgba(200,0,255,0.16)',
+                    line=dict(color='magenta', width=2, dash='dash'),
+                    name='Medium-core Review Flag',
+                    legendgroup='Medium-core Review Flag', showlegend=show,
+                    hovertemplate=(f"Medium-core Review F{row.idx} (review cue only)<br>"
+                                   f"Medium area: {row.medium_area_km2:,.1f} km²<br>"
+                                   f"Forecast capture: {row.medium_capture_fraction:.1%}<br>"
+                                   f"Parent Sparse component: "
+                                   f"{row.parent_sparse_component_id}<extra></extra>")))
+                show = False
+                c = row.geometry.centroid
+                label_x.append(c.x); label_y.append(c.y); label_txt.append(f"F{row.idx}")
 
         if label_txt:
             fig.add_trace(go.Scatter(x=label_x, y=label_y, mode='text', text=label_txt,
@@ -356,6 +443,16 @@ def render_scorecard(R):
         st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
 
     with col2:
+        st.subheader("Meteorologist Review")
+        st.caption("Candidate Misses enter the FAA draft only after checking "
+                   "approved_for_report. Medium-core Review rows are factual "
+                   "review cues and can never enter FAA text.")
+        edited_table = st.data_editor(
+            R['review_table'], hide_index=True, use_container_width=True,
+            key="methodology_review_table")
+        R['review_table'] = edited_table.astype(tcf_pipeline.REVIEW_COLUMNS)
+        R['report_text'] = tcf_pipeline.build_report(
+            R['review_table'], R['valid_dt'], R['issuance_hour'], R['lead_time'])
         st.subheader("FAA Google Doc Report")
         escaped = html.escape(R['report_text'])
         st.markdown(
@@ -368,20 +465,38 @@ def render_scorecard(R):
         st.download_button("Pass A", R['report_text'], file_name="pass_a_report.txt")
 
 def render_reanalysis(R):
-    """View 2: the objective 'truth' -- what the TCF should have been (sparse reanalysis)."""
+    """Reviewer view of each stage of the objective truth transformation."""
     st.subheader("Objective TCF Reanalysis (Ground Truth)")
-    st.caption(f"{composite_label()} composite; truth is the "
-               f"{tcf_pipeline.GradingParams().sparse_truth_threshold:.0%} coverage contour. "
-               f"Cyan dashed = objective sparse areas.")
+    st.caption(
+        "The radar background is DIAGNOSTIC TEMPORAL MAXIMA, not pair-first "
+        "verification truth. The Decision 1A same-pair qualifying seed enters "
+        "the objective transformation; Sparse and Medium contours are the "
+        "processed 25% and 40% coverage fields.")
 
     fig = _new_map_fig(R, f"Objective TCF Reanalysis (Truth) | VT: {R['valid_dt'].strftime('%H:00Z')}")
 
-    gs = R['gdf_sparse']
-    if not gs.is_empty.all():
-        xs, ys = _gdf_to_xy(gs)
-        fig.add_trace(go.Scatter(x=xs, y=ys, mode='lines', name='Sparse Reanalysis (25%+)',
-                                 line=dict(color='cyan', width=3, dash='dash'),
-                                 hovertemplate="Objective truth area<extra></extra>"))
+    layers = (
+        ('gdf_pair_first_seed', 'Decision 1A Pair-first Seed', '#FFFFFF', 'dot', 1),
+        ('gdf_dilated_seed', 'Post-dilation Seed', '#FF00FF', 'dashdot', 2),
+        ('gdf_sparse', 'Sparse Processed Truth (25%+)', '#00FFFF', 'dash', 3),
+        ('gdf_medium_truth', 'Medium Processed Truth (40%+)', '#FFD700', 'solid', 3),
+    )
+    for key, label, color, dash, width in layers:
+        geometry = R[key]
+        if not geometry.empty and not geometry.is_empty.all():
+            xs, ys = _gdf_to_xy(geometry)
+            fig.add_trace(go.Scatter(
+                x=xs, y=ys, mode='lines', name=label,
+                line=dict(color=color, width=width, dash=dash),
+                hovertemplate=f"{label}<extra></extra>"))
+
+    forecasts = R['gdf_graded_fcst']
+    if not forecasts.empty and not forecasts.is_empty.all():
+        xs, ys = _gdf_to_xy(forecasts)
+        fig.add_trace(go.Scatter(
+            x=xs, y=ys, mode='lines', name='Issued TCF Forecasts',
+            line=dict(color='#808080', width=1, dash='solid'),
+            hovertemplate="Issued forecast geometry<extra></extra>"))
 
     st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
 
@@ -416,19 +531,42 @@ if st.sidebar.button("Run Verification"):
         st.write("Pulling Forecast from IEM Archives...")
         gdf_forecast = cached_fetch_iem_cow_tcf(target_date, issuance_hour, lead_time)
 
+        parse_diagnostics = gdf_forecast.attrs.get("parse_diagnostics", ())
+        if parse_diagnostics:
+            st.warning(f"{len(parse_diagnostics)} malformed or unsupported TCF "
+                       f"feature(s) were excluded from verification.")
+            with st.expander("Excluded TCF feature details"):
+                st.dataframe([{
+                    "Record": item.record_index,
+                    "Type": item.feature_type,
+                    "Reason": item.message,
+                    "Coverage code": item.coverage_code,
+                    "Declared points": item.declared_points,
+                    "Available pairs": item.available_coordinate_pairs,
+                } for item in parse_diagnostics], hide_index=True,
+                    use_container_width=True)
+
         if gdf_forecast.empty:
-            st.warning("IEM failed or data missing for this issuance/lead time.")
+            st.warning("No valid TCF features were available for this issuance/lead time.")
             st.stop()
 
         # --- Rolling Composite ---
         # st.write is handed to the pipeline as its progress sink, so the per-scan
         # lines still appear in this status box.
-        max_tops, max_refl, lons, lats, raster = cached_build_composite(
-            valid_dt,
-            tcf_pipeline.COMPOSITE_WINDOW_MINUTES,
-            tcf_pipeline.COMPOSITE_CADENCE_MINUTES,
-            tcf_pipeline.COMPOSITE_STEP,
-            _log=st.write)
+        try:
+            composite = cached_build_composite(
+                valid_dt,
+                tcf_pipeline.COMPOSITE_WINDOW_MINUTES,
+                tcf_pipeline.COMPOSITE_CADENCE_MINUTES,
+                tcf_pipeline.COMPOSITE_STEP,
+                _log=st.write)
+        except tcf_pipeline.MRMSCompositeUnavailableError as exc:
+            st.error(str(exc))
+            render_mrms_provenance(exc.provenance)
+            st.stop()
+
+        (max_tops, max_refl, qualifying_mask, lons, lats, raster,
+         mrms_provenance) = composite
 
         st.write("Rendering display raster...")
         display_png_bytes, display_extent, _factor = cached_display_png(
@@ -443,7 +581,8 @@ if st.sidebar.button("Run Verification"):
     # --- Verification Math ---
     with st.spinner("Calculating Spatial Overlap & Echo Tops..."):
         R = run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
-                             valid_dt, issuance_hour, lead_time, gdf_artcc)
+                             valid_dt, issuance_hour, lead_time, gdf_artcc,
+                             qualifying_mask=qualifying_mask)
 
         # max_tops / max_refl no longer needed; keep top_verif_matrix for plotting
         del max_tops, max_refl
@@ -457,9 +596,17 @@ if st.sidebar.button("Run Verification"):
         'top_verif_matrix': R['top_verif_matrix'],
         'gdf_graded_fcst': R['gdf_graded_fcst'],
         'gdf_graded_miss': R['gdf_graded_miss'],
+        'gdf_medium_core_flags': R['gdf_medium_core_flags'],
         'gdf_sparse': R['gdf_sparse'],
+        'gdf_medium_truth': R['gdf_medium_truth'],
+        'gdf_pair_first_seed': R['gdf_pair_first_seed'],
+        'gdf_dilated_seed': R['gdf_dilated_seed'],
+        'review_table': R['review_table'],
+        'mrms_provenance': mrms_provenance,
         'report_text': R['report_text'],
         'valid_dt': R['valid_dt'],
+        'issuance_hour': issuance_hour,
+        'lead_time': lead_time,
     }
 
 
