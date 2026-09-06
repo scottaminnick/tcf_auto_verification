@@ -27,6 +27,7 @@ import functools
 import gc
 import gzip
 import json
+import logging
 import os
 import re
 import shutil
@@ -34,7 +35,7 @@ import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 
 import geopandas as gpd
 import pandas as pd
@@ -49,6 +50,7 @@ ARTCC_PATH = os.path.join(REPO_ROOT, "artcc1.geojson")
 CMAC_DOMAIN_PATH = os.path.join(REPO_ROOT, "cmac_domain.geojson")
 PHYSICAL_AREA_CRS = "EPSG:5070"
 METHODOLOGY_VERSION = "1.0"
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -452,6 +454,32 @@ def parse_iem_cow_text(text_data):
     return result
 
 
+def tcf_product_for_forecast_hour(f_hr):
+    """Return the AFOS product for a supported TCF forecast hour."""
+    try:
+        return {4: "CFP02", 6: "CFP03", 8: "CFP04"}[int(f_hr)]
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(f"unsupported TCF forecast hour: {f_hr!r}") from exc
+
+
+def _iem_tcf_identity(text_data):
+    """Read IEM's resolved product identity from the response metadata.
+
+    IEM's ``e=`` parameter means "at or before", not "exactly at".  Its HTML
+    records the product actually selected in the canonical image/URL metadata;
+    that value is therefore the provenance boundary, rather than the request
+    URL echoed by our HTTP client.
+    """
+    matches = re.findall(r"/(\d{12})_(CFP\d{2})\.png", text_data, re.IGNORECASE)
+    identities = {(stamp, product.upper()) for stamp, product in matches}
+    if len(identities) != 1:
+        raise RuntimeError(
+            "IEM response did not contain one unambiguous resolved TCF identity"
+        )
+    stamp, product = identities.pop()
+    return datetime.strptime(stamp, "%Y%m%d%H%M"), product
+
+
 def fetch_iem_cow_raw(date_obj, issue_hr, f_hr):
     """Scrapes the raw TCF text from IEM archives.
 
@@ -463,15 +491,7 @@ def fetch_iem_cow_raw(date_obj, issue_hr, f_hr):
     date_str = date_obj.strftime("%Y%m%d")
     issue_str = f"{issue_hr:02d}"
 
-    # TCF products are valid at 4/6/8 hrs after issuance.
-    if f_hr == 4:
-        pil = "CFP02"
-    elif f_hr == 6:
-        pil = "CFP03"
-    elif f_hr == 8:
-        pil = "CFP04"
-    else:
-        pil = "CFP02"
+    pil = tcf_product_for_forecast_hour(f_hr)
 
     url = f"https://mesonet.agron.iastate.edu/wx/afos/p.php?pil={pil}&e={date_str}{issue_str}00"
 
@@ -482,6 +502,32 @@ def fetch_iem_cow_raw(date_obj, issue_hr, f_hr):
         raise RuntimeError(f"IEM returned HTTP {response.status_code} for {url}")
     if "Could not find product" in response.text:
         raise RuntimeError(f"IEM: Data missing for {issue_str}:00Z ({pil})")
+
+    requested_issue = datetime.combine(date_obj, time(issue_hr))
+    resolved_issue, resolved_product = _iem_tcf_identity(response.text)
+    resolved_forecast_hour = {
+        "CFP02": 4, "CFP03": 6, "CFP04": 8
+    }.get(resolved_product)
+    resolved_valid = (resolved_issue + timedelta(hours=resolved_forecast_hour)
+                      if resolved_forecast_hour is not None else None)
+    LOGGER.info(
+        "TCF RESOLUTION source_url=%s requested_issue=%s forecast_hour=F%02d "
+        "expected_valid=%s resolved_issue=%s resolved_product=%s "
+        "resolved_forecast_hour=%s resolved_valid=%s fallback_used=%s",
+        url, requested_issue.isoformat(), f_hr,
+        (requested_issue + timedelta(hours=f_hr)).isoformat(),
+        resolved_issue.isoformat(), resolved_product,
+        (f"F{resolved_forecast_hour:02d}" if resolved_forecast_hour is not None
+         else "unknown"),
+        resolved_valid.isoformat() if resolved_valid is not None else "unknown",
+        resolved_issue != requested_issue,
+    )
+    if (resolved_issue, resolved_product) != (requested_issue, pil):
+        raise RuntimeError(
+            "IEM returned a fallback TCF instead of the exact requested issuance: "
+            f"requested={requested_issue:%Y%m%d_%HZ}_{pil}_F{f_hr:02d}, "
+            f"resolved={resolved_issue:%Y%m%d_%HZ}_{resolved_product}_F{f_hr:02d}"
+        )
     return response.text
 
 
@@ -494,7 +540,47 @@ def fetch_iem_cow_tcf(date_obj, issue_hr, f_hr):
     capture.py uses fetch_iem_cow_raw() directly, because it has to freeze the
     raw response to tcf_raw.txt before parsing it.
     """
-    return parse_iem_cow_text(fetch_iem_cow_raw(date_obj, issue_hr, f_hr))
+    issue_time = datetime.combine(date_obj, time(issue_hr))
+    product = tcf_product_for_forecast_hour(f_hr)
+    source_url = ("https://mesonet.agron.iastate.edu/wx/afos/p.php?"
+                  f"pil={product}&e={issue_time:%Y%m%d%H}00")
+    result = parse_iem_cow_text(fetch_iem_cow_raw(date_obj, issue_hr, f_hr))
+    result.attrs["forecast_provenance"] = {
+        "product": product,
+        "issue_time": issue_time,
+        "forecast_hour": int(f_hr),
+        "valid_time": issue_time + timedelta(hours=int(f_hr)),
+        "source_identifier": source_url,
+        "fallback_used": False,
+        "fetched_at": datetime.now(timezone.utc),
+    }
+    return result
+
+
+def validate_forecast_provenance(gdf_forecast, requested_issue_time,
+                                 requested_forecast_hour,
+                                 verification_valid_time):
+    """Enforce exact forecast identity before geometry reaches verification."""
+    provenance = gdf_forecast.attrs.get("forecast_provenance")
+    if not provenance:
+        raise ValueError("forecast geometry has no source provenance")
+    expected_valid = requested_issue_time + timedelta(
+        hours=requested_forecast_hour)
+    actual = (
+        provenance.get("issue_time"),
+        provenance.get("forecast_hour"),
+        provenance.get("valid_time"),
+        provenance.get("fallback_used"),
+    )
+    expected = (requested_issue_time, requested_forecast_hour,
+                expected_valid, False)
+    if actual != expected or expected_valid != verification_valid_time:
+        raise ValueError(
+            "forecast provenance does not match verification request: "
+            f"expected={expected!r}, actual={actual!r}, "
+            f"verification_valid_time={verification_valid_time!r}"
+        )
+    return provenance
 
 
 def get_artccs(poly, artcc_gdf):
