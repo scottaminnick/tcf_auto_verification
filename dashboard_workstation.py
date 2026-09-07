@@ -274,10 +274,9 @@ def _review_result(row):
 def _build_reviewed_report(review_table, valid_dt, issuance_hour, lead_time, *, pipeline):
     """Build the human-reviewed FAA draft without changing objective scoring.
 
-    The automated pipeline report remains the default.  The workstation adds an
-    optional ``review_result`` column only after a meteorologist applies edits;
-    this formatter honors that disposition while keeping the objective category
-    and map untouched as provenance.
+    The workstation keeps the final copy intentionally terse to match the
+    published review product: ARTCC attribution plus coverage label only.  Map
+    identifiers stay in the reviewer UI and are not repeated in the FAA text.
     """
     doc_report = {
         "Verified Well:": [],
@@ -302,14 +301,10 @@ def _build_reviewed_report(review_table, valid_dt, issuance_hour, lead_time, *, 
         section = target_section[result]
 
         if row.kind == "candidate_miss":
-            if result == "Missed":
-                line_text = f"{row.artccs} - Missed (Area M{row.idx})"
-            else:
-                line_text = f"{row.artccs} - Sparse (Area M{row.idx})"
+            line_text = f"{row.artccs} - Sparse"
         else:
             cov_label = pipeline._coverage_label(row.feat_type, row.coverage_code)
-            feat_label = "Line" if row.feat_type == "LINE" else "Area"
-            line_text = f"{row.artccs} - {cov_label} ({feat_label} {row.idx})"
+            line_text = f"{row.artccs} - {cov_label}"
 
         doc_report[section].append(line_text)
 
@@ -442,12 +437,6 @@ def _render_report_panel(R):
         f'white-space: pre-wrap; overflow: auto; max-height: 610px; '
         f'border-radius: 6px;">{escaped}</div>',
         unsafe_allow_html=True,
-    )
-    st.download_button(
-        "Pass A",
-        R["report_text"],
-        file_name="pass_a_report.txt",
-        use_container_width=True,
     )
 
 
