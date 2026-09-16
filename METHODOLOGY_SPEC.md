@@ -1,8 +1,8 @@
 # TCF Auto Verification Methodology and Functional Specification
 
-**Version:** 1.0
-**Status:** Frozen Methodology 1.0 for mandatory meteorologist-reviewed decision support
-**Purpose:** Define the reproducible Methodology 1.0 automated first-pass TCF
+**Version:** 1.1
+**Status:** Methodology 1.1 coverage-underforecast extension; mandatory meteorologist review
+**Purpose:** Define the reproducible automated first-pass TCF
 verification behavior, reviewer safeguards, provisional limitations, and
 publication boundary.
 
@@ -294,6 +294,48 @@ scientifically optimized. See `docs/missed_event_methodology_analysis.md`.
 **Approved publication safeguard:** an automated Candidate Miss is excluded from
 the FAA-facing `Missed` section by default. It enters that section only after a
 meteorologist explicitly approves it in the review table.
+
+### 17.1 Coverage-underforecast candidates (Methodology 1.1)
+
+Owner direction from the September 16, 2026 05Z/F04 case: retain the Florida
+exclusion, all forecast grades, the existing Candidate Miss inventory and
+Medium-core review cues. Add a distinct coverage-underforecast candidate within
+Sparse forecasts, with meteorologist selection of Medium or Solid Line.
+
+Each disconnected 40%+ observed component is considered independently using
+EPSG:5070 physical area. It becomes a U candidate when:
+
+* area is at least the existing 5,000 km² Medium-core review floor;
+* Sparse AREA forecasts capture at least the existing 20% review threshold;
+* the union of Medium AREA and buffered Solid LINE forecasts captures strictly
+  less than that threshold; and
+* its parent Sparse observed component is not already a Candidate Miss. Parent
+  assignment uses greatest area overlap, as for existing Medium-core cues.
+
+These thresholds are review triage, not new physical LINE or AREA definitions.
+Existing 7,500 km² Sparse Candidate Miss eligibility remains unchanged. U IDs
+are ordered east to west independently of forecast, M, and F identifiers.
+
+The workstation displays the candidate on the scorecard and in editable review.
+Medium is the initial review type; the meteorologist may select Solid Line after
+examining observed structure. The shared 40% field is the existing interim LINE
+proxy, **not** proof of 75% linear coverage, 100 NM length, or line morphology.
+Thin/otherwise linear features absent from this 40% component inventory are not
+automatically detected by this extension. A separate line detector remains
+future methodology work. There is only one U candidate per observed component,
+not duplicate Medium and Solid Line candidates.
+
+A U candidate defaults to excluded from FAA text. Explicit approval puts the
+selected Medium or Solid Line underforecast into Missed, without downgrading an
+issued Sparse forecast or changing its objective category. Reviewer attribution
+is editable. Invalid coverage selections are rejected. Both report builders
+honor the approval safeguard. Existing non-reportable F cues remain non-reportable.
+
+The frozen Methodology 1.0 baseline manifests below remain historical; they are
+not silently recaptured. The added 1.1 regression fixture is
+`tests/fixtures/20260916_05Z_F04`: five original forecast grades, four original
+Candidate Misses, zero F cues, one U candidate (~57,861 km², ~73.255% Sparse
+capture, zero Medium/LINE capture), and no Florida Candidate Miss.
 
 ## 18. LINE forecasts
 
