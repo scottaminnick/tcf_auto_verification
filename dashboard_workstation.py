@@ -119,6 +119,28 @@ def _scorecard_figure(R, *, pipeline, new_map_fig, geom_to_xy, composite_label):
             label_y.append(centroid.y)
             label_text.append(f"F{row.idx}")
 
+    underforecasts = R.get("gdf_coverage_underforecasts")
+    if underforecasts is not None and not underforecasts.empty:
+        for position, (_, row) in enumerate(underforecasts.iterrows()):
+            xs, ys = geom_to_xy(row.geometry)
+            fig.add_trace(go.Scatter(
+                x=xs, y=ys, mode="lines",
+                line=dict(color="deepskyblue", width=3, dash="dash"),
+                name="Coverage Underforecast Candidate",
+                legendgroup="Coverage Underforecast Candidate",
+                showlegend=position == 0,
+                hovertemplate=(
+                    f"Underforecast U{row.idx}: review Medium / Solid Line<br>"
+                    f"40% observed area: {row.medium_area_km2:,.1f} km²<br>"
+                    f"Sparse forecast capture: {row.sparse_forecast_capture_fraction:.1%}<br>"
+                    f"Medium / Solid Line capture: {row.higher_coverage_capture_fraction:.1%}"
+                    "<extra></extra>"),
+            ))
+            centroid = row.geometry.centroid
+            label_x.append(centroid.x)
+            label_y.append(centroid.y)
+            label_text.append(f"U{row.idx}")
+
     if label_text:
         fig.add_trace(go.Scatter(
             x=label_x,
@@ -247,13 +269,15 @@ def _feature_label(row, *, pipeline):
         coverage = pipeline._coverage_label(row.feat_type, row.coverage_code)
         feature_type = "Line" if row.feat_type == "LINE" else "Area"
         return f"{row.idx} · {coverage} {feature_type}"
+    if row.kind == "coverage_underforecast":
+        return f"U{row.idx} · Coverage underforecast"
     if row.kind == "candidate_miss":
         return f"M{row.idx} · Candidate Miss"
     return f"F{row.idx} · Review cue"
 
 
 def _default_review_result(row):
-    if row.kind == "candidate_miss":
+    if row.kind in ("candidate_miss", "coverage_underforecast"):
         return "Missed"
     if row.category == "Overforecasted":
         return "Overforecast"
@@ -300,6 +324,10 @@ def _build_reviewed_report(review_table, valid_dt, issuance_hour, lead_time, *, 
         result = _review_result(row)
         section = target_section[result]
 
+        if row.kind == "coverage_underforecast":
+            label = pipeline.underforecast_label(row.underforecast_type)
+            doc_report["Missed:"].append(f"{row.artccs} - {label} underforecast")
+            continue
         if row.kind == "candidate_miss":
             line_text = f"{row.artccs} - Sparse"
         else:
@@ -395,6 +423,28 @@ def _render_review_panel(R, *, pipeline):
                 },
                 key=editor_key,
             )
+            under_table = table.loc[table["kind"] == "coverage_underforecast"]
+            edited_under = None
+            if not under_table.empty:
+                st.caption(
+                    "Coverage underforecast candidates: choose Medium or Solid Line "
+                    "after reviewing observed structure. FAA approval adds the item "
+                    "to Missed. Solid Line is a reviewer judgment, not automatic detection."
+                )
+                under_display = under_table[["underforecast_type", "artccs", "approved_for_report"]].copy()
+                under_display.insert(0, "Feature", [f"U{idx}" for idx in under_table["idx"]])
+                under_display = under_display.rename(columns={
+                    "underforecast_type": "Type", "artccs": "ARTCCs", "approved_for_report": "FAA"})
+                edited_under = st.data_editor(
+                    under_display, hide_index=True, use_container_width=True,
+                    disabled=["Feature"], key=f"{editor_key}_underforecast",
+                    column_config={
+                        "Type": st.column_config.SelectboxColumn(
+                            "Type", options=["Medium", "Solid Line"], required=True),
+                        "FAA": st.column_config.CheckboxColumn(
+                            "FAA", help="Approve this coverage underforecast for the Missed section."),
+                    },
+                )
             submitted = st.form_submit_button(
                 "Apply Review Changes", use_container_width=True, type="primary"
             )
@@ -407,6 +457,13 @@ def _render_review_panel(R, *, pipeline):
                 updated.at[original_index, "artccs"] = edited.iloc[position]["ARTCCs"]
                 updated.at[original_index, "approved_for_report"] = edited.iloc[position]["FAA"]
                 updated.at[original_index, "review_result"] = edited.iloc[position]["Result"]
+            if edited_under is not None:
+                for position, original_index in enumerate(under_table.index):
+                    reviewed = edited_under.iloc[position]
+                    updated.at[original_index, "underforecast_type"] = pipeline.underforecast_label(reviewed["Type"])
+                    updated.at[original_index, "artccs"] = reviewed["ARTCCs"]
+                    updated.at[original_index, "approved_for_report"] = reviewed["FAA"]
+                    updated.at[original_index, "review_result"] = "Missed"
             R["review_table"] = updated.astype(pipeline.REVIEW_COLUMNS)
             st.success("Review changes applied to the FAA draft.")
 

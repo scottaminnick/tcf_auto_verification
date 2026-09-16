@@ -684,6 +684,7 @@ if st.sidebar.button("Run Verification"):
         'gdf_graded_fcst': R['gdf_graded_fcst'],
         'gdf_graded_miss': R['gdf_graded_miss'],
         'gdf_medium_core_flags': R['gdf_medium_core_flags'],
+        'gdf_coverage_underforecasts': R['gdf_coverage_underforecasts'],
         'gdf_sparse': R['gdf_sparse'],
         'gdf_medium_truth': R['gdf_medium_truth'],
         'gdf_pair_first_seed': R['gdf_pair_first_seed'],

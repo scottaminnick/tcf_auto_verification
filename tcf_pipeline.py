@@ -49,7 +49,7 @@ REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 ARTCC_PATH = os.path.join(REPO_ROOT, "artcc1.geojson")
 CMAC_DOMAIN_PATH = os.path.join(REPO_ROOT, "cmac_domain.geojson")
 PHYSICAL_AREA_CRS = "EPSG:5070"
-METHODOLOGY_VERSION = "1.0"
+METHODOLOGY_VERSION = "1.1"
 LOGGER = logging.getLogger(__name__)
 
 
@@ -1027,11 +1027,15 @@ REVIEW_COLUMNS = {
     'medium_area_km2': 'Float64',
     'medium_capture_fraction': 'Float64',
     'parent_sparse_component_id': 'Int64',
+    'underforecast_type': 'string',
+    'sparse_forecast_capture_fraction': 'Float64',
+    'higher_coverage_capture_fraction': 'Float64',
 }
 
 
 def build_review_table(gdf_graded_fcst, gdf_graded_miss, gdf_artcc,
-                       params=GradingParams(), gdf_medium_core_flags=None):
+                       params=GradingParams(), gdf_medium_core_flags=None,
+                       gdf_coverage_underforecasts=None):
     """Everything build_report needs, as a plain DataFrame -- one row per graded
     polygon and per miss.
 
@@ -1106,6 +1110,22 @@ def build_review_table(gdf_graded_fcst, gdf_graded_miss, gdf_artcc,
                 'parent_sparse_component_id': row.parent_sparse_component_id,
             })
 
+    if gdf_coverage_underforecasts is not None and not gdf_coverage_underforecasts.empty:
+        for _, row in gdf_coverage_underforecasts.iterrows():
+            rows.append({
+                'idx': int(row.idx),
+                'kind': 'coverage_underforecast',
+                'category': 'Coverage Underforecast Candidate',
+                'underforecast_type': 'Medium',
+                'artccs': get_artccs(row.geometry, gdf_artcc),
+                'boundary': False,
+                'approved_for_report': False,
+                'reportable': True,
+                'medium_area_km2': row.medium_area_km2,
+                'sparse_forecast_capture_fraction': row.sparse_forecast_capture_fraction,
+                'higher_coverage_capture_fraction': row.higher_coverage_capture_fraction,
+            })
+
     table = pd.DataFrame(rows, columns=list(REVIEW_COLUMNS))
     return table.astype(REVIEW_COLUMNS)
 
@@ -1126,6 +1146,11 @@ def build_report(review_table, valid_dt, issuance_hour, lead_time):
         if row.kind == 'medium_core_review_flag':
             continue
         if not row.approved_for_report:
+            continue
+        if row.kind == 'coverage_underforecast':
+            label = underforecast_label(row.underforecast_type)
+            doc_report["Missed:"].append(
+                f"{row.artccs} - {label} underforecast (Candidate U{row.idx})")
             continue
         if row.kind == 'candidate_miss':
             doc_report["Missed:"].append(
@@ -1246,6 +1271,68 @@ def _build_miss_review_cues(gdf_sparse, gdf_medium, forecast_union,
                 "reportable": False,
             })
     return candidates, flags
+
+
+def underforecast_label(value):
+    """Only a reviewer-selected coverage type can enter the report."""
+    if value not in ('Medium', 'Solid Line'):
+        raise ValueError(f"Invalid underforecast type: {value!r}")
+    return value
+
+
+def _build_coverage_underforecasts(gdf_medium, gdf_sparse, gdf_forecast, graded_misses,
+                                  params=GradingParams()):
+    """Find substantial 40% truth covered by Sparse but not Medium/Solid LINE.
+
+    This is a review candidate, not an observed-line classifier. The reviewer
+    chooses Medium or Solid Line using the existing shared 40% truth proxy.
+    Existing forecast grades, miss inventory and medium-core cues are untouched.
+    """
+    if gdf_forecast.empty:
+        return []
+    def projected_union(frame):
+        return (frame.to_crs(PHYSICAL_AREA_CRS).union_all()
+                if not frame.empty else Polygon())
+    sparse = gdf_forecast[(gdf_forecast.feat_type == 'AREA') &
+                          (gdf_forecast.coverage == 3)]
+    higher = gdf_forecast[((gdf_forecast.feat_type == 'AREA') &
+                           (gdf_forecast.coverage == 2)) |
+                          ((gdf_forecast.feat_type == 'LINE') &
+                           (gdf_forecast.coverage == 1))]
+    sparse_m, higher_m = projected_union(sparse), projected_union(higher)
+    sparse_components = sorted(_individual_geometries(gdf_sparse),
+                               key=lambda g: g.centroid.x, reverse=True)
+    parents_m = (list(gpd.GeoSeries(sparse_components, crs=4326)
+                      .to_crs(PHYSICAL_AREA_CRS)) if sparse_components else [])
+    missed_parent_ids = {r['sparse_component_id'] for r in graded_misses}
+    candidates = []
+    for geom in sorted(_individual_geometries(gdf_medium),
+                       key=lambda g: g.centroid.x, reverse=True):
+        gm = validate_projected_polygonal(
+            gpd.GeoSeries([geom], crs=4326).to_crs(PHYSICAL_AREA_CRS).iloc[0])
+        area = gm.area
+        if area < params.medium_core_review_min_area_m2 or area <= 0:
+            continue
+        sparse_capture = gm.intersection(sparse_m).area / area
+        higher_capture = gm.intersection(higher_m).area / area
+        # A broader Candidate Miss already represents this feature.
+        parent_id = (max(range(len(parents_m)),
+                         key=lambda i: gm.intersection(parents_m[i]).area) + 1
+                     if parents_m else None)
+        if parent_id in missed_parent_ids:
+            continue
+        if (sparse_capture >= params.miss_capture_threshold and
+                higher_capture < params.miss_capture_threshold):
+            candidates.append({
+                'idx': len(candidates) + 1,
+                'geometry': geom,
+                'category': 'Coverage Underforecast Candidate',
+                'color': 'deepskyblue',
+                'medium_area_km2': area / 1e6,
+                'sparse_forecast_capture_fraction': sparse_capture,
+                'higher_coverage_capture_fraction': higher_capture,
+            })
+    return candidates
 
 
 # --- Pipeline stages --------------------------------------------------------
@@ -1680,12 +1767,19 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
     gdf_medium_core_flags = (gpd.GeoDataFrame(medium_core_flags, crs="EPSG:4326")
                              if medium_core_flags else gpd.GeoDataFrame(geometry=[]))
 
+    coverage_underforecasts = _build_coverage_underforecasts(
+        gdf_medium_truth, gdf_sparse, gdf_forecast, graded_misses, params)
+    gdf_coverage_underforecasts = (
+        gpd.GeoDataFrame(coverage_underforecasts, crs="EPSG:4326")
+        if coverage_underforecasts else gpd.GeoDataFrame(geometry=[]))
+
     # Two stages: everything geometric collapses into the review table, then the
     # report is formatted from that table alone. An editable table drops in
     # between these two lines.
     review_table = build_review_table(
         gdf_graded_fcst, gdf_graded_miss, gdf_artcc, params=params,
-        gdf_medium_core_flags=gdf_medium_core_flags)
+        gdf_medium_core_flags=gdf_medium_core_flags,
+        gdf_coverage_underforecasts=gdf_coverage_underforecasts)
     report_out = build_report(review_table, valid_dt, issuance_hour, lead_time)
 
     return {
@@ -1701,6 +1795,8 @@ def run_verification(gdf_forecast, max_tops, max_refl, lons, lats,
         'graded_forecasts': graded_forecasts,
         'graded_misses': graded_misses,
         'medium_core_review_flags': medium_core_flags,
+        'coverage_underforecasts': coverage_underforecasts,
+        'gdf_coverage_underforecasts': gdf_coverage_underforecasts,
         'review_table': review_table,
         'report_text': report_out,
         'valid_dt': valid_dt,
