@@ -383,6 +383,26 @@ def render_mrms_provenance(provenance):
         f"{_duration(provenance.max_product_separation_seconds)} · "
         f"Grid consistency: {grid_text}")
 
+    # Both the primary NOAA S3 archive (noaa-mrms-pds) and the NCEP HTTPS
+    # fallback were tried for every requested scan (see _resolve_scan_key).
+    # both_sources_unavailable counts scans where NEITHER had either product --
+    # that's a real hole, worth a warning banner rather than something only
+    # visible by opening the expander below.
+    if provenance.both_sources_unavailable:
+        st.warning(
+            f"MRMS data was not available from either source (primary NOAA "
+            f"archive or NCEP fallback) for "
+            f"{provenance.both_sources_unavailable} of "
+            f"{provenance.total_requested} requested scan times.")
+
+    fallback_used = (provenance.reflectivity_fallback_used
+                      + provenance.echo_top_fallback_used)
+    if fallback_used:
+        st.info(
+            f"NCEP fallback used because the primary archive had no matching "
+            f"file: reflectivity {provenance.reflectivity_fallback_used} "
+            f"time(s), echo tops {provenance.echo_top_fallback_used} time(s).")
+
     excluded = [record for record in provenance.observations if not record.used]
     if excluded:
         with st.expander(f"Excluded or unavailable observations ({len(excluded)})"):
@@ -392,9 +412,11 @@ def render_mrms_provenance(provenance):
                     "Requested UTC": record.requested_time.strftime("%Y-%m-%d %H:%M:%S"),
                     "Reflectivity UTC": (record.reflectivity_time.strftime("%H:%M:%S")
                                            if record.reflectivity_time else "Unavailable"),
+                    "Refl source": record.reflectivity_source or "n/a",
                     "Refl offset (s)": record.reflectivity_offset_seconds,
                     "Echo top UTC": (record.echo_top_time.strftime("%H:%M:%S")
                                      if record.echo_top_time else "Unavailable"),
+                    "Top source": record.echo_top_source or "n/a",
                     "Top offset (s)": record.echo_top_offset_seconds,
                     "Pair separation (s)": record.product_separation_seconds,
                     "Grid compatible": record.grid_compatible,

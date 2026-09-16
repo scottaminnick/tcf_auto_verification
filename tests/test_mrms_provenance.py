@@ -1,6 +1,7 @@
 """Synthetic tests for factual MRMS composite provenance (no S3/network)."""
 
 from datetime import datetime, timedelta
+import gzip
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -248,6 +249,130 @@ class MRMSProvenanceTests(unittest.TestCase):
             display_with[5].max_tops, display_without[5].max_tops)
         np.testing.assert_array_equal(
             display_with[5].max_refl, display_without[5].max_refl)
+
+
+class FakeS3:
+    """Minimal boto3-shaped stub: an empty paginated listing every time."""
+
+    def get_paginator(self, _name):
+        return self
+
+    def paginate(self, **_kwargs):
+        return [{"Contents": []}]
+
+
+class FakeHTTPResponse:
+    def __init__(self, text="", content=b"", status=200):
+        self.text = text
+        self.content = content
+        self.status_code = status
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise RuntimeError(f"HTTP {self.status_code}")
+
+
+class NCEPFallbackTests(unittest.TestCase):
+    """_resolve_scan_key / _download_key against the NCEP HTTPS mirror, with
+    both S3 and requests replaced by fakes -- no real network in these tests
+    (the baseline harness's network guard would catch a real call anyway)."""
+
+    def setUp(self):
+        tcf_pipeline._MRMS_KEY_CACHE.clear()
+        tcf_pipeline._NCEP_KEY_CACHE.clear()
+
+    def test_falls_back_to_ncep_when_s3_has_no_match(self):
+        stamp = "20260914-231038"
+        listing_html = (
+            '<a href="MRMS_EchoTop_18_00.50_20260914-230841.grib2.gz">x</a>'
+            f'<a href="MRMS_EchoTop_18_00.50_{stamp}.grib2.gz">x</a>'
+        )
+
+        class FakeHTTP:
+            def get(self, url, timeout):
+                self.requested_url = url
+                return FakeHTTPResponse(text=listing_html)
+
+        fake_http = FakeHTTP()
+        with patch.object(tcf_pipeline, "list_mrms_keys", return_value=[]), \
+             patch("requests.get", side_effect=fake_http.get):
+            key = tcf_pipeline._resolve_scan_key(
+                "EchoTop_18", datetime(2026, 9, 14, 23, 10, 38))
+
+        self.assertIsNotNone(key)
+        self.assertTrue(key.startswith("https://mrms.ncep.noaa.gov/2D/EchoTop_18/"))
+        self.assertIn(stamp, key)
+        self.assertEqual(tcf_pipeline._key_source(key), "ncep_https")
+
+    def test_returns_none_when_both_sources_have_no_match(self):
+        with patch.object(tcf_pipeline, "list_mrms_keys", return_value=[]), \
+             patch("requests.get", return_value=FakeHTTPResponse(text="")):
+            key = tcf_pipeline._resolve_scan_key(
+                "EchoTop_18", datetime(2026, 9, 14, 23, 10, 38))
+        self.assertIsNone(key)
+        self.assertIsNone(tcf_pipeline._key_source(key))
+
+    def test_ncep_network_failure_is_treated_as_not_found_not_raised(self):
+        with patch.object(tcf_pipeline, "list_mrms_keys", return_value=[]), \
+             patch("requests.get", side_effect=ConnectionError("boom")):
+            key = tcf_pipeline._resolve_scan_key(
+                "EchoTop_18", datetime(2026, 9, 14, 23, 10, 38))
+        self.assertIsNone(key)
+
+    def test_s3_result_preferred_over_ncep_when_both_resolve(self):
+        s3_key = ("CONUS/EchoTop_18_00.50/20260914/"
+                  "MRMS_EchoTop_18_00.50_20260914-231038.grib2.gz")
+        with patch.object(tcf_pipeline, "list_mrms_keys",
+                          return_value=[(s3_key, datetime(2026, 9, 14, 23, 10, 38))]), \
+             patch("requests.get") as mock_get:
+            key = tcf_pipeline._resolve_scan_key(
+                "EchoTop_18", datetime(2026, 9, 14, 23, 10, 38))
+        self.assertEqual(key, s3_key)
+        self.assertEqual(tcf_pipeline._key_source(key), "s3")
+        mock_get.assert_not_called()  # NCEP is only tried when S3 comes up empty
+
+    def test_download_key_dispatches_on_scheme(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("requests.get",
+                       return_value=FakeHTTPResponse(content=gzip.compress(b"grib-bytes"))):
+                path = tcf_pipeline._download_key(
+                    "https://mrms.ncep.noaa.gov/2D/EchoTop_18/"
+                    "MRMS_EchoTop_18_00.50_20260914-231038.grib2.gz",
+                    dest_dir=tmp)
+            self.assertIsNotNone(path)
+            with open(path, "rb") as f:
+                self.assertEqual(f.read(), b"grib-bytes")
+
+    def test_composite_provenance_counts_fallback_and_both_unavailable(self):
+        """End-to-end through build_composite: one scan resolves via S3, one
+        only via the NCEP fallback, one resolves nowhere."""
+        offsets_seconds = {
+            -120: 0,     # S3 has it
+            0: None,     # neither source has it
+        }
+
+        def fake_resolve(product, dt_obj, s3=None):
+            minute_offset = round((dt_obj - VALID).total_seconds() / 60)
+            if minute_offset == -2:
+                return _key(product, dt_obj)  # s3-shaped key -> source "s3"
+            if minute_offset == 2:
+                return (f"https://mrms.ncep.noaa.gov/2D/{product}/"
+                        f"MRMS_{product}_00.50_{dt_obj:%Y%m%d-%H%M%S}.grib2.gz")
+            return None
+
+        synth = SyntheticComposite()
+        synth.resolve = fake_resolve
+
+        def read(tops_file, refl_file, step):
+            shape = (2, 2)
+            return (np.full(shape, 30.0), np.full(shape, 45.0),
+                    synth.base_lons.copy(), synth.base_lats.copy())
+        synth.read = read
+
+        *_, provenance = synth.run(provenance=True)
+        self.assertEqual(provenance.both_sources_unavailable, 1)
+        self.assertEqual(provenance.echo_top_fallback_used, 1)
+        self.assertEqual(provenance.reflectivity_fallback_used, 1)
 
 
 if __name__ == "__main__":

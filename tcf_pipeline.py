@@ -97,6 +97,12 @@ class MRMSObservationProvenance:
     grid_compatible: bool | None = None
     used: bool = False
     exclusion_reason: str | None = None
+    # Which mirror actually resolved each product for this scan: "s3"
+    # (noaa-mrms-pds, the primary archive), "ncep_https" (mrms.ncep.noaa.gov,
+    # the fallback), or None if neither had a matching file. Derived from the
+    # resolved key's own shape by _key_source() -- see _resolve_scan_key.
+    reflectivity_source: str | None = None
+    echo_top_source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -115,6 +121,12 @@ class MRMSCompositeProvenance:
     max_echo_top_offset_seconds: float | None
     max_product_separation_seconds: float | None
     all_used_grids_compatible: bool
+    # How many requested scans resolved a product only via the NCEP fallback
+    # (i.e. noaa-mrms-pds had no matching file, mrms.ncep.noaa.gov did) and how
+    # many resolved neither product from either mirror.
+    reflectivity_fallback_used: int = 0
+    echo_top_fallback_used: int = 0
+    both_sources_unavailable: int = 0
 
     @classmethod
     def from_observations(cls, observations):
@@ -142,6 +154,13 @@ class MRMSCompositeProvenance:
             max_product_separation_seconds=_maximum("product_separation_seconds"),
             all_used_grids_compatible=bool(used) and all(
                 r.grid_compatible is True for r in used),
+            reflectivity_fallback_used=sum(
+                r.reflectivity_source == "ncep_https" for r in records),
+            echo_top_fallback_used=sum(
+                r.echo_top_source == "ncep_https" for r in records),
+            both_sources_unavailable=sum(
+                not r.reflectivity_resolved and not r.echo_top_resolved
+                for r in records),
         )
 
 
@@ -647,32 +666,135 @@ def list_mrms_keys(product, date_str, s3=None):
     return entries
 
 
-def _resolve_scan_key(product, dt_obj, s3=None):
-    """The archived key NEAREST in time to dt_obj, or None.
-
-    Same rule as before: nearest wins, and anything more than 5 minutes away is
-    a genuine archive gap rather than a usable scan. MRMS scans are stamped with
-    seconds (...20260524-231038), so requests on 5-minute marks rarely match
-    exactly and an exact-match lookup silently drops the scan.
-    """
-    try:
-        entries = list_mrms_keys(product, dt_obj.strftime('%Y%m%d'), s3=s3)
-    except Exception:
-        return None
-
+def _nearest_entry(entries, dt_obj, tolerance_seconds=5 * 60):
+    """The (key, file_dt) entry nearest dt_obj, or None if nothing is within
+    tolerance_seconds. Shared matching rule for both the S3 archive and the
+    NCEP fallback listing below -- nearest wins, and anything farther than the
+    tolerance is a genuine gap rather than a usable scan."""
     best_key, best_diff = None, None
     for key, file_dt in entries:
         diff = abs((file_dt - dt_obj).total_seconds())
         if best_diff is None or diff < best_diff:
             best_key, best_diff = key, diff
 
-    if best_key is None or best_diff > 5 * 60:
+    if best_key is None or best_diff > tolerance_seconds:
         return None
     return best_key
 
 
+# --- MRMS NCEP fallback (mrms.ncep.noaa.gov) ---------------------------------
+# noaa-mrms-pds (above) is the archival copy NOAA publishes to AWS under the
+# Open Data Dissemination program. mrms.ncep.noaa.gov is a *separate* system --
+# NCEP's own live HTTPS server, independently operated infrastructure with a
+# short rolling retention (on the order of a day). The two do not share a
+# failure mode: a gap in the AWS archive does not imply NCEP's own server is
+# also missing the scan, so this is a genuine second opinion, not a mirror of
+# the same pipe. It only helps for recent data -- there is no historical depth
+# here, unlike IEM for TCF text.
+_NCEP_MRMS_BASE = "https://mrms.ncep.noaa.gov/2D"
+_NCEP_KEY_CACHE = {}
+_NCEP_KEY_CACHE_LOCK = threading.Lock()
+
+
+def list_mrms_keys_ncep(product, http=None):
+    """[(url, file_datetime)] for one product, scraped from NCEP's own
+    directory listing. Cached once per product for the life of the process --
+    same rationale as list_mrms_keys, one listing serves every scan resolution
+    against that product for this run. Raises on a network/HTTP failure;
+    callers treat that the same as "not found" (see _resolve_scan_key_ncep).
+    """
+    cache_key = product
+    with _NCEP_KEY_CACHE_LOCK:
+        cached = _NCEP_KEY_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    import requests
+
+    index_url = f"{_NCEP_MRMS_BASE}/{product}/"
+    response = (http or requests).get(index_url, timeout=15)
+    response.raise_for_status()
+
+    pattern = re.compile(
+        rf'MRMS_{re.escape(product)}_00\.50_(\d{{8}}-\d{{6}})\.grib2\.gz')
+    entries = []
+    for stamp in set(pattern.findall(response.text)):
+        entries.append((
+            f"{index_url}MRMS_{product}_00.50_{stamp}.grib2.gz",
+            datetime.strptime(stamp, '%Y%m%d-%H%M%S'),
+        ))
+
+    with _NCEP_KEY_CACHE_LOCK:
+        _NCEP_KEY_CACHE[cache_key] = entries
+    return entries
+
+
+def _resolve_scan_key_ncep(product, dt_obj, http=None):
+    """Nearest NCEP-hosted scan to dt_obj, or None. Same tolerance as the S3
+    resolver. Any failure to reach mrms.ncep.noaa.gov (network error, HTTP
+    error, empty/unexpected listing) is treated as "not found" rather than
+    raised -- this is already the fallback path, so there is nothing further
+    to fall back to."""
+    try:
+        entries = list_mrms_keys_ncep(product, http=http)
+    except Exception as exc:
+        LOGGER.warning(
+            "MRMS NCEP fallback listing failed product=%s requested=%s "
+            "error=%s: %s", product, dt_obj.isoformat(),
+            type(exc).__name__, exc)
+        return None
+    return _nearest_entry(entries, dt_obj)
+
+
+def _key_source(key):
+    """'s3' or 'ncep_https' depending on which mirror resolved a scan, or None
+    if it never resolved. Inferred from the identifier's own shape -- an S3
+    object key never starts with a scheme, an NCEP fallback identifier always
+    does -- rather than threaded through as a separate argument at every call
+    site."""
+    if key is None:
+        return None
+    return "ncep_https" if key.startswith(("http://", "https://")) else "s3"
+
+
+def _resolve_scan_key(product, dt_obj, s3=None):
+    """The archived key NEAREST in time to dt_obj, or None.
+
+    Tries the AWS S3 archive (noaa-mrms-pds) first. If that has no file within
+    5 minutes of dt_obj -- an archive gap, not necessarily a missing
+    observation -- falls back to NCEP's own real-time HTTPS mirror before
+    giving up entirely. Returns whichever identifier resolved (an S3 key or an
+    https:// URL); _download_key dispatches on that shape, and _key_source()
+    labels it for provenance. MRMS scans are stamped with seconds
+    (...20260524-231038), so requests on 5-minute marks rarely match exactly
+    and an exact-match lookup would silently drop the scan.
+    """
+    try:
+        entries = list_mrms_keys(product, dt_obj.strftime('%Y%m%d'), s3=s3)
+    except Exception as exc:
+        # This is the distinction the UI could not previously draw: "NOAA's
+        # archive genuinely has nothing here" and "we never managed to ask"
+        # produced an identical empty result and an identical "Unavailable"
+        # in the provenance table. A boto3/network failure lands here and now
+        # says so in the logs, instead of silently degrading to entries=[]
+        # and looking exactly like a real archive gap.
+        LOGGER.warning(
+            "MRMS S3 listing failed product=%s date=%s requested=%s "
+            "error=%s: %s", product, dt_obj.strftime('%Y%m%d'),
+            dt_obj.isoformat(), type(exc).__name__, exc)
+        entries = []
+
+    key = _nearest_entry(entries, dt_obj)
+    if key is not None:
+        return key
+
+    return _resolve_scan_key_ncep(product, dt_obj)
+
+
 def _timestamp_from_mrms_key(key):
-    """Actual UTC observation timestamp encoded in an MRMS archive key."""
+    """Actual UTC observation timestamp encoded in an MRMS archive key or
+    fallback URL -- both end in the same MRMS_<product>_00.50_<stamp>.grib2.gz
+    filename, so one regex covers either source."""
     if not key:
         return None
     match = re.search(r'(\d{8})-(\d{6})', key.split('/')[-1])
@@ -704,18 +826,34 @@ def _observation_provenance(requested_time, echo_top_key, reflectivity_key):
         product_separation_seconds=(
             abs((reflectivity_time - echo_top_time).total_seconds())
             if reflectivity_time is not None and echo_top_time is not None else None),
+        reflectivity_source=_key_source(reflectivity_key),
+        echo_top_source=_key_source(echo_top_key),
     )
 
 
 def _download_key(key, dest_dir="mrms_data", s3=None):
-    """Fetch and gunzip one key, returning the local .grib2 path (or None)."""
+    """Fetch and gunzip one key, returning the local .grib2 path (or None).
+
+    `key` is either an S3 object key (fetched from noaa-mrms-pds via boto3) or
+    a full https:// URL (the NCEP fallback, fetched with requests) -- see
+    _resolve_scan_key. Once decoded, a file from either source is identical in
+    every way that matters downstream, so nothing past this function needs to
+    know which mirror it came from.
+    """
     try:
         os.makedirs(dest_dir, exist_ok=True)
         local_gz = os.path.join(dest_dir, key.split('/')[-1])
         local_grib = local_gz.replace('.gz', '')
 
         if not os.path.exists(local_grib):
-            (s3 or _s3_client()).download_file(_MRMS_BUCKET, key, local_gz)
+            if key.startswith(("http://", "https://")):
+                import requests
+                response = requests.get(key, timeout=30)
+                response.raise_for_status()
+                with open(local_gz, 'wb') as f_out:
+                    f_out.write(response.content)
+            else:
+                (s3 or _s3_client()).download_file(_MRMS_BUCKET, key, local_gz)
             with gzip.open(local_gz, 'rb') as f_in, open(local_grib, 'wb') as f_out:
                 shutil.copyfileobj(f_in, f_out)
             os.remove(local_gz)
