@@ -422,7 +422,7 @@ def render_mrms_provenance(provenance):
                     "Grid compatible": record.grid_compatible,
                     "Reason": record.exclusion_reason,
                 })
-            st.dataframe(rows, hide_index=True, use_container_width=True)
+            st.dataframe(rows, hide_index=True, width="stretch")
 
 
 def render_scorecard(R):
@@ -500,7 +500,7 @@ def render_scorecard(R):
                                      textfont=dict(color='white', size=13, family='Arial Black'),
                                      hoverinfo='skip', showlegend=False))
 
-        st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
+        st.plotly_chart(fig, width="stretch", config={'scrollZoom': True, 'displaylogo': False})
 
     with col2:
         st.subheader("Meteorologist Review")
@@ -508,7 +508,7 @@ def render_scorecard(R):
                    "approved_for_report. Medium-core Review rows are factual "
                    "review cues and can never enter FAA text.")
         edited_table = st.data_editor(
-            R['review_table'], hide_index=True, use_container_width=True,
+            R['review_table'], hide_index=True, width="stretch",
             key="methodology_review_table")
         R['review_table'] = edited_table.astype(tcf_pipeline.REVIEW_COLUMNS)
         R['report_text'] = tcf_pipeline.build_report(
@@ -558,7 +558,7 @@ def render_reanalysis(R):
             line=dict(color='#808080', width=1, dash='solid'),
             hovertemplate="Issued forecast geometry<extra></extra>"))
 
-    st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
+    st.plotly_chart(fig, width="stretch", config={'scrollZoom': True, 'displaylogo': False})
 
 
 # --- 4. SIDEBAR CONTROLS ---
@@ -610,7 +610,7 @@ if st.sidebar.button("Run Verification"):
                     "Declared points": item.declared_points,
                     "Available pairs": item.available_coordinate_pairs,
                 } for item in parse_diagnostics], hide_index=True,
-                    use_container_width=True)
+                    width="stretch")
 
         if gdf_forecast.empty:
             st.warning("No valid TCF features were available for this issuance/lead time.")
