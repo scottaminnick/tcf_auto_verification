@@ -737,7 +737,11 @@ def _resolve_scan_key_ncep(product, dt_obj, http=None):
     to fall back to."""
     try:
         entries = list_mrms_keys_ncep(product, http=http)
-    except Exception:
+    except Exception as exc:
+        LOGGER.warning(
+            "MRMS NCEP fallback listing failed product=%s requested=%s "
+            "error=%s: %s", product, dt_obj.isoformat(),
+            type(exc).__name__, exc)
         return None
     return _nearest_entry(entries, dt_obj)
 
@@ -767,7 +771,17 @@ def _resolve_scan_key(product, dt_obj, s3=None):
     """
     try:
         entries = list_mrms_keys(product, dt_obj.strftime('%Y%m%d'), s3=s3)
-    except Exception:
+    except Exception as exc:
+        # This is the distinction the UI could not previously draw: "NOAA's
+        # archive genuinely has nothing here" and "we never managed to ask"
+        # produced an identical empty result and an identical "Unavailable"
+        # in the provenance table. A boto3/network failure lands here and now
+        # says so in the logs, instead of silently degrading to entries=[]
+        # and looking exactly like a real archive gap.
+        LOGGER.warning(
+            "MRMS S3 listing failed product=%s date=%s requested=%s "
+            "error=%s: %s", product, dt_obj.strftime('%Y%m%d'),
+            dt_obj.isoformat(), type(exc).__name__, exc)
         entries = []
 
     key = _nearest_entry(entries, dt_obj)
