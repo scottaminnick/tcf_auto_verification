@@ -261,7 +261,7 @@ def _render_mrms_summary(provenance, *, duration):
                 "Grid compatible": record.grid_compatible,
                 "Reason": record.exclusion_reason,
             })
-        st.dataframe(rows, hide_index=True, use_container_width=True)
+        st.dataframe(rows, hide_index=True, width="stretch")
 
 
 def _feature_label(row, *, pipeline):
@@ -395,7 +395,7 @@ def _render_review_panel(R, *, pipeline):
             edited = st.data_editor(
                 display,
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
                 height=min(520, 38 * (len(display) + 1) + 6),
                 disabled=["Feature"],
                 column_config={
@@ -436,7 +436,7 @@ def _render_review_panel(R, *, pipeline):
                 under_display = under_display.rename(columns={
                     "underforecast_type": "Type", "artccs": "ARTCCs", "approved_for_report": "FAA"})
                 edited_under = st.data_editor(
-                    under_display, hide_index=True, use_container_width=True,
+                    under_display, hide_index=True, width="stretch",
                     disabled=["Feature"], key=f"{editor_key}_underforecast",
                     column_config={
                         "Type": st.column_config.SelectboxColumn(
@@ -446,7 +446,7 @@ def _render_review_panel(R, *, pipeline):
                     },
                 )
             submitted = st.form_submit_button(
-                "Apply Review Changes", use_container_width=True, type="primary"
+                "Apply Review Changes", width="stretch", type="primary"
             )
 
         if submitted:
@@ -483,7 +483,7 @@ def _render_review_panel(R, *, pipeline):
             "Full methodology review fields remain available here. Medium-core "
             "rows are factual reviewer cues and have no path into FAA text."
         )
-        st.dataframe(R["review_table"], hide_index=True, use_container_width=True)
+        st.dataframe(R["review_table"], hide_index=True, width="stretch")
 
 
 def _render_report_panel(R):
@@ -653,7 +653,7 @@ def render_workstation(
             )
         st.plotly_chart(
             fig,
-            use_container_width=True,
+            width="stretch",
             config=PLOT_CONFIG,
             key=f"{selector_key}_{view or 'Verification'}_plot",
         )
