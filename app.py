@@ -575,7 +575,13 @@ _today_utc = datetime.now(timezone.utc).date()
 target_date = st.sidebar.date_input(
     "Select Event Date", value=_today_utc,
     min_value=MRMS_V12_START, max_value=_today_utc)
-issuance_hour = st.sidebar.selectbox("Issuance Time (Z)", [5, 7, 9, 11, 13, 15, 17, 19, 21, 23], index=7)
+# Keep every UTC hour available for daylight/standard time and historical cases.
+# Exact-issuance validation in the fetcher rejects unavailable products.
+issuance_hour = st.sidebar.selectbox(
+    "Issuance Time (Z)", list(range(24)), index=19,
+    format_func=lambda hour: f"{hour:02d}Z",
+    help="TCF issuances use odd UTC hours during daylight saving time and even "
+         "UTC hours during standard time. Select the issuance's UTC date and hour.")
 lead_time = st.sidebar.radio("Forecast Hour", [4, 6, 8])
 
 valid_dt = compute_valid_dt(target_date, issuance_hour, lead_time)
