@@ -541,7 +541,7 @@ def _render_participants():
     st.session_state.setdefault("tcf_participants_include_orgs", True)
     st.session_state.setdefault("tcf_participants_strict_short", True)
 
-    current = tcf_participants.parse_participants(
+    current = tcf_participants.parse_verification_participants(
         st.session_state["tcf_participants_raw"],
         include_orgs=st.session_state["tcf_participants_include_orgs"],
         strict_short=st.session_state["tcf_participants_strict_short"],
@@ -549,9 +549,10 @@ def _render_participants():
     unknown_text = (
         f" · {len(current.unknown)} unmapped" if current.unknown else ""
     )
-    label = f"TCF Participants · {len(current.codes)} recognized{unknown_text}"
+    label = f"TCF Participants · {len(current.codes)} participants{unknown_text}"
 
     with st.expander(label, expanded=bool(st.session_state["tcf_participants_raw"])):
+        st.caption("AWC and NAM are always included, even when absent from the chat list.")
         raw = st.text_area(
             "Paste TCF chat participants",
             key="tcf_participants_raw",
@@ -561,9 +562,9 @@ def _render_participants():
         option_left, option_right = st.columns(2)
         with option_left:
             include_orgs = st.checkbox(
-                "Include organizations",
+                "Include other organizations",
                 key="tcf_participants_include_orgs",
-                help="Include AWC, MSC, airlines, NAM forecasters, and similar participants.",
+                help="Include MSC, airlines, and similar participants. AWC and NAM are always included.",
             )
         with option_right:
             strict_short = st.checkbox(
@@ -572,7 +573,7 @@ def _render_participants():
                 help="Avoid ambiguous KC, DC, and MIA substring matches.",
             )
 
-        result = tcf_participants.parse_participants(
+        result = tcf_participants.parse_verification_participants(
             raw,
             include_orgs=include_orgs,
             strict_short=strict_short,

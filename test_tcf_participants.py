@@ -37,5 +37,42 @@ class ParticipantParserTests(unittest.TestCase):
         self.assertIn("Mystery Participant", result.unknown)
 
 
+class VerificationParticipantTests(unittest.TestCase):
+    def test_required_participants_appear_without_chat_text(self):
+        result = tcf_participants.parse_verification_participants("")
+        self.assertEqual(result.codes, ("AWC", "NAM"))
+        self.assertEqual(result.organizations, ("AWC", "NAM"))
+        self.assertEqual(result.cwsus, ())
+        self.assertEqual(result.unknown, ())
+
+    def test_missing_required_participants_preserve_chat_results(self):
+        result = tcf_participants.parse_verification_participants(
+            "CWSU Boston, ZTL, FedEx, Mystery Participant")
+        self.assertEqual(result.codes, ("AWC", "FedEx", "NAM", "ZBW", "ZTL"))
+        self.assertEqual(result.cwsus, ("ZBW", "ZTL"))
+        self.assertEqual(result.organizations, ("AWC", "FedEx", "NAM"))
+        self.assertEqual(result.unknown, ("Mystery Participant",))
+
+    def test_required_participants_are_deduplicated_and_not_unmapped(self):
+        result = tcf_participants.parse_verification_participants(
+            "AWC, awc, NAM, nam, Wes Adkins, ZDC")
+        self.assertEqual(result.codes, ("AWC", "NAM", "ZDC"))
+        self.assertEqual(result.unknown, ())
+
+    def test_other_organizations_option_keeps_required_participants(self):
+        result = tcf_participants.parse_verification_participants(
+            "AWC, NAM, FedEx, CWSU Seattle", include_orgs=False)
+        self.assertEqual(result.codes, ("AWC", "NAM", "ZSE"))
+        self.assertEqual(result.organizations, ("AWC", "NAM"))
+        self.assertEqual(result.unknown, ("FedEx",))
+
+    def test_short_alias_option_still_applies(self):
+        strict = tcf_participants.parse_verification_participants("KC, DC, MIA")
+        permissive = tcf_participants.parse_verification_participants(
+            "KC, DC, MIA", strict_short=False)
+        self.assertEqual(strict.codes, ("AWC", "NAM"))
+        self.assertEqual(permissive.codes, ("AWC", "NAM", "ZDC", "ZKC", "ZMA"))
+
+
 if __name__ == "__main__":
     unittest.main()

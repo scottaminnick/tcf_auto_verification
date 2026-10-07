@@ -47,6 +47,10 @@ ORGANIZATIONS = {
     "UAL": "United Airlines",
 }
 
+# These participants belong in every verification Collaboration field, even
+# when the upstream chat participant list omits them.
+REQUIRED_VERIFICATION_PARTICIPANTS = ("AWC", "NAM")
+
 BASE_ALIASES = {
     "abq": "ZAB",
     "ord": "ZAU",
@@ -195,4 +199,21 @@ def parse_participants(raw: str, *, include_orgs: bool = True,
         cwsus=cwsus,
         organizations=organizations,
         unknown=tuple(sorted(unknown)),
+    )
+
+
+def parse_verification_participants(raw: str, *, include_orgs: bool = True,
+                                    strict_short: bool = True) -> ParticipantParseResult:
+    """Parse chat text and always include AWC and NAM for verification use."""
+    parsed = parse_participants(
+        raw, include_orgs=include_orgs, strict_short=strict_short,
+    )
+    required = set(REQUIRED_VERIFICATION_PARTICIPANTS)
+    required_tokens = {_norm(code) for code in required}
+    return ParticipantParseResult(
+        codes=tuple(sorted(set(parsed.codes) | required)),
+        cwsus=parsed.cwsus,
+        organizations=tuple(sorted(set(parsed.organizations) | required)),
+        unknown=tuple(token for token in parsed.unknown
+                      if _norm(token) not in required_tokens),
     )
